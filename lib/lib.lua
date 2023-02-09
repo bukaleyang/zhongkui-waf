@@ -6,6 +6,7 @@ local loggerFactory = require("loggerFactory")
 local _M = {}
 
 local logPath = config.get("logPath")
+local rulePath = config.get("rulePath")
 
 local blackIPLoaded = false
 
@@ -44,33 +45,23 @@ end
 -- Load the ip blacklist in the configuration file and log file to the ngx.shared.dict_blackip or Redis
 function loadIPBlackList()
     if isRedisOn then
-        if ipBlockTimeout > 0 then
-            for k,ip in ipairs(ipBlackList) do
-                redisCli.redisSet("black_ip:" .. ip, 1, ipBlockTimeout)
-            end
-        else
-            for k,ip in ipairs(ipBlackList) do
-                redisCli.redisBFAdd(ip)
-            end
+        for k,ip in ipairs(config.get("ipBlackList")) do
+            redisCli.redisBFAdd(ip)
+        end
+
+        for k,ip in ipairs(ipBlackList) do
+            redisCli.redisBFAdd(ip)
         end
     else
         local blackip = ngx.shared.dict_blackip
-        for k,ip in ipairs(ipBlackList) do
-            blackip:set(ip, 1, ipBlockTimeout)
-	    end
         
-        if ipBlockTimeout == 0 then
-            local file = io.open(logPath .. "ipBlock.log", "r")
-            if file then
-                local ip
-                for line in file:lines() do
-                    ip = string.sub(line, 21)
-                    ip = string.gsub(ip, "%s", "")
-                    blackip:set(ip, 1)
-                end
-                file:close()
-            end
+        for k,ip in ipairs(config.get("ipBlackList")) do
+            blackip:set(ip, 1)
         end
+        
+        for k,ip in ipairs(ipBlackList) do
+            blackip:set(ip, 1)
+	    end
     end
 end
 
@@ -167,36 +158,44 @@ end
 
 -- Returns true if the client ip is in the blackList,otherwise false
 function isBlackIp()
-    if not blackIPLoaded then
-       loadIPBlackList()
-       blackIPLoaded = true
-    end
-    
-    local ip = ngx.ctx.ip
-	if ip == "unknown" then
-        return false
-    end
-    
-    local exists = false
-    
-    if isRedisOn then
-        if ipBlockTimeout > 0 then
-            exists = redisCli.redisGet("black_ip:" .. ip)
-        else
-            exists = redisCli.redisBFExists(ip)
+    if isBlackIPOn then
+        if not blackIPLoaded then
+           loadIPBlackList()
+           blackIPLoaded = true
         end
-    else
-        local blackip = ngx.shared.dict_blackip
-        exists = blackip:get(ip)
-    end
+        
+        local ip = ngx.ctx.ip
+        if ip == "unknown" then
+            return false
+        end
+        
+        local exists = false
+        
+        if ngx.ctx.geoip.isAllowed == false then
+            exists = true
+        else
+            if isRedisOn then
+                if ipBlockTimeout > 0 then
+                    exists = redisCli.redisGet("black_ip:" .. ip)
+                else
+                    exists = redisCli.redisBFExists(ip)
+                end
+            else
+                local blackip = ngx.shared.dict_blackip
+                exists = blackip:get(ip)
+            end
+        end
+        
+        if exists then
+            writeLog("blackip", "-", "blackip", "DENY")
+            deny()
+            exists = true
+        end
 
-    if exists or ngx.ctx.geoip.isAllowed == false then
-        writeLog("blackip", "-", "blackip", "DENY")
-        deny()
-        exists = true
+        return exists
     end
-
-	return exists
+    
+    return false
 end
 
 -- block ip
@@ -229,6 +228,11 @@ function blockIp(ip)
         if ok then
             local hostLogger = loggerFactory.getLogger(logPath .. "ipBlock.log", 'ipBlock', false)
             hostLogger:log(ngx.localtime() .. " " .. ip .. "\n")
+            
+            if ipBlockTimeout == 0 then
+                local ipBlackLogger = loggerFactory.getLogger(rulePath .. "ipBlackList", 'ipBlack', false)
+                ipBlackLogger:log(ip .. "\n")
+            end
         end
 
         return ok

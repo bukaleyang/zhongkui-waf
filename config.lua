@@ -15,11 +15,6 @@ local config = {
     -- 规则文件路径
     rulePath = "/usr/local/openresty/zhongkui-waf/rules/",
     
-    -- 自动拉黑ip
-    autoIpBlock = "off",
-    -- ip禁止访问时间，单位是秒，如果设置为0则永久禁止
-    ipBlockTimeout = 0,
-    
     -- 开启ip地理位置识别
     geoip = "on",
     -- geoip数据文件路径
@@ -29,13 +24,24 @@ local config = {
     -- geoip显示语言，默认中文
     geoip_language = "zh-CN",
 
-    -- ip白名单
+    -- 开启ip白名单
     whiteIP = "on",
     -- ip白名单列表
     ipWhiteList = {"127.0.0.1"},
+	
+	-- 开启ip黑名单
+    blackIP = "on",
+    -- ip黑名单列表，也可以配置在./rules/ipBlackList文件中
+    ipBlackList = {"127.0.0.1"},
+    
+    -- 自动拉黑ip，拉黑日志保存在./logPath/ipBlock.log文件中
+    autoIpBlock = "off",
+    -- ip禁止访问时间，单位是秒，如果设置为0则永久禁止并保存在./rules/ipBlackList文件中
+    ipBlockTimeout = 0,
+	
     -- url白名单
     whiteURL = "on",
-    -- url黑名单，手动添加黑名单请修改./rules/ipBlackList文件
+    -- url黑名单
     blackURL = "on",
 
     -- http方法白名单
