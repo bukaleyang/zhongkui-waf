@@ -1,5 +1,6 @@
 local config = require("config")
 local lib = require("lib")
+local ipUtils = require("ip")
 
 local rulePath = config.get("rulePath")
 local function readRule(ruleFile)
@@ -47,4 +48,6 @@ cookieRules = readRule("cookie")
 uaRules = readRule("user-agent")
 headerRules = readRule("headers")
 
-ipBlackList = readRule("ipBlackList")
+ipBlackList_subnet, ipBlackList = ipUtils.mergeAndSort(config.get("ipBlackList"), readRule("ipBlackList"))
+
+ipWhiteList = ipUtils.initIpList(config.get("ipWhiteList"))

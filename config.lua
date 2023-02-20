@@ -26,12 +26,12 @@ local config = {
 
     -- 开启ip白名单
     whiteIP = "on",
-    -- ip白名单列表
+    -- ip白名单列表，支持网段配置，"127.0.0.1/24"或"127.0.0.1/255.255.255.0"
     ipWhiteList = {"127.0.0.1"},
 	
-	-- 开启ip黑名单
+    -- 开启ip黑名单
     blackIP = "on",
-    -- ip黑名单列表，也可以配置在./rules/ipBlackList文件中
+    -- ip黑名单列表，支持网段配置，"127.0.0.1/24"或"127.0.0.1/255.255.255.0"，也可以配置在./rules/ipBlackList文件中
     ipBlackList = {"127.0.0.1"},
     
     -- 自动拉黑ip，拉黑日志保存在./logPath/ipBlock.log文件中

@@ -2,6 +2,7 @@ local config = require("config")
 local redisCli = require("redisCli")
 local decoder = require("decoder")
 local loggerFactory = require("loggerFactory")
+local ipUtils = require("ip")
 
 local _M = {}
 
@@ -45,20 +46,12 @@ end
 -- Load the ip blacklist in the configuration file and log file to the ngx.shared.dict_blackip or Redis
 function loadIPBlackList()
     if isRedisOn then
-        for k,ip in ipairs(config.get("ipBlackList")) do
-            redisCli.redisBFAdd(ip)
-        end
-
         for k,ip in ipairs(ipBlackList) do
             redisCli.redisBFAdd(ip)
         end
     else
         local blackip = ngx.shared.dict_blackip
-        
-        for k,ip in ipairs(config.get("ipBlackList")) do
-            blackip:set(ip, 1)
-        end
-        
+
         for k,ip in ipairs(ipBlackList) do
             blackip:set(ip, 1)
 	    end
@@ -144,12 +137,18 @@ function isWhiteIp()
             return false
 	    end
 
-	    for k,v in ipairs(config.get("ipWhiteList")) do
-	        if ip == v then
-                local method_name = ngx.req.get_method()
-                writeLog("whiteip", "-", "whiteip", "ALLOW")
-		        return true
-		    end
+	    for k,v in pairs(ipWhiteList) do
+            if type(v) == 'table' then
+                if ipUtils.isSameSubnet(v, ip) then
+                    writeLog("whiteip", "-", "whiteip", "ALLOW")
+                    return true
+                end
+            else
+                if ip == v then
+                    writeLog("whiteip", "-", "whiteip", "ALLOW")
+                    return true
+		        end
+            end
 	    end
     end
     
@@ -185,11 +184,21 @@ function isBlackIp()
                 exists = blackip:get(ip)
             end
         end
+
+        if not exists then
+            for k,v in pairs(ipBlackList_subnet) do
+                if type(v) == 'table' then
+                    if ipUtils.isSameSubnet(v, ip) then
+                        exists = true
+                        break
+                    end
+                end
+            end
+        end
         
         if exists then
             writeLog("blackip", "-", "blackip", "DENY")
             deny()
-            exists = true
         end
 
         return exists
