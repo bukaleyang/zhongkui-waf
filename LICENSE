@@ -209,7 +209,7 @@ and license terms. Your use of these subcomponents is subject to the terms and
 conditions of the following licenses:
 
 - lib/maxminddb.lua:
-    Redis client driver for the ngx_lua nginx module
+    A Lua library for reading MaxMind's Geolocation database format
     Project URL: https://github.com/anjia0532/lua-resty-maxminddb
     License: Apache License, Version 2.0
 	
