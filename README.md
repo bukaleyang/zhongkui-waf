@@ -30,7 +30,11 @@ zhongkui-waf基于`lua-nginx-module`，多维度检查和拦截恶意网络请�
 
 强烈推荐使用`OpenResty`。
 
-如果你使用`Nginx`，则需要安装`LuaJIT`和`lua-nginx-module`模块，并下载[lua-resty-redis库](https://github.com/openresty/lua-resty-redis)到`path-to-zhongkui-waf/lib/resty`目录。
+如果你使用`Nginx`，则需要安装以下第三方模块：
+
+1. 安装`LuaJIT`和`lua-nginx-module`模块
+2. 下载[lua-resty-redis库](https://github.com/openresty/lua-resty-redis)到`path-to-zhongkui-waf/lib/resty`目录
+3. 安装[lua-cjson库](https://www.kyne.com.au/~mark/software/lua-cjson.php)
 
 假设`OpenResty`安装路径为：`/usr/local/openresty`，下载`zhongkui-waf`文件并放置在`/usr/local/openresty/zhongkui-waf`目录。
 
@@ -39,7 +43,7 @@ zhongkui-waf基于`lua-nginx-module`，多维度检查和拦截恶意网络请�
 ```nginx
 lua_shared_dict dict_cclimit 10m;
 lua_shared_dict dict_blackip 10m;
-lua_shared_dict dic_logfile_lock 12k;
+lua_shared_dict dict_locks 12k;
 
 lua_package_path "/usr/local/openresty/zhongkui-waf/?.lua;/usr/local/openresty/zhongkui-waf/lib/?.lua;;";
 init_by_lua_file  /usr/local/openresty/zhongkui-waf/init.lua; 

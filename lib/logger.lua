@@ -35,7 +35,7 @@ local function needFlush(self)
 end
 
 local function flushLock(self)
-    local dic_lock = ngx.shared.dic_logfile_lock
+    local dic_lock = ngx.shared.dict_locks
     local locked = dic_lock:get(self.host)
     if not locked then
         local succ, err = dic_lock:set(self.host, true)
@@ -48,7 +48,7 @@ local function flushLock(self)
 end
 
 local function flushUnlock(self)
-    local dic_lock = ngx.shared.dic_logfile_lock
+    local dic_lock = ngx.shared.dict_locks
     local succ, err = dic_lock:set(self.host, false)
     if not succ then
         ngx.log(ngx.ERR, "failed to unlock logfile " .. self.host .. ": ", err)
