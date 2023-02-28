@@ -108,6 +108,9 @@ function _M.doAction(ruleTable, logType, data, status)
     elseif action == "REDIRECT" then
         writeLog(logType, data, rule, "REDIRECT")
         redirect()
+    else
+        writeLog(logType, data, rule, "REDIRECT")
+        redirect()
     end
 end
 
