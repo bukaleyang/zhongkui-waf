@@ -45,7 +45,7 @@ function _M.lookup(ip)
         local iso_code = res['country']['iso_code']
         isAllowed = false
         
-        for k,c in ipairs(allowCountryList) do
+        for _, c in ipairs(allowCountryList) do
             if iso_code == c then
                 isAllowed = true
                 break

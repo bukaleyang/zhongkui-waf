@@ -53,7 +53,7 @@ local function getRedisConn()
         end
     end
     
-    return red,err
+    return red, err
 end
 
 local function closeRedisConn(red)

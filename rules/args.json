@@ -1,0 +1,22 @@
+{
+    "rules":[
+        {"state":"on","action":"redirect","rule":"select.+(from|limit)"},
+        {"state":"on","action":"redirect","rule":"(?:(union(.*?)select))"},
+        {"state":"on","action":"redirect","rule":"having|rongjitest"},
+        {"state":"on","action":"redirect","rule":"sleep\\((\\s*)(\\d*)(\\s*)\\)"},
+        {"state":"on","action":"redirect","rule":"benchmark\\((.*)\\,(.*)\\)"},
+        {"state":"on","action":"redirect","rule":"(?:from\\W+information_schema\\W)"},
+        {"state":"on","action":"redirect","rule":"(?:(?:current_)user|database|schema|connection_id)\\s*\\("},
+        {"state":"on","action":"redirect","rule":"(?:etc\\/\\W*passwd)"},
+        {"state":"on","action":"redirect","rule":"into(\\s+)+(?:dump|out)file\\s*"},
+        {"state":"on","action":"redirect","rule":"group\\s+by.+\\("},
+        {"state":"on","action":"redirect","rule":"xwork.MethodAccessor"},
+        {"state":"on","action":"redirect","rule":"(?:define|eval|file_get_contents|include|require|require_once|shell_exec|phpinfo|system|passthru|preg_\\w+|execute|echo|print|print_r|var_dump|(fp)open|alert|showmodaldialog)\\("},
+        {"state":"on","action":"redirect","rule":"xwork\\.MethodAccessor"},
+        {"state":"on","action":"redirect","rule":"(gopher|doc|php|glob|file|phar|zlib|ftp|ldap|dict|ogg|data)\\:\\/"},
+        {"state":"on","action":"redirect","rule":"java\\.lang"},
+        {"state":"on","action":"redirect","rule":"\\$_(GET|post|cookie|files|session|env|phplib|GLOBALS|SERVER)\\["},
+        {"state":"on","action":"redirect","rule":"\\<(iframe|script|body|img|layer|div|meta|style|base|object|input)"},
+        {"state":"on","action":"redirect","rule":"(onmouseover|onerror|onload)\\="}
+    ]
+}

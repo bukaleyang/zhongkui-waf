@@ -25,7 +25,7 @@ function _M.ipToNumber(ip)
     
     number = number + lshift(t[1], base[1]) * 2
     
-    for i = 2,4 do
+    for i = 2, 4 do
         number = number + lshift(t[i], base[i])
     end
     
@@ -58,7 +58,7 @@ function _M.isSameSubnet(subnetTab, ip)
         ngx.ctx.ipNumber = ipNumber
     end
     
-    for value,maskNumber in pairs(subnetTab) do   
+    for value, maskNumber in pairs(subnetTab) do
         if band(ipNumber, maskNumber) == value then
             return true
         end
@@ -76,7 +76,7 @@ function _M.initIpList(ipList)
         return result
     end
     
-    for k,v in ipairs(ipList) do
+    for _, v in ipairs(ipList) do
         local ip = string.match(v, "([%d%.]+)/?")
         local mask = string.match(v, "/([%d%.]+)")
         
@@ -101,7 +101,7 @@ end
 function _M.mergeAndSort(ipList1, ipList2)
     local t1, t2 = {}, {}
     
-    for k,v in ipairs(ipList1) do
+    for _, v in ipairs(ipList1) do
         if string.find(v, '/') then
             table.insert(t1, v)
         else
@@ -109,7 +109,7 @@ function _M.mergeAndSort(ipList1, ipList2)
         end
     end
     
-    for k,v in ipairs(ipList2) do
+    for _, v in ipairs(ipList2) do
         if string.find(v, '/') then
             table.insert(t1, v)
         else

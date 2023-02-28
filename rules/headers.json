@@ -1,0 +1,6 @@
+{
+    "rules":[
+        {"state":"on","action":"deny","rule":"/TomcatBypass/Command/Base64"},
+        {"state":"on","action":"deny","rule":"j\\S*ndi\\S*:\\S*(?:dap|dns)\\S+"}
+    ]
+}

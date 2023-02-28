@@ -1,0 +1,14 @@
+{
+    "rules":[
+        {"state":"on","action":"redirect","rule":"\\.(svn|htaccess|bash_history)"},
+        {"state":"on","action":"redirect","rule":"\\.(bak|inc|old|mdb|sql|backup|java|class)$"},
+        {"state":"on","action":"redirect","rule":"(vhost|bbs|host|wwwroot|www|site|root|hytop|flashfxp).*\\.rar"},
+        {"state":"on","action":"redirect","rule":"(phpmyadmin|jmx-console|jmxinvokerservlet)"},
+        {"state":"on","action":"redirect","rule":"(?:phpMyAdmin2|phpMyAdmin|phpmyadmin|dbadmin|pma|myadmin|admin|mysql)/scripts/setup%.php"},
+        {"state":"on","action":"redirect","rule":"java\\.lang"},
+        {"state":"on","action":"redirect","rule":"/(attachments|upimg|images|css|uploadfiles|html|uploads|templets|static|template|data|inc|forumdata|upload|includes|cache|avatar)/(\\\\w+).(php|jsp)"},
+        {"state":"on","action":"redirect","rule":"wp-includes/wlwmanifest.xml"},
+        {"state":"on","action":"redirect","rule":"<php>die(@md5(HelloThinkCMF))</php>"},
+        {"state":"on","action":"redirect","rule":"/boaform/admin/formLogin"}
+    ]
+}

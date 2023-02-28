@@ -3,6 +3,11 @@ local redisCli = require("redisCli")
 local decoder = require("decoder")
 local loggerFactory = require("loggerFactory")
 local ipUtils = require("ip")
+local action = require("action")
+local blockIp = action.blockIp
+local doAction = action.doAction
+local ipairs, pairs = ipairs, pairs
+local type = type
 
 local _M = {}
 
@@ -33,9 +38,9 @@ local function matchRule(ruleTab, str, options)
         return false
 	end
 
-    for k,rule in ipairs(ruleTab) do
-        if matches(str, rule, options) then
-            return true, rule
+    for _, t in ipairs(ruleTab) do
+        if matches(str, t.rule, options) then
+            return true, t
 		end
 	end
 
@@ -46,13 +51,13 @@ end
 -- Load the ip blacklist in the configuration file and log file to the ngx.shared.dict_blackip or Redis
 function loadIPBlackList()
     if isRedisOn then
-        for k,ip in ipairs(ipBlackList) do
+        for _, ip in ipairs(ipBlackList) do
             redisCli.redisBFAdd(ip)
         end
     else
         local blackip = ngx.shared.dict_blackip
 
-        for k,ip in ipairs(ipBlackList) do
+        for _, ip in ipairs(ipBlackList) do
             blackip:set(ip, 1)
 	    end
     end
@@ -82,53 +87,6 @@ function getClientIP()
     return ip 
 end
 
-function writeLog(logType,data,rule,action)
-    if isAttackLogOn then
-        local realIp = ngx.ctx.ip
-        local geoName = ngx.ctx.geoip.name
-        local method = ngx.req.get_method()
-        local url = ngx.var.request_uri
-        local ua = ngx.var.http_user_agent
-        local host = ngx.var.server_name
-        local time = ngx.localtime()
-        if ua == nil or ua == "" then
-            ua = "-"
-        end
-        if action == nil or action == "" then
-            action = "-"
-        end
-        line = logType .. " " .. realIp .. " " .. geoName .. " [" .. time .. "] \"" .. method .. " " .. host .. url .. "\" \"" .. data .. "\"  \"" .. ua .. "\" \"" .. rule .. "\" " .. action .. "\n"
-
-        local hostLogger = loggerFactory.getLogger(logPath, host, true)
-        hostLogger:log(line)
-    end
-end
-
-function deny(status)
-    if isProtectionMode then
-        local statusCode = ngx.HTTP_FORBIDDEN
-        if status then
-            statusCode = status
-        end
-        
-        ngx.status = statusCode
-        return ngx.exit(ngx.status)
-    end
-end
-
-function redirect()
-    if isProtectionMode then
-        if isRedirectOn then
-            ngx.header.content_type = "text/html; charset=UTF-8"
-            ngx.status = ngx.HTTP_FORBIDDEN
-            ngx.say(config.get("html"))
-            return ngx.exit(ngx.status)
-        end
-        
-        return deny()
-    end
-end
-
 -- Returns true if the client ip is in the whiteList,otherwise false
 function isWhiteIp()
     if isWhiteIPOn then
@@ -137,15 +95,17 @@ function isWhiteIp()
             return false
 	    end
 
-	    for k,v in pairs(ipWhiteList) do
+	    for _, v in pairs(ipWhiteList) do
             if type(v) == 'table' then
                 if ipUtils.isSameSubnet(v, ip) then
-                    writeLog("whiteip", "-", "whiteip", "ALLOW")
+                    local ruleTable = {rule = "whiteip", action = "ALLOW"}
+                    doAction(ruleTable, "whiteip", "-", nil)
                     return true
                 end
             else
                 if ip == v then
-                    writeLog("whiteip", "-", "whiteip", "ALLOW")
+                    local ruleTable = {rule = "whiteip", action = "ALLOW"}
+                    doAction(ruleTable, "whiteip", "-", nil)
                     return true
 		        end
             end
@@ -186,7 +146,7 @@ function isBlackIp()
         end
 
         if not exists then
-            for k,v in pairs(ipBlackList_subnet) do
+            for _, v in pairs(ipBlackList_subnet) do
                 if type(v) == 'table' then
                     if ipUtils.isSameSubnet(v, ip) then
                         exists = true
@@ -197,8 +157,8 @@ function isBlackIp()
         end
         
         if exists then
-            writeLog("blackip", "-", "blackip", "DENY")
-            deny()
+            local ruleTable = {rule = "blackip", action = "DENY"}
+            doAction(ruleTable, "blackip", "-", nil)
         end
 
         return exists
@@ -207,68 +167,26 @@ function isBlackIp()
     return false
 end
 
--- block ip
-function blockIp(ip)
-    if isAutoIpBlockOn and ip then
-        
-        local ok, err, exists = nil, nil, nil
-        
-        if isRedisOn then
-            if ipBlockTimeout > 0 then
-                local key = "black_ip:" .. ip
-                exists = redisCli.redisGet(key)
-                if not exists then
-                    ok, err = redisCli.redisSet(key, 1, ipBlockTimeout)
-                end
-            else
-                exists = redisCli.redisBFExists(ip)
-                if not exists then
-                    ok, err = redisCli.redisBFAdd(ip)
-                end
-            end
-        else
-            local blackip = ngx.shared.dict_blackip
-            exists = blackip:get(ip)
-            if not exists then
-                ok, err = blackip:set(ip, 1, ipBlockTimeout)
-            end
-        end
-
-        if ok then
-            local hostLogger = loggerFactory.getLogger(logPath .. "ipBlock.log", 'ipBlock', false)
-            hostLogger:log(ngx.localtime() .. " " .. ip .. "\n")
-            
-            if ipBlockTimeout == 0 then
-                local ipBlackLogger = loggerFactory.getLogger(rulePath .. "ipBlackList", 'ipBlack', false)
-                ipBlackLogger:log(ip .. "\n")
-            end
-        end
-
-        return ok
-    end
-end
-
 function isUnsafeHttpMethod()
     local method_name = ngx.req.get_method()
 
-    for k,m in ipairs(methodWhiteList) do
+    for _, m in ipairs(methodWhiteList) do
 	    if method_name == m then
 		    return false
 		end
 	end
 
-    writeLog("unsafe-method", method_name, "unsafe http method", "DENY")
-    deny()
+    local ruleTable = {rule = "unsafe http method", action = "DENY"}
+    doAction(ruleTable, "unsafe-method", method_name, nil)
     return true
 end
 
 function isBlackUA()
     local ua = ngx.var.http_user_agent
     
-    local m,rule = matchRule(uaRules, ua)
+    local m,ruleTable = matchRule(uaRules, ua)
     if m then
-        writeLog("ua", "-", rule, "DENY")
-        deny()
+        doAction(ruleTable, "ua", "-", nil)
 		return true
     end
     
@@ -287,9 +205,9 @@ function isCC()
             if not count then
                 redisCli.redisSet(prefix .. token, 1, ccSeconds)
             elseif tonumber(count) > ccCount then
-                writeLog("cc", "-", "cc", "DENY")
+                local ruleTable = {rule = "cc", action = "DENY"}
+                doAction(ruleTable, "cc", "-", 503)
                 blockIp(ip)
-                deny(503)
                 return true
             else
                 redisCli.redisIncr(prefix .. token)
@@ -300,9 +218,9 @@ function isCC()
             if not count then
                 limit:set(token, 1, ccSeconds)
             elseif count > ccCount then
-                writeLog("cc", "-", "cc", "DENY")
+                local ruleTable = {rule = "cc", action = "DENY"}
+                doAction(ruleTable, "cc", "-", 503)
                 blockIp(ip)
-                deny(503)
                 return true
             else
                 limit:incr(token, 1)
@@ -319,9 +237,9 @@ function isWhiteURL()
         if url == nil or url == "" then
             return false
         end
-        local m,rule = matchRule(whiteURLRules, url)
+        local m, ruleTable = matchRule(whiteURLRules, url)
         if m then
-            writeLog("whiteurl", "-", rule, "ALLOW")
+            doAction(ruleTable, "whiteurl", "-", nil)
 		    return true
         end
         return false
@@ -338,10 +256,9 @@ function isBlackURL()
             return false
         end
 
-        local m,rule = matchRule(urlRules, url)
+        local m, ruleTable = matchRule(urlRules, url)
         if m then
-            writeLog("blackurl", "-", rule, "REDIRECT")
-            redirect()
+            doAction(ruleTable, "blackurl", "-", nil)
             return true
         end
     end
@@ -359,10 +276,9 @@ function isEvilArgs()
             end
             
             if vals and type(vals) ~= "boolean" and vals ~="" then
-                local m,rule = matchRule(argRules, decoder.unescapeUri(vals))
+                local m, ruleTable = matchRule(argRules, decoder.unescapeUri(vals))
                 if m then
-                    writeLog("args", "-", rule, "REDIRECT")
-                    redirect()
+                    doAction(ruleTable, "args", "-", nil)
                     return true
                 end
             end
@@ -376,10 +292,9 @@ function isEvilHeaders()
     
     if referer and referer ~= "" then
         ua = decoder.decodeBase64(referer)
-        local m,rule = matchRule(headerRules, referer)
+        local m, ruleTable = matchRule(headerRules, referer)
         if m then
-            writeLog("header-referer", "-", rule, "DENY")
-            deny()
+            doAction(ruleTable, "header-referer", "-", nil)
             return true
         end
     end
@@ -387,10 +302,9 @@ function isEvilHeaders()
     local ua = ngx.var.http_user_agent
     if ua and ua ~= "" then
         ua = decoder.decodeBase64(ua)
-        local m,rule = matchRule(headerRules, ua)
+        local m, ruleTable = matchRule(headerRules, ua)
         if m then
-            writeLog("header-ua", "-", rule, "DENY")
-            deny()
+            doAction(ruleTable, "header-ua", "-", nil)
             return true
         end
     end
@@ -403,11 +317,10 @@ function isBlackFileExt(ext)
         return false
     end
 
-    for k,v in ipairs(config.get("fileExtBlackList")) do
+    for _, v in ipairs(config.get("fileExtBlackList")) do
         if ext == v then
-            local method_name = ngx.req.get_method()
-            writeLog("file-ext", "-", ext, "REDIRECT")
-            redirect()
+            local ruleTable = {rule = ext, action = "REDIRECT"}
+            doAction(ruleTable, "file-ext", "-", nil)
             return true
         end
     end
@@ -416,10 +329,9 @@ function isBlackFileExt(ext)
 end
 
 function isEvilFile(body)
-    local m, rule = matchRule(postRules, body)
+    local m, ruleTable = matchRule(postRules, body)
     if m then
-        writeLog("request_body", "[" .. body .. "]", rule, "DENY")
-        deny()
+        doAction(ruleTable, "request_body", "[" .. body .. "]", nil)
         return true
     end
     
@@ -427,14 +339,20 @@ function isEvilFile(body)
 end
 
 function isEvilBody(body)
-    local m, rule = matchRule(postRules, body)
+    local m, ruleTable = matchRule(postRules, body)
     if m then
-        writeLog("request_body", "[" .. body .. "]", rule, "DENY")
-        deny()
+        doAction(ruleTable, "request_body", "[" .. body .. "]", nil)
         return true
     end
     
     return false
+end
+
+local function readFile(fileName)
+    local f = assert(io.open(fileName, "r"))
+    local string = f:read("*all")
+    f:close()
+    return string
 end
 
 function isEvilReqBody()
@@ -446,7 +364,7 @@ function isEvilReqBody()
         local boundary = nil
         
         if contentType then
-            local bfrom,bto = matches(contentType, "\\s*boundary\\s*=(\\S+)", "isjo", nil, 1)
+            local bfrom, bto = matches(contentType, "\\s*boundary\\s*=(\\S+)", "isjo", nil, 1)
             if bfrom then
                 boundary = string.sub(contentType, bfrom, bto)
             end
@@ -461,7 +379,7 @@ function isEvilReqBody()
             local delimiter = '--' .. boundary
             local delimiterEnd = '--' .. boundary .. '--'
             
-            local values = ''
+            local body = ''
             local isFile = false
             local files = {}
             
@@ -472,33 +390,33 @@ function isEvilReqBody()
                 end
                 
                 if line == delimiter or line == delimiterEnd then
-                    if values ~= '' then
-                        values = string.sub(values, 1, -2)
+                    if body ~= '' then
+                        body = string.sub(body, 1, -2)
                         if isFile then
                             if isFileContentOn then
                                 -- 文件内容检查
-                                if isEvilFile(values) then
+                                if isEvilFile(body) then
                                     return true
                                 end
                             end
                             isFile = false
                         else
-                            if isEvilBody(values) then
+                            if isEvilBody(body) then
                                 return true
                             end
                         end
-                        values = ''
+                        body = ''
                     end
                 elseif line ~='' then
 
                     if isFile then
-                        if values == '' then
+                        if body == '' then
                             local fr = matches(line, "Content-Type:\\s*\\S+/\\S+", "ijo")
                             if fr == nil then
-                                values = values .. line .. '\n'
+                                body = body .. line .. '\n'
                             end
                         else
-                            values = values .. line .. '\n'
+                            body = body .. line .. '\n'
                         end
                     else
                         local from, to = matches(line, [[Content-Disposition:\s*form-data;[\s\S]+filename=["|'][\s\S]+\.(\w+)(?:"|')]], "ijo", nil, 1)
@@ -514,22 +432,22 @@ function isEvilReqBody()
                         else
                             local fr = matches(line, "Content-Disposition:\\s*form-data;\\s*name=", "ijo")
                             if fr == nil then
-                                values = values .. line .. '\n'
+                                body = body .. line .. '\n'
                             end
                         end
                     end
-                    
+
                 end
                 size = size + string.len(line)
                 ngx.req.append_body(line .. '\n')
             end
-            
+
             ngx.req.finish_body()
-        else
-            -- application/x-www-form-urlencoded
+
+        elseif matches(contentType, "\\s*x-www-form-urlencoded") then
             ngx.req.read_body()
             local args, err = ngx.req.get_post_args()
-            
+
             if args then
                 for key, val in pairs(args) do
                     local vals = val
@@ -544,22 +462,39 @@ function isEvilReqBody()
                     end
                 end
             end    
+        else
+            ngx.req.read_body()
+            local body_raw = ngx.req.get_body_data()
+            if not body_raw then
+                local body_file = ngx.req.get_body_file()
+                if body_file then
+                    body_raw = readFile(body_file)
+                end
+            end
+
+            if body_raw and body_raw ~="" then
+                if isEvilBody(body_raw) then
+                    return true
+                end
+            end
         end
+
         return false
     end
+
     return false
 end
 
 function isEvilCookies()
     local cookie = ngx.var.http_cookie
     if isCookieOn and cookie then
-        local m,rule = matchRule(cookieRules, cookie)
+        local m, ruleTable = matchRule(cookieRules, cookie)
         if m then
-            writeLog("cookie", "-", rule, "DENY")
-            deny()
+            doAction(ruleTable, "cookie", "-", nil)
             return true
         end
     end
+
     return false
 end
 
