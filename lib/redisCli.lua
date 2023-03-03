@@ -1,5 +1,5 @@
-local redis = require("resty.redis")
-local config = require("config")
+local redis = require "resty.redis"
+local config = require "config"
 -- register the module prefix "bf" for RedisBloom
 redis.register_module_prefix("bf")
 

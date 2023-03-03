@@ -1,9 +1,8 @@
-local config = require("config")
-local redisCli = require("redisCli")
-local decoder = require("decoder")
-local loggerFactory = require("loggerFactory")
-local ipUtils = require("ip")
-local action = require("action")
+local config = require "config"
+local redisCli = require "redisCli"
+local decoder = require "decoder"
+local ipUtils = require "ip"
+local action = require "action"
 local blockIp = action.blockIp
 local doAction = action.doAction
 local ipairs, pairs = ipairs, pairs
@@ -49,63 +48,37 @@ end
 
 
 -- Load the ip blacklist in the configuration file and log file to the ngx.shared.dict_blackip or Redis
-function loadIPBlackList()
-    if isRedisOn then
-        for _, ip in ipairs(ipBlackList) do
+local function loadIPBlackList()
+    if config.isRedisOn then
+        for _, ip in ipairs(config.ipBlackList) do
             redisCli.redisBFAdd(ip)
         end
     else
         local blackip = ngx.shared.dict_blackip
 
-        for _, ip in ipairs(ipBlackList) do
+        for _, ip in ipairs(config.ipBlackList) do
             blackip:set(ip, 1)
 	    end
     end
 end
 
-
-function writeFile(fileName, value)
-	local file = io.open(fileName, "a+")
-
-	if file == nil or value == nil then
-		return
-	end
-
-	file:write(value)
-	file:flush()
-	file:close()
-
-	return
-end
-
-function getClientIP()
-    local ip = ngx.var.remote_addr
-    if ip == nil then
-        ip = "unknown"
-    end
-    ngx.ctx.ip = ip
-    return ip 
-end
-
 -- Returns true if the client ip is in the whiteList,otherwise false
-function isWhiteIp()
-    if isWhiteIPOn then
+function _M.isWhiteIp()
+    if config.isWhiteIPOn then
         local ip = ngx.ctx.ip
 	    if ip == "unknown" then
             return false
 	    end
 
-	    for _, v in pairs(ipWhiteList) do
+	    for _, v in pairs(config.ipWhiteList) do
             if type(v) == 'table' then
                 if ipUtils.isSameSubnet(v, ip) then
-                    local ruleTable = {rule = "whiteip", action = "ALLOW"}
-                    doAction(ruleTable, "whiteip", "-", nil)
+                    doAction(config.rules.whiteIp, "_", nil, nil)
                     return true
                 end
             else
                 if ip == v then
-                    local ruleTable = {rule = "whiteip", action = "ALLOW"}
-                    doAction(ruleTable, "whiteip", "-", nil)
+                    doAction(config.rules.whiteIp, "-", nil, nil)
                     return true
 		        end
             end
@@ -116,8 +89,8 @@ function isWhiteIp()
 end
 
 -- Returns true if the client ip is in the blackList,otherwise false
-function isBlackIp()
-    if isBlackIPOn then
+function _M.isBlackIp()
+    if config.isBlackIPOn then
         if not blackIPLoaded then
            loadIPBlackList()
            blackIPLoaded = true
@@ -133,8 +106,8 @@ function isBlackIp()
         if ngx.ctx.geoip.isAllowed == false then
             exists = true
         else
-            if isRedisOn then
-                if ipBlockTimeout > 0 then
+            if config.isRedisOn then
+                if config.ipBlockTimeout > 0 then
                     exists = redisCli.redisGet("black_ip:" .. ip)
                 else
                     exists = redisCli.redisBFExists(ip)
@@ -146,7 +119,7 @@ function isBlackIp()
         end
 
         if not exists then
-            for _, v in pairs(ipBlackList_subnet) do
+            for _, v in pairs(config.ipBlackList_subnet) do
                 if type(v) == 'table' then
                     if ipUtils.isSameSubnet(v, ip) then
                         exists = true
@@ -157,8 +130,7 @@ function isBlackIp()
         end
         
         if exists then
-            local ruleTable = {rule = "blackip", action = "DENY"}
-            doAction(ruleTable, "blackip", "-", nil)
+            doAction(config.rules.blackIp, "-", nil, nil)
         end
 
         return exists
@@ -167,7 +139,7 @@ function isBlackIp()
     return false
 end
 
-function isUnsafeHttpMethod()
+function _M.isUnsafeHttpMethod()
     local method_name = ngx.req.get_method()
 
     for _, m in ipairs(methodWhiteList) do
@@ -176,37 +148,35 @@ function isUnsafeHttpMethod()
 		end
 	end
 
-    local ruleTable = {rule = "unsafe http method", action = "DENY"}
-    doAction(ruleTable, "unsafe-method", method_name, nil)
+    doAction(config.rules.unsafeMethod, method_name, nil, nil)
     return true
 end
 
-function isBlackUA()
+function _M.isBlackUA()
     local ua = ngx.var.http_user_agent
     
-    local m,ruleTable = matchRule(uaRules, ua)
+    local m, ruleTable = matchRule(config.rules["user-agent"], ua)
     if m then
-        doAction(ruleTable, "ua", "-", nil)
+        doAction(ruleTable, "_", nil, nil)
 		return true
     end
     
     return false
 end
 
-function isCC()
-    if isCCDenyOn then
+function _M.isCC()
+    if config.isCCDenyOn then
         local uri = ngx.var.uri
         local ip = ngx.ctx.ip
         local token = ngx.md5(ip .. uri)
         
-        if isRedisOn then
+        if config.isRedisOn then
             local prefix = "cc_req_count:"
             local count = redisCli.redisGet(prefix .. token)
             if not count then
-                redisCli.redisSet(prefix .. token, 1, ccSeconds)
-            elseif tonumber(count) > ccCount then
-                local ruleTable = {rule = "cc", action = "DENY"}
-                doAction(ruleTable, "cc", "-", 503)
+                redisCli.redisSet(prefix .. token, 1, config.ccSeconds)
+            elseif tonumber(count) > config.ccCount then
+                doAction(config.rules.cc, "_", nil, 503)
                 blockIp(ip)
                 return true
             else
@@ -216,10 +186,9 @@ function isCC()
             local limit = ngx.shared.dict_cclimit
             local count,_ = limit:get(token)
             if not count then
-                limit:set(token, 1, ccSeconds)
-            elseif count > ccCount then
-                local ruleTable = {rule = "cc", action = "DENY"}
-                doAction(ruleTable, "cc", "-", 503)
+                limit:set(token, 1, config.ccSeconds)
+            elseif count > config.ccCount then
+                doAction(config.rules.cc, "_", nil, 503)
                 blockIp(ip)
                 return true
             else
@@ -231,15 +200,15 @@ function isCC()
 end
 
 -- Returns true if the whiteURL rule is matched, otherwise false
-function isWhiteURL()
-    if isWhiteURLOn then
+function _M.isWhiteURL()
+    if config.isWhiteURLOn then
         local url = ngx.var.uri
         if url == nil or url == "" then
             return false
         end
-        local m, ruleTable = matchRule(whiteURLRules, url)
+        local m, ruleTable = matchRule(config.rules.whiteUrl, url)
         if m then
-            doAction(ruleTable, "whiteurl", "-", nil)
+            doAction(ruleTable, "-", nil, nil)
 		    return true
         end
         return false
@@ -249,16 +218,16 @@ function isWhiteURL()
 end
 
 -- Returns true if the url rule is matched, otherwise false
-function isBlackURL()
-    if isBlackURLOn then
+function _M.isBlackURL()
+    if config.isBlackURLOn then
         local url = ngx.var.uri
         if url == nil or url == "" then
             return false
         end
 
-        local m, ruleTable = matchRule(urlRules, url)
+        local m, ruleTable = matchRule(config.rules.blackUrl, url)
         if m then
-            doAction(ruleTable, "blackurl", "-", nil)
+            doAction(ruleTable, "-", nil, nil)
             return true
         end
     end
@@ -266,19 +235,19 @@ function isBlackURL()
 end
 
 
-function isEvilArgs()
+function _M.isEvilArgs()
     local args = ngx.req.get_uri_args()
     if args then
-        for key, val in pairs(args) do
+        for _, val in pairs(args) do
             local vals = val
             if type(val) == "table" then
                 vals = table.concat(val, ", ")
             end
             
             if vals and type(vals) ~= "boolean" and vals ~="" then
-                local m, ruleTable = matchRule(argRules, decoder.unescapeUri(vals))
+                local m, ruleTable = matchRule(config.rules.args, decoder.unescapeUri(vals))
                 if m then
-                    doAction(ruleTable, "args", "-", nil)
+                    doAction(ruleTable, "-", nil, nil)
                     return true
                 end
             end
@@ -287,14 +256,14 @@ function isEvilArgs()
     return false
 end
 
-function isEvilHeaders()
+function _M.isEvilHeaders()
     local referer = ngx.var.http_referer
     
     if referer and referer ~= "" then
-        ua = decoder.decodeBase64(referer)
-        local m, ruleTable = matchRule(headerRules, referer)
+        referer = decoder.decodeBase64(referer)
+        local m, ruleTable = matchRule(config.rules.headers, referer)
         if m then
-            doAction(ruleTable, "header-referer", "-", nil)
+            doAction(ruleTable, referer, "headers-referer", nil)
             return true
         end
     end
@@ -302,9 +271,9 @@ function isEvilHeaders()
     local ua = ngx.var.http_user_agent
     if ua and ua ~= "" then
         ua = decoder.decodeBase64(ua)
-        local m, ruleTable = matchRule(headerRules, ua)
+        local m, ruleTable = matchRule(config.rules.headers, ua)
         if m then
-            doAction(ruleTable, "header-ua", "-", nil)
+            doAction(ruleTable, ua, "headers-ua", nil)
             return true
         end
     end
@@ -312,15 +281,14 @@ function isEvilHeaders()
     return false
 end
 
-function isBlackFileExt(ext)
+function _M.isBlackFileExt(ext)
     if ext == nil then
         return false
     end
 
     for _, v in ipairs(config.get("fileExtBlackList")) do
         if ext == v then
-            local ruleTable = {rule = ext, action = "REDIRECT"}
-            doAction(ruleTable, "file-ext", "-", nil)
+            doAction(config.rules.fileExt, ext, nil, nil)
             return true
         end
     end
@@ -328,20 +296,20 @@ function isBlackFileExt(ext)
     return false
 end
 
-function isEvilFile(body)
-    local m, ruleTable = matchRule(postRules, body)
+function _M.isEvilFile(body)
+    local m, ruleTable = matchRule(config.rules.post, body)
     if m then
-        doAction(ruleTable, "request_body", "[" .. body .. "]", nil)
+        doAction(ruleTable, "[" .. body .. "]", "post-file", nil)
         return true
     end
     
     return false
 end
 
-function isEvilBody(body)
-    local m, ruleTable = matchRule(postRules, body)
+function _M.isEvilBody(body)
+    local m, ruleTable = matchRule(config.rules.post, body)
     if m then
-        doAction(ruleTable, "request_body", "[" .. body .. "]", nil)
+        doAction(ruleTable, "[" .. body .. "]", "request-body", nil)
         return true
     end
     
@@ -355,8 +323,8 @@ local function readFile(fileName)
     return string
 end
 
-function isEvilReqBody()
-    if isRequestBodyOn then
+function _M.isEvilReqBody()
+    if config.isRequestBodyOn then
         local method = ngx.req.get_method()
         
         local contentType = ngx.var.http_content_type
@@ -393,7 +361,7 @@ function isEvilReqBody()
                     if body ~= '' then
                         body = string.sub(body, 1, -2)
                         if isFile then
-                            if isFileContentOn then
+                            if config.isFileContentOn then
                                 -- 文件内容检查
                                 if isEvilFile(body) then
                                     return true
@@ -401,7 +369,7 @@ function isEvilReqBody()
                             end
                             isFile = false
                         else
-                            if isEvilBody(body) then
+                            if _M.isEvilBody(body) then
                                 return true
                             end
                         end
@@ -456,7 +424,7 @@ function isEvilReqBody()
                     end
                     
                     if vals and type(vals) ~= "boolean" and vals ~="" then
-                        if isEvilBody(vals) then
+                        if _M.isEvilBody(vals) then
                             return true
                         end
                     end
@@ -473,7 +441,7 @@ function isEvilReqBody()
             end
 
             if body_raw and body_raw ~="" then
-                if isEvilBody(body_raw) then
+                if _M.isEvilBody(body_raw) then
                     return true
                 end
             end
@@ -485,12 +453,12 @@ function isEvilReqBody()
     return false
 end
 
-function isEvilCookies()
+function _M.isEvilCookies()
     local cookie = ngx.var.http_cookie
-    if isCookieOn and cookie then
-        local m, ruleTable = matchRule(cookieRules, cookie)
+    if config.isCookieOn and cookie then
+        local m, ruleTable = matchRule(config.rules.cookie, cookie)
         if m then
-            doAction(ruleTable, "cookie", "-", nil)
+            doAction(ruleTable, "-", nil, nil)
             return true
         end
     end

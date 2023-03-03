@@ -1,15 +1,20 @@
-local config = require("config")
-local redisCli = require("redisCli")
-local loggerFactory = require("loggerFactory")
+local config = require "config"
+local redisCli = require "redisCli"
+local loggerFactory = require "loggerFactory"
 local toUpper = string.upper
+local md5 = ngx.md5
 
 local _M = {}
 
+local dict_hits = ngx.shared.dict_config_rules_hits
 local logPath = config.get("logPath")
 local rulePath = config.get("rulePath")
 
-local function writeLog(logType, data, rule, action)
-    if isAttackLogOn then
+local prefix = "waf_rules_hits:"
+local exptime = 60
+        
+local function writeLog(ruleType, data, rule, action)
+    if config.isAttackLogOn then
         local realIp = ngx.ctx.ip
         local geoName = ngx.ctx.geoip.name
         local method = ngx.req.get_method()
@@ -23,7 +28,7 @@ local function writeLog(logType, data, rule, action)
         if action == nil or action == "" then
             action = "-"
         end
-        line = logType .. " " .. realIp .. " " .. geoName .. " [" .. time .. "] \"" .. method .. " " .. host .. url .. "\" \"" .. data .. "\"  \"" .. ua .. "\" \"" .. rule .. "\" " .. action .. "\n"
+        line = ruleType .. " " .. realIp .. " " .. geoName .. " [" .. time .. "] \"" .. method .. " " .. host .. url .. "\" \"" .. data .. "\"  \"" .. ua .. "\" \"" .. rule .. "\" " .. action .. "\n"
 
         local hostLogger = loggerFactory.getLogger(logPath, host, true)
         hostLogger:log(line)
@@ -31,7 +36,7 @@ local function writeLog(logType, data, rule, action)
 end
 
 local function deny(status)
-    if isProtectionMode then
+    if config.isProtectionMode then
         local statusCode = ngx.HTTP_FORBIDDEN
         if status then
             statusCode = status
@@ -43,8 +48,8 @@ local function deny(status)
 end
 
 local function redirect()
-    if isProtectionMode then
-        if isRedirectOn then
+    if config.isProtectionMode then
+        if config.isRedirectOn then
             ngx.header.content_type = "text/html; charset=UTF-8"
             ngx.status = ngx.HTTP_FORBIDDEN
             ngx.say(config.get("html"))
@@ -57,16 +62,16 @@ end
 
 -- block ip
 function _M.blockIp(ip)
-    if isAutoIpBlockOn and ip then
+    if config.isAutoIpBlockOn and ip then
         
         local ok, err, exists = nil, nil, nil
         
-        if isRedisOn then
-            if ipBlockTimeout > 0 then
+        if config.isRedisOn then
+            if config.ipBlockTimeout > 0 then
                 local key = "black_ip:" .. ip
                 exists = redisCli.redisGet(key)
                 if not exists then
-                    ok, err = redisCli.redisSet(key, 1, ipBlockTimeout)
+                    ok, err = redisCli.redisSet(key, 1, config.ipBlockTimeout)
                 end
             else
                 exists = redisCli.redisBFExists(ip)
@@ -78,7 +83,7 @@ function _M.blockIp(ip)
             local blackip = ngx.shared.dict_blackip
             exists = blackip:get(ip)
             if not exists then
-                ok, err = blackip:set(ip, 1, ipBlockTimeout)
+                ok, err = blackip:set(ip, 1, config.ipBlockTimeout)
             end
         end
 
@@ -86,7 +91,7 @@ function _M.blockIp(ip)
             local hostLogger = loggerFactory.getLogger(logPath .. "ipBlock.log", 'ipBlock', false)
             hostLogger:log(ngx.localtime() .. " " .. ip .. "\n")
             
-            if ipBlockTimeout == 0 then
+            if config.ipBlockTimeout == 0 then
                 local ipBlackLogger = loggerFactory.getLogger(rulePath .. "ipBlackList", 'ipBlack', false)
                 ipBlackLogger:log(ip .. "\n")
             end
@@ -96,20 +101,50 @@ function _M.blockIp(ip)
     end
 end
 
-function _M.doAction(ruleTable, logType, data, status)
+local function hit(ruleTable)
+    local ruleMd5Str = md5(ruleTable.rule)
+    local ruleType = ruleTable.ruleType
+    local key = ruleType .. '_' .. ruleMd5Str
+    local key_total = ruleType .. '_total_' .. ruleMd5Str
+    local newHits = 1
+    local newTotalHits = 1
+    
+    if config.isRedisOn then
+        local count = redisCli.redisGet(prefix .. key)
+        if not count then
+            redisCli.redisSet(prefix .. key, 1, exptime)
+        else
+            newHits, _ = redisCli.redisIncr(prefix .. key)
+        end
+        newTotalHits, _ = redisCli.redisIncr(prefix .. key_total)
+    else
+        newHits, _ = dict_hits:incr(key, 1, 0, exptime)
+        newTotalHits, _ = dict_hits:incr(key_total, 1, 0)
+    end
+
+    ruleTable.hits = newHits
+    ruleTable.totalHits = newTotalHits
+end
+
+function _M.doAction(ruleTable, data, ruleType, status)
     local rule = ruleTable.rule
     local action = toUpper(ruleTable.action)
+    if ruleType == nil then
+        ruleType = ruleTable.ruleType
+    end
+    
+    hit(ruleTable)
     
     if action == "ALLOW" then
-        writeLog(logType, data, rule, "ALLOW")
+        writeLog(ruleType, data, rule, "ALLOW")
     elseif action == "DENY" then
-        writeLog(logType, data, rule, "DENY")
+        writeLog(ruleType, data, rule, "DENY")
         deny(status)
     elseif action == "REDIRECT" then
-        writeLog(logType, data, rule, "REDIRECT")
+        writeLog(ruleType, data, rule, "REDIRECT")
         redirect()
     else
-        writeLog(logType, data, rule, "REDIRECT")
+        writeLog(ruleType, data, rule, "REDIRECT")
         redirect()
     end
 end

@@ -1,42 +1,44 @@
-local geoip = require("geoip")
-
+local geoip = require "geoip"
+local config = require "config"
+local lib = require "lib"
+local ipUtils = require "ip"
 local geoip_default = {isAllowed = true, name = '-'}
 
 local function init()
-    local ip = getClientIP()
+    local ip = ipUtils.getClientIP()
     
-    if isGeoIPOn then
+    if config.isGeoIPOn then
         ngx.ctx.geoip = geoip.lookup(ip)
     else
         ngx.ctx.geoip = geoip_default
     end
 end
 
-if isWAFOn then
+if config.isWAFOn then
    
     init()
     
-    if isWhiteIp() then
+    if lib.isWhiteIp() then
 
-    elseif isBlackIp() then
+    elseif lib.isBlackIp() then
     
-    elseif isUnsafeHttpMethod() then
+    elseif lib.isUnsafeHttpMethod() then
 
-    elseif isBlackUA() then
+    elseif lib.isBlackUA() then
 
-    elseif isCC() then
+    elseif lib.isCC() then
     
-    elseif isWhiteURL() then
+    elseif lib.isWhiteURL() then
 
-	elseif isBlackURL() then
+	elseif lib.isBlackURL() then
 
-    elseif isEvilArgs() then
+    elseif lib.isEvilArgs() then
     
-    elseif isEvilHeaders() then
+    elseif lib.isEvilHeaders() then
     
-    elseif isEvilReqBody() then
+    elseif lib.isEvilReqBody() then
     
-    elseif isEvilCookies() then
+    elseif lib.isEvilCookies() then
     
     end
 

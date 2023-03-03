@@ -1,4 +1,4 @@
-local logger = require("logger")
+local logger = require "logger"
 
 local loggers = {}
 

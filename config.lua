@@ -7,6 +7,11 @@ local config = {
     -- monitor: Record attack logs but do not intercept attack requests
     -- protection: Intercept attack requests and record attack logs
     mode = "protection",
+	
+	-- 开启规则自动排序，开启后按规则命中次数降序排序，可以提高拦截效率
+    rules_sort = "off",
+    -- 规则每隔多少秒排序一次
+    rules_sort_period = 60,
     
     -- 攻击日志
     attackLog = "on",

@@ -1,5 +1,5 @@
-local geo = require("resty.maxminddb")
-local config = require("config")
+local geo = require "resty.maxminddb"
+local config = require "config"
 
 local _M = {}
 

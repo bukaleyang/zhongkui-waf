@@ -1,6 +1,6 @@
 local _M = {}
 
-local bit = require("bit")
+local bit = require "bit"
 local lshift, rshift = bit.lshift, bit.rshift
 local band = bit.band
 local ipairs = ipairs
@@ -8,6 +8,14 @@ local ipairs = ipairs
 local base = {23, 16, 8, 0}
 local maskConst = 0xffffffff
 
+function _M.getClientIP()
+    local ip = ngx.var.remote_addr
+    if ip == nil then
+        ip = "unknown"
+    end
+    ngx.ctx.ip = ip
+    return ip 
+end
 
 function _M.ipToNumber(ip)
     if ip == nil or type(ip) ~= "string" then
