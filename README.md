@@ -44,10 +44,13 @@ zhongkui-waf基于`lua-nginx-module`，多维度检查和拦截恶意网络请�
 ```nginx
 lua_shared_dict dict_cclimit 10m;
 lua_shared_dict dict_blackip 10m;
-lua_shared_dict dict_locks 12k;
+lua_shared_dict dict_locks 100k;
+lua_shared_dict dict_config 5m;
+lua_shared_dict dict_config_rules_hits 5m;
 
 lua_package_path "/usr/local/openresty/zhongkui-waf/?.lua;/usr/local/openresty/zhongkui-waf/lib/?.lua;;";
-init_by_lua_file  /usr/local/openresty/zhongkui-waf/init.lua; 
+init_by_lua_file  /usr/local/openresty/zhongkui-waf/init.lua;
+init_worker_by_lua_file /usr/local/openresty/zhongkui-waf/init_worker.lua;
 access_by_lua_file /usr/local/openresty/zhongkui-waf/waf.lua;
 ```
 
