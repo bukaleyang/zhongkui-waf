@@ -81,13 +81,13 @@ config.ipBlockTimeout = config.get("ipBlockTimeout") == nil and 0 or tonumber(co
 config.isRulesSortOn = config.isOptionOn("rules_sort")
 config.rulesSortPeriod = config.get("rules_sort_period") == nil and 60 or tonumber(config.get("rules_sort_period"))
 
-local urlRules = readRule("blackUrl")
-local argRules = readRule("args")
-local whiteURLRules = readRule("whiteUrl")
-local postRules = readRule("post")
-local cookieRules = readRule("cookie")
-local uaRules = readRule("user-agent")
-local headerRules = readRule("headers")
+readRule("blackUrl")
+readRule("args")
+readRule("whiteUrl")
+readRule("post")
+readRule("cookie")
+readRule("user-agent")
+readRule("headers")
 
 config.ipBlackList_subnet, config.ipBlackList = ipUtils.mergeAndSort(config.get("ipBlackList"), readFile("ipBlackList"))
 
