@@ -1,64 +1,18 @@
 local config = require "config"
 local lib = require "lib"
+local file = require "file"
 local ipUtils = require "ip"
 local cjson = require "cjson"
-local toLower = string.lower
-local remove = table.remove
-local insert = table.insert
-local pairs = pairs
+
 local match = string.match
+local readRule = file.readRule
+local readFileToString = file.readFileToString
+local readFileToTable = file.readFileToTable
 
 local dict_config = ngx.shared.dict_config
 local rulesConfig = {}
 
 local rulePath = config.get("rulePath")
-local function readRule(ruleFile)
-	local file = io.open(rulePath .. ruleFile .. ".json", "r")
-	if file == nil then
-        return
-	end
-
-    local rulesTable = {}
-    local text = file:read('*a')
-
-	file:close()
-
-    if #text > 0 then
-        local result = cjson.decode(text)
-
-        if result then
-            local t = result["rules"]
-            for k, r in pairs(t) do
-                if toLower(r.state) == 'on' then
-                    r.ruleType = ruleFile
-                    r.hits = 0
-                    r.totalHits = 0
-                    insert(rulesTable, r)
-                end
-            end
-        end
-    end
-
-    rulesConfig[ruleFile] = rulesTable
-	return rulesTable
-end
-
-local function readFile(ruleFile)
-	local file = io.open(rulePath .. ruleFile, "r")
-	if file == nil then
-        return
-	end
-    local t = {}
-
-	for line in file:lines() do
-        line = string.gsub(line, "[\r\n]", "")
-        table.insert(t, line)
-	end
-
-	file:close()
-
-	return t
-end
 
 config.isWAFOn = config.isOptionOn("waf")
 config.isAttackLogOn = config.isOptionOn("attackLog")
@@ -81,18 +35,16 @@ config.ipBlockTimeout = config.get("ipBlockTimeout") == nil and 0 or tonumber(co
 config.isRulesSortOn = config.isOptionOn("rules_sort")
 config.rulesSortPeriod = config.get("rules_sort_period") == nil and 60 or tonumber(config.get("rules_sort_period"))
 
-readRule("blackUrl")
-readRule("args")
-readRule("whiteUrl")
-readRule("post")
-readRule("cookie")
-readRule("user-agent")
-readRule("headers")
-
-config.ipBlackList_subnet, config.ipBlackList = ipUtils.mergeAndSort(config.get("ipBlackList"), readFile("ipBlackList"))
-
+config.ipBlackList_subnet, config.ipBlackList = ipUtils.mergeAndSort(config.get("ipBlackList"), readFileToTable(rulePath .. "ipBlackList"))
 config.ipWhiteList = ipUtils.initIpList(config.get("ipWhiteList"))
 
+rulesConfig.blackUrl = readRule(rulePath, "blackUrl")
+rulesConfig.args = readRule(rulePath, "args")
+rulesConfig.whiteUrl = readRule(rulePath, "whiteUrl")
+rulesConfig.post = readRule(rulePath, "post")
+rulesConfig.cookie = readRule(rulePath, "cookie")
+rulesConfig.headers = readRule(rulePath, "headers")
+rulesConfig["user-agent"] = readRule(rulePath, "user-agent") 
 
 rulesConfig.fileExt = {ruleType = "file-ext", rule = "file-ext", action = "REDIRECT"}
 rulesConfig.whiteIp = {ruleType = "whiteip", rule = "whiteip", action = "ALLOW"}
@@ -104,3 +56,4 @@ local jsonStr = cjson.encode(rulesConfig)
 dict_config:set("rules", jsonStr)
 
 config.rules = rulesConfig
+config.html = readFileToString(config.get("redirect_html"))

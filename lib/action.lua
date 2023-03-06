@@ -1,6 +1,7 @@
 local config = require "config"
 local redisCli = require "redisCli"
 local loggerFactory = require "loggerFactory"
+
 local toUpper = string.upper
 local md5 = ngx.md5
 
@@ -52,7 +53,7 @@ local function redirect()
         if config.isRedirectOn then
             ngx.header.content_type = "text/html; charset=UTF-8"
             ngx.status = ngx.HTTP_FORBIDDEN
-            ngx.say(config.get("html"))
+            ngx.say(config.html)
             return ngx.exit(ngx.status)
         end
         

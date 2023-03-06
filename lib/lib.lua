@@ -3,6 +3,7 @@ local redisCli = require "redisCli"
 local decoder = require "decoder"
 local ipUtils = require "ip"
 local action = require "action"
+
 local blockIp = action.blockIp
 local doAction = action.doAction
 local ipairs, pairs = ipairs, pairs

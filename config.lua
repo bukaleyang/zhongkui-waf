@@ -78,15 +78,8 @@ local config = {
 
     -- 是否重定向
     redirect = "on",
-    -- 非法请求将重定向至html设置的内容
-    html = [[
-    <html xmlns="http://www.w3.org/1999/xhtml"><head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>WAF</title>
-    </head>
-    <h3>别闹</h3>
-    </body></html>
-    ]]
+    -- 非法请求将重定向的html
+    redirect_html = "/usr/local/openresty/zhongkui-waf/redirect.html"
 }
 
 
