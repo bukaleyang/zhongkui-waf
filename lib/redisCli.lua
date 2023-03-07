@@ -7,8 +7,9 @@ local _M = {}
 
 local host = config.get("redis_host")
 local port = 6379
+local redis_port = config.get("redis_port")
 if redis_port ~= nil and redis_port ~= "" then
-    port = config.get("redis_port")
+    port = tonumber(redis_port)
 end
 
 local passwd = config.get("redis_passwd")
@@ -32,18 +33,18 @@ local function getRedisConn()
     local red = redis:new()
 
     red:set_timeouts(connect_timeout, send_timeout, read_timeout)
-    
+
     local ok, err = red:connect(host, port, {ssl = redisSSL, pool_size = poolSize})
 
     if not ok then
         ngx.log(ngx.ERR, "failed to connect: " .. err .. "\n", err)
         return ok, err
     end
-    
+
     if passwd ~= nil and pwsswd ~= ngx.null then
         local times = 0
         times, err = red:get_reused_times()
-        
+
         if times == 0 then
             local res, err = red:auth(passwd)
             if not res then
@@ -52,7 +53,7 @@ local function getRedisConn()
             end
         end
     end
-    
+
     return red, err
 end
 
@@ -63,7 +64,7 @@ local function closeRedisConn(red)
     if not ok then
         ngx.log(ngx.ERR, "failed to set keepalive: " .. err .. "\n", err)
         return
-    end    
+    end
 end
 
 function _M.redisSet(key, value, expireTime)
@@ -76,7 +77,7 @@ function _M.redisSet(key, value, expireTime)
         elseif expireTime and expireTime > 0 then
             red:expire(key, expireTime)
         end
-        
+
         closeRedisConn(red)
     end
 end

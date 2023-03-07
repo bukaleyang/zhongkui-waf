@@ -6,7 +6,7 @@ local geoip_default = {isAllowed = true, name = '-'}
 
 local function init()
     local ip = ipUtils.getClientIP()
-    
+
     if config.isGeoIPOn then
         ngx.ctx.geoip = geoip.lookup(ip)
     else
@@ -15,31 +15,31 @@ local function init()
 end
 
 if config.isWAFOn then
-   
+
     init()
-    
+
     if lib.isWhiteIp() then
 
     elseif lib.isBlackIp() then
-    
+
     elseif lib.isUnsafeHttpMethod() then
 
     elseif lib.isBlackUA() then
 
     elseif lib.isCC() then
-    
+
     elseif lib.isWhiteURL() then
 
 	elseif lib.isBlackURL() then
 
     elseif lib.isEvilArgs() then
-    
+
     elseif lib.isEvilHeaders() then
-    
+
     elseif lib.isEvilReqBody() then
-    
+
     elseif lib.isEvilCookies() then
-    
+
     end
 
 end

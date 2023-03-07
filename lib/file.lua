@@ -41,7 +41,7 @@ function _M.readFileToTable(filePath)
 	if file == nil then
         return
 	end
-    
+
     local t = {}
 
 	for line in file:lines() do
@@ -59,9 +59,9 @@ function _M.readFileToString(filePath)
 	if file == nil then
         return
 	end
-    
+
     local text = file:read('*a')
-    
+
 	file:close()
 
 	return text

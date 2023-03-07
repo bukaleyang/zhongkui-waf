@@ -13,7 +13,7 @@ local rulePath = config.get("rulePath")
 
 local prefix = "waf_rules_hits:"
 local exptime = 60
-        
+
 local function writeLog(ruleType, data, rule, action)
     if config.isAttackLogOn then
         local realIp = ngx.ctx.ip
@@ -29,10 +29,10 @@ local function writeLog(ruleType, data, rule, action)
         if action == nil or action == "" then
             action = "-"
         end
-        line = ruleType .. " " .. realIp .. " " .. geoName .. " [" .. time .. "] \"" .. method .. " " .. host .. url .. "\" \"" .. data .. "\"  \"" .. ua .. "\" \"" .. rule .. "\" " .. action .. "\n"
+        local logStr = ruleType .. " " .. realIp .. " " .. geoName .. " [" .. time .. "] \"" .. method .. " " .. host .. url .. "\" \"" .. data .. "\"  \"" .. ua .. "\" \"" .. rule .. "\" " .. action .. "\n"
 
         local hostLogger = loggerFactory.getLogger(logPath, host, true)
-        hostLogger:log(line)
+        hostLogger:log(logStr)
     end
 end
 
@@ -42,7 +42,7 @@ local function deny(status)
         if status then
             statusCode = status
         end
-        
+
         ngx.status = statusCode
         return ngx.exit(ngx.status)
     end
@@ -56,7 +56,7 @@ local function redirect()
             ngx.say(config.html)
             return ngx.exit(ngx.status)
         end
-        
+
         return deny()
     end
 end
@@ -64,9 +64,9 @@ end
 -- block ip
 function _M.blockIp(ip)
     if config.isAutoIpBlockOn and ip then
-        
+
         local ok, err, exists = nil, nil, nil
-        
+
         if config.isRedisOn then
             if config.ipBlockTimeout > 0 then
                 local key = "black_ip:" .. ip
@@ -91,7 +91,7 @@ function _M.blockIp(ip)
         if ok then
             local hostLogger = loggerFactory.getLogger(logPath .. "ipBlock.log", 'ipBlock', false)
             hostLogger:log(ngx.localtime() .. " " .. ip .. "\n")
-            
+
             if config.ipBlockTimeout == 0 then
                 local ipBlackLogger = loggerFactory.getLogger(rulePath .. "ipBlackList", 'ipBlack', false)
                 ipBlackLogger:log(ip .. "\n")
@@ -109,7 +109,7 @@ local function hit(ruleTable)
     local key_total = ruleType .. '_total_' .. ruleMd5Str
     local newHits = 1
     local newTotalHits = 1
-    
+
     if config.isRedisOn then
         local count = redisCli.redisGet(prefix .. key)
         if not count then
@@ -133,9 +133,9 @@ function _M.doAction(ruleTable, data, ruleType, status)
     if ruleType == nil then
         ruleType = ruleTable.ruleType
     end
-    
+
     hit(ruleTable)
-    
+
     if action == "ALLOW" then
         writeLog(ruleType, data, rule, "ALLOW")
     elseif action == "DENY" then

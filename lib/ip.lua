@@ -21,22 +21,22 @@ function _M.ipToNumber(ip)
     if ip == nil or type(ip) ~= "string" then
         return 0
     end
-    
+
     local number = 0
     local t = {}
-    
-    string.gsub(ip, "%d+",
+
+    local _ = string.gsub(ip, "%d+",
         function(res)
             t[#t + 1] = res
         end
     )
-    
+
     number = number + lshift(t[1], base[1]) * 2
-    
+
     for i = 2, 4 do
         number = number + lshift(t[i], base[i])
     end
-    
+
     return number
 end
 
@@ -55,7 +55,7 @@ function _M.maskToNumber(mask)
         end
         number = maskConst - 2 ^ (32 - tonumber(mask)) + 1
     end
-    
+
     return math.floor(number)
 end
 
@@ -65,7 +65,7 @@ function _M.isSameSubnet(subnetTab, ip)
         ipNumber = _M.ipToNumber(ip)
         ngx.ctx.ipNumber = ipNumber
     end
-    
+
     for value, maskNumber in pairs(subnetTab) do
         if band(ipNumber, maskNumber) == value then
             return true
@@ -79,15 +79,15 @@ end
 function _M.initIpList(ipList)
     local result = {}
     local subnetTab = {}
-    
+
     if #ipList == 0 then
         return result
     end
-    
+
     for _, v in ipairs(ipList) do
         local ip = string.match(v, "([%d%.]+)/?")
         local mask = string.match(v, "/([%d%.]+)")
-        
+
         local ipNumber = _M.ipToNumber(ip)
 
         if mask then
@@ -97,9 +97,9 @@ function _M.initIpList(ipList)
             subnetTab[res] = maskNumber
         else
             table.insert(result, ip)
-        end        
+        end
     end
-    
+
     table.insert(result, subnetTab)
 
     return result
@@ -108,7 +108,7 @@ end
 -- 把配置中混合在一起的单ip和ip网段区分开，{ip网段table},{ipList}
 function _M.mergeAndSort(ipList1, ipList2)
     local t1, t2 = {}, {}
-    
+
     for _, v in ipairs(ipList1) do
         if string.find(v, '/') then
             table.insert(t1, v)
@@ -116,7 +116,7 @@ function _M.mergeAndSort(ipList1, ipList2)
             table.insert(t2, v)
         end
     end
-    
+
     for _, v in ipairs(ipList2) do
         if string.find(v, '/') then
             table.insert(t1, v)
@@ -124,9 +124,9 @@ function _M.mergeAndSort(ipList1, ipList2)
             table.insert(t2, v)
         end
     end
-    
+
     t1 = _M.initIpList(t1)
-                
+
     return t1, t2
 end
 

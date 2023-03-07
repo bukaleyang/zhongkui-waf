@@ -63,7 +63,7 @@ local function writeFile(self, value)
     else
         fileName = self.logPath
     end
-    
+
 	local file = io.open(fileName, "a+")
 
 	if file == nil or value == nil then
@@ -88,11 +88,11 @@ local function flushBuffer(self)
 
     local buffer = concat(self.buffer_data, "", 1, self.buffer_index)
     writeFile(self, buffer)
-    
+
     self.buffered_size = 0
     self.buffer_index = 0
     self.buffer_data = newtab(20000, 0)
-    
+
     flushUnlock(self)
 end
 
@@ -103,11 +103,11 @@ end
 
 local function writeBuffer(self, msg, msg_len)
     self.buffer_index = self.buffer_index + 1
-    
+
     self.buffer_data[self.buffer_index] = msg    
-    
+
     self.buffered_size = self.buffered_size + msg_len
-    
+
     return self.buffered_size
 end
 
