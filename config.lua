@@ -66,6 +66,9 @@ local config = {
     -- 单个ip请求频率（r/s）
     CCRate = "100/60",
 
+    -- 敏感数据脱敏
+    sensitive_data_filtering = "on",
+
     -- Redis支持，打开后请求频率统计及ip黑名单将从Redis中存取
     redis = "off",
     redis_host = "",

@@ -28,6 +28,8 @@ config.isFileContentOn = config.isOptionOn("fileContentCheck")
 config.isCookieOn = config.isOptionOn("cookie")
 config.isRedirectOn = config.isOptionOn("redirect")
 config.isRedisOn = config.isOptionOn("redis")
+config.isSensitiveDataFilteringOn = config.isOptionOn("sensitive_data_filtering")
+
 config.isProtectionMode = (config.get("mode") == "protection" and true or false)
 config.ccCount = tonumber(match(config.get("CCRate"), "(.*)/"))
 config.ccSeconds = tonumber(match(config.get("CCRate"), "/(.*)"))
@@ -44,7 +46,8 @@ rulesConfig.whiteUrl = readRule(rulePath, "whiteUrl")
 rulesConfig.post = readRule(rulePath, "post")
 rulesConfig.cookie = readRule(rulePath, "cookie")
 rulesConfig.headers = readRule(rulePath, "headers")
-rulesConfig["user-agent"] = readRule(rulePath, "user-agent") 
+rulesConfig.sensitive = readRule(rulePath, "sensitive")
+rulesConfig["user-agent"] = readRule(rulePath, "user-agent")
 
 rulesConfig.fileExt = {ruleType = "file-ext", rule = "file-ext", action = "REDIRECT"}
 rulesConfig.whiteIp = {ruleType = "whiteip", rule = "whiteip", action = "ALLOW"}
