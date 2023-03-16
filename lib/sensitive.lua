@@ -1,6 +1,9 @@
 local config = require "config"
+local ahocorasick = require "ahocorasick"
+local stringutf8 = require "stringutf8"
 
 local ipairs = ipairs
+local sort = table.sort
 
 local ngxmatch = ngx.re.match
 local ngxgmatch = ngx.re.gmatch
@@ -10,11 +13,26 @@ local ngxfind = ngx.re.find
 local sub = string.sub
 local gsub = string.gsub
 local find = string.find
+local rep = string.rep
 local tonumber = tonumber
+local utf8len = stringutf8.len
 
 local _M = {}
 
 local rules = config.rules.sensitive
+local sensitiveWords = config.rules.sensitiveWords
+local ac = ahocorasick:new()
+
+local function initSensitiveWordsAC()
+    if sensitiveWords then
+        local wordsList = sensitiveWords["words"]
+        if wordsList then
+            ac:add(wordsList)
+        end
+    end
+end
+
+initSensitiveWordsAC()
 
 local codingRangeRegex = "(-*\\d+),(-*\\d+)"
 
@@ -70,20 +88,22 @@ local function codingString(strMatches, from, to)
         if type(from) =='table' then
             for _, v in ipairs(from) do
                 local subStr = strMatches[v]
-                local codedSubStr, _, error = ngxgsub(subStr, ".", "*", "jo")
+                --[[local codedSubStr, _, error = ngxgsub(subStr, ".", "*", "jo")
                 if codedSubStr then
                     str = gsub(str, subStr, codedSubStr)
                 else
                     ngx.log(ngx.ERR, "error: ", error)
+                end]]
+                local codedSubStr = rep("*", #subStr)
+                if codedSubStr then
+                    str = gsub(str, subStr, codedSubStr)
                 end
             end
         else
             local subStr = sub(str, from, to)
-            local codedSubStr, _, error = ngxgsub(subStr, ".", "*", "jo")
+            local codedSubStr = rep("*", #subStr)
             if codedSubStr then
                 str = gsub(str, subStr, codedSubStr)
-            else
-                ngx.log(ngx.ERR, "error: ", error)
             end
         end
     end
@@ -96,33 +116,48 @@ function _M.sensitive_data_filtering(content)
         return
     end
 
-    for _, rt in ipairs(rules) do
-        local regex = rt.rule
-        local codingRange = rt.codingRange
+    if rules then
+        for _, rt in ipairs(rules) do
+            local regex = rt.rule
+            local codingRange = rt.codingRange
 
-        local fr, _ = ngxfind(content, regex, "isjo")
-        if fr then
-            local it, err = ngxgmatch(content, regex, "isjo")
-            if it then
-                local from, to = getRange(codingRange)
-                while true do
-                    local m, error = it()
-                    if error then
-                        ngx.log(ngx.ERR, "error: ", error)
-                        break
-                    end
+            local fr, _ = ngxfind(content, regex, "isjo")
+            if fr then
+                local it, err = ngxgmatch(content, regex, "isjo")
+                if it then
+                    local from, to = getRange(codingRange)
+                    while true do
+                        local m, error = it()
+                        if error then
+                            ngx.log(ngx.ERR, "error: ", error)
+                            break
+                        end
 
-                    if not m then
-                        break
-                    end
+                        if not m then
+                            break
+                        end
 
-                    local codedStr = codingString(m, from, to)
-                    if codedStr then
-                        content = gsub(content, m[0], codedStr)
+                        local codedStr = codingString(m, from, to)
+                        if codedStr then
+                            content = gsub(content, m[0], codedStr)
+                        end
                     end
+                else
+                    ngx.log(ngx.ERR, "error: ", err)
                 end
-            else
-                ngx.log(ngx.ERR, "error: ", err)
+            end
+        end
+    end
+
+    if sensitiveWords then
+        local t = ac:match(content, true)
+        if t and #t > 0 then
+            sort(t)
+            for _, value in ipairs(t) do
+                local codedSubStr = rep("*", utf8len(value))
+                if codedSubStr then
+                    content = gsub(content, value, codedSubStr)
+                end
             end
         end
     end

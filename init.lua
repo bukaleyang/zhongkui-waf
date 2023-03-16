@@ -46,7 +46,7 @@ rulesConfig.whiteUrl = readRule(rulePath, "whiteUrl")
 rulesConfig.post = readRule(rulePath, "post")
 rulesConfig.cookie = readRule(rulePath, "cookie")
 rulesConfig.headers = readRule(rulePath, "headers")
-rulesConfig.sensitive = readRule(rulePath, "sensitive")
+rulesConfig.sensitive, rulesConfig.sensitiveWords = readRule(rulePath, "sensitive")
 rulesConfig["user-agent"] = readRule(rulePath, "user-agent")
 
 rulesConfig.fileExt = {ruleType = "file-ext", rule = "file-ext", action = "REDIRECT"}
