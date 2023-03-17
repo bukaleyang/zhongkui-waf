@@ -67,7 +67,7 @@ local config = {
     CCRate = "100/60",
 
     -- 敏感数据脱敏
-    sensitive_data_filtering = "on",
+    sensitive_data_filtering = "off",
 
     -- Redis支持，打开后请求频率统计及ip黑名单将从Redis中存取
     redis = "off",
