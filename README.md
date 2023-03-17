@@ -1,8 +1,8 @@
 ## Zhongkui-WAF
 
-钟馗是中国民间传说中能打鬼驱邪的神，中国民间常挂钟馗神像辟邪除灾。在网络上，总有一些坏家伙，他们隐藏在网络后面，通过各种各样的手段来攻击我们的Web应用，如妖似鬼，并且大多数时候你不能及时发现和拦截这些攻击行为。因此，我们需要安装WAF（Web Application Firewall），它像钟馗一样识别和拦截网络中的恶鬼（非法的请求），使它们现出原形并将它们挡在门外，从而保护我们的Web应用。
+钟馗是中国传统文化中的一个神话人物，被誉为“捉鬼大师”，专门驱逐邪恶之物。`Zhongkui-WAF`的命名灵感来源于这一神话人物，寓意着该软件能够像钟馗一样，有效地保护Web应用免受各种恶意攻击和威胁。
 
-zhongkui-waf基于`lua-nginx-module`，多维度检查和拦截恶意网络请求，简单易用，具有高性能、轻量级的特点。 
+`Zhongkui-WAF`基于`lua-nginx-module`，可以多维度检查和拦截恶意网络请求，具有简单易用、高性能、轻量级的特点。它的配置简单，你可以根据实际情况设置不同的安全规则和策略。
 
 ### 主要特性
 
@@ -22,7 +22,8 @@ zhongkui-waf基于`lua-nginx-module`，多维度检查和拦截恶意网络请�
 + CC攻击拦截，并自动拉黑IP地址，可限时或永久拉黑
 + Sql注入、XSS、SSRF等攻击拦截
 + 可设置仅允许指定国家的IP访问
-+ 支持Redis
++ 敏感数据（身份证号码、手机号码、银行卡号、密码）脱敏及关键词过滤
++ 支持Redis，开启后IP请求频率、IP黑名单等数据将从Redis中读写
 + 攻击日志记录，包含IP地址、IP所属地区、攻击时间、防御动作、拦截规则等
 
 ### 安装
@@ -52,6 +53,8 @@ lua_package_path "/usr/local/openresty/zhongkui-waf/?.lua;/usr/local/openresty/z
 init_by_lua_file  /usr/local/openresty/zhongkui-waf/init.lua;
 init_worker_by_lua_file /usr/local/openresty/zhongkui-waf/init_worker.lua;
 access_by_lua_file /usr/local/openresty/zhongkui-waf/waf.lua;
+body_filter_by_lua_file /usr/local/openresty/zhongkui-waf/body_filter.lua;
+header_filter_by_lua_file /usr/local/openresty/zhongkui-waf/header_filter.lua;
 ```
 
 #### libmaxminddb库
@@ -81,11 +84,72 @@ IP地理位置识别需要下载MaxMind的IP地址数据文件及安装该IP数�
 curl http://localhost/?t=../../etc/passwd
 ```
 
-看到waf返回的禁止访问信息则说明安装成功。
+看到拦截信息则说明安装成功。
 
 ### 配置
 
-zhongkui-waf所有的配置可以在`config.lua`文件中修改，修改完后要执行`nginx -s reload`命令来重新载入配置。
+`Zhongkui-WAF`的基本配置在`config.lua`文件中，你可以对它进行修改。
+
+ip黑名单列表可以配置在`config.lua`文件中，也可以配置在`path-to-zhongkui-waf/rules/ipBlackList`文件中。
+
+不管是基本配置还是规则文件，修改完后都要执行`nginx -s reload`命令来重新载入配置。
+
+`path-to-zhongkui-waf/rules`目录下是一系列规则文件，文件内容都是`json`格式。你可以新增自己的规则，也可以对每条规则进行单独设置，如打开、关闭或者修改其拦截动作等。
+
+拦截动作有如下几种：
+
++ `allow` 允许当前请求并记录日志
++ `deny` 阻止当前请求，返回HTTP状态码403并记录日志
++ `redirect` 阻止当前请求，返回拦截页面并记录日志
++ `coding` 对匹配到的内容进行过滤，替换为`*`
+
+#### 敏感数据过滤
+
+开启敏感信息过滤后，`Zhongkui-WAF`将对响应数据进行过滤。
+
+`Zhongkui-WAF`内置了对响应内容中的身份证号码、手机号码、银行卡号、密码信息进行脱敏处理。需要注意的是，内置的敏感信息脱敏功能目前仅支持处理中华人民共和国境内使用的数据格式（如身份证号、电话号码、银行卡号），暂不支持处理中国境外的身份证号、电话号码、银行卡号等数据格式。但你可以使用正则表达式配置不同的规则，以过滤请求响应内容中任何你想要过滤掉的数据。
+
+敏感信息过滤配置在在`sensitive.json`文件中。
+
+例如：
+
+```json
+{
+	"rules": [{
+			"state": "on",
+			"action": "coding",
+			"codingRange": "4,-5",
+			"rule": "(?:(?:\\+|00)86)?1(?:(?:3[\\d])|(?:4[5-79])|(?:5[0-35-9])|(?:6[5-7])|(?:7[0-8])|(?:8[\\d])|(?:9[189]))\\d{8}",
+			"description": "mobile number"
+		},
+		{
+			"state": "on",
+			"action": "coding",
+			"codingRange": "$1",
+			"rule": "(?:password|passwd)\"\\s*[:=]\\s*\"(\\S+)\"",
+			"description": "password"
+		}
+	],
+	"words": ["fuck", "bitch", "balabala"]
+}
+```
+
+`state`是该条规则的开关状态，`on`是开启，`off`是关闭。
+
+`action`是匹配到该条规则后的响应动作，目前敏感信息过滤只有`coding`这一种有效，即对敏感信息脱敏处理。
+
+`rule`是要处理的信息的匹配规则，通常是一个正则表达式。
+
+`codingRange`是匹配到的字符串中要处理的子字符串范围，有两种形式：
+
+1. 直接标明要处理的子字符串的起始位置：
+    1. 如字符串`15800000000`的`codingRange`为 `“4,7”`，则会将对从第四个位置开始到第七个位置之间的所有字符进行处理，结果为`158****0000`。
+    2. 起始位置也可以是一个负数，如字符串`15800000000`的`codingRange`为 `“4,-5”`，则会将对从第四个位置开始到倒数第五个位置之间的所有字符进行处理，结果为`158****0000`。
+2. 使用`$`字面量加数字，比如：`$0`指的是由该模式匹配的整个子串，而`$1`指第一个带括号的捕获子串。
+
+`description`是对该规则的描述，起到方便管理的作用。
+
+`words`是一个数组，可以用来配置一些需要过滤掉的关键词。
 
 ### Copyright and License
 
