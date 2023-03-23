@@ -4,6 +4,7 @@ local stringutf8 = require "stringutf8"
 
 local ipairs = ipairs
 local sort = table.sort
+local concat = table.concat
 
 local ngxmatch = ngx.re.match
 local ngxgmatch = ngx.re.gmatch
@@ -14,10 +15,17 @@ local sub = string.sub
 local gsub = string.gsub
 local find = string.find
 local rep = string.rep
+local lower = string.lower
 local tonumber = tonumber
 local utf8len = stringutf8.len
+local utf8trim = stringutf8.trim
+local toCharArray = stringutf8.toCharArray
 
 local _M = {}
+
+local STR_PREPROCESSING_REGEX = "[.,!?;:\"'()<>\\[\\]{}\\-_/\\|@#\\$%&\\*\\+=\\s]*"
+local CODING_RANGE_REGEX = "(-*\\d+),(-*\\d+)"
+local CODING_RANGE_DOLLAR_REGEX = "\\$(\\d+)"
 
 local rules = config.rules.sensitive
 local sensitiveWords = config.rules.sensitiveWords
@@ -34,13 +42,11 @@ end
 
 initSensitiveWordsAC()
 
-local codingRangeRegex = "(-*\\d+),(-*\\d+)"
-
 local function getRange(codingRange)
     local f, _ = find(codingRange, "$", 1, true)
 
     if f then
-        local it, err = ngxgmatch(codingRange, "\\$(\\d+)", "isjo")
+        local it, err = ngxgmatch(codingRange, CODING_RANGE_DOLLAR_REGEX, "isjo")
         if not it then
             ngx.log(ngx.ERR, "error: ", err)
             return
@@ -64,7 +70,7 @@ local function getRange(codingRange)
 
         return t
     else
-        local m, err = ngxmatch(codingRange, codingRangeRegex, "isjo")
+        local m, err = ngxmatch(codingRange, CODING_RANGE_REGEX, "isjo")
 
         if m then
             local from, to = tonumber(m[1]), tonumber(m[2])
@@ -88,27 +94,44 @@ local function codingString(strMatches, from, to)
         if type(from) =='table' then
             for _, v in ipairs(from) do
                 local subStr = strMatches[v]
-                --[[local codedSubStr, _, error = ngxgsub(subStr, ".", "*", "jo")
-                if codedSubStr then
-                    str = gsub(str, subStr, codedSubStr)
-                else
-                    ngx.log(ngx.ERR, "error: ", error)
-                end]]
-                local codedSubStr = rep("*", #subStr)
+                local subStrLen = utf8len(subStr)
+                local codedSubStr = rep("*", subStrLen)
                 if codedSubStr then
                     str = gsub(str, subStr, codedSubStr)
                 end
             end
         else
             local subStr = sub(str, from, to)
-            local codedSubStr = rep("*", #subStr)
+            local subStrLen = utf8len(subStr)
+            local codedSubStr = rep("*", subStrLen)
             if codedSubStr then
                 str = gsub(str, subStr, codedSubStr)
             end
         end
+    else
+        local strLen = utf8len(str)
+        str = rep("*", strLen)
     end
 
     return str
+end
+
+function _M.textPreprocessing(text)
+    if not text or text == '' then
+        return text
+    end
+
+    text = utf8trim(text)
+    text = lower(text)
+
+    local temp, _, error = ngxgsub(text, STR_PREPROCESSING_REGEX, "", "jo")
+    if temp then
+        text = temp
+    else
+        ngx.log(ngx.ERR, "error: ", error)
+    end
+
+    return text
 end
 
 function _M.sensitive_data_filtering(content)
@@ -150,14 +173,15 @@ function _M.sensitive_data_filtering(content)
     end
 
     if sensitiveWords then
-        local t = ac:match(content, true)
+        local text = _M.textPreprocessing(content)
+        local t = ac:match(text, true)
         if t and #t > 0 then
             sort(t)
             for _, value in ipairs(t) do
-                local codedSubStr = rep("*", utf8len(value))
-                if codedSubStr then
-                    content = gsub(content, value, codedSubStr)
-                end
+                local array = toCharArray(value)
+                local regex = concat(array, STR_PREPROCESSING_REGEX)
+
+                content = ngxgsub(content, regex, codingString, "isj")
             end
         end
     end

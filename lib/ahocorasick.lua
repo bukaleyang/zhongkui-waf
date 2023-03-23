@@ -14,6 +14,7 @@ local ipairs = ipairs
 
 local toCharArray = stringutf8.toCharArray
 local trim = stringutf8.trim
+local lower = string.lower
 
 local _AhoCorasick = {}
 _AhoCorasick.VERSION = "v0.1"
@@ -64,6 +65,7 @@ function _Trie:addNodes(str)
         return
     end
     str = trim(str)
+    str = lower(str)
 
     local current = self.rootNode
     local array = toCharArray(str)
