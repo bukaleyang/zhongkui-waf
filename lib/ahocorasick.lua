@@ -1,7 +1,6 @@
 local stringutf8 = require "stringutf8"
 local arrays = require "arrays"
 local nkeys = require "table.nkeys"
-local isarray = require "table.isarray"
 local isempty = require "table.isempty"
 
 local newtab = table.new
@@ -38,6 +37,7 @@ function _TrieNode:new(word, depth)
     local t = {
             word = word,
             children = nil,
+            isChildrenArray = false,
             isEnd = false,
             count = 1,
             fail = nil,
@@ -80,8 +80,6 @@ function _Trie:addNodes(str)
         end
 
         local node
-
-        -- 子节点已存储个数
 		local storedSize = nkeys(children)
         if self.childrenArrayLimit > 0 and storedSize < self.childrenArrayLimit then
             node = _TrieNode:new(word, i)
@@ -97,14 +95,17 @@ function _Trie:addNodes(str)
             end
 
             current.children = children
+            current.isChildrenArray = true
         else
-            if storedSize > 0 and isarray(children) then
+            local isArray = current.isChildrenArray
+            if storedSize > 0 and isArray then
                 local newChildren = newtab(0, self.childrenArrayLimit + 1)
                 for _, v in ipairs(children) do
                     newChildren[v.word] = v
                 end
                 --current.children = newChildren
                 children = newChildren
+                current.isChildrenArray = false
             end
 
             node = children[word]
@@ -134,7 +135,8 @@ function _Trie:contains(str)
     for _, word in ipairs(array) do
         children = current.children
         if children then
-            if isarray(children) then
+            local isArray = current.isChildrenArray
+            if isArray then
                 local storedSize = nkeys(children)
                 local pos = arrays.binarySearch(children, 1, storedSize, _TrieNode:new(word))
 
@@ -188,7 +190,8 @@ local function getFail(self, childNode, fatherFail)
     local fail
     local children = fatherFail.children
     if children then
-        if isarray(children) then
+        local isArray = fatherFail.isChildrenArray
+        if isArray then
             local storedSize = nkeys(children)
             local pos = arrays.binarySearch(children, 1, storedSize, childNode)
             if pos > 0 then
@@ -218,7 +221,7 @@ end
 function _AhoCorasick:buildFail()
     local trie = self.trie
     local rootNode = trie.rootNode
-    -- 根节点的fail指针指向自身
+
     rootNode.fail = rootNode
     local queue = {}
     push(queue, rootNode)
@@ -233,14 +236,14 @@ function _AhoCorasick:buildFail()
         local children = parrent.children
         if children then
             for _, child in pairs(children) do
-                -- 根节点的子节点，fail指向根节点
+
                 if parrent == rootNode and child ~= rootNode then
                     child.fail = rootNode
                 else
                     local failNode = getFail(self, child, fatherFail)
                     child.fail = failNode
                 end
-                -- 将子节点放入队列
+
                 push(queue, child)
             end
         end
@@ -293,7 +296,8 @@ function _AhoCorasick:match(str, simpleMode)
         while true do
             local children = current.children
             if children then
-                if isarray(children) then
+                local isArray = current.isChildrenArray
+                if isArray then
                     local pos = arrays.binarySearch(children, 1, nkeys(children), _TrieNode:new(word))
                     if pos > 0 then
                         current = children[pos]
@@ -308,7 +312,6 @@ function _AhoCorasick:match(str, simpleMode)
                 end
             end
 
-            -- 非根节点则往前回溯到fail节点
             if current ~= rootNode then
                 current = current.fail
             else
