@@ -25,13 +25,13 @@ function _M.toCharArray(str)
         local i, j = 1, 1
         while i <= length do
             local firstByte = string.byte(str, i)
-            if firstByte >=0 and firstByte < 128 then
+            if firstByte >= 0 and firstByte < 128 then
                 byteLength = 1
-            elseif firstByte >191 and firstByte < 224 then
+            elseif firstByte > 191 and firstByte < 224 then
                 byteLength = 2
-            elseif firstByte >223 and firstByte < 240 then
+            elseif firstByte > 223 and firstByte < 240 then
                 byteLength = 3
-            elseif firstByte >239 and firstByte < 248 then
+            elseif firstByte > 239 and firstByte < 248 then
                 byteLength = 4
             end
 
@@ -111,13 +111,13 @@ function _M.len(str)
         local i = 1
         while i <= length do
             local firstByte = string.byte(str, i)
-            if firstByte >=0 and firstByte < 128 then
+            if firstByte >= 0 and firstByte < 128 then
                 i = i + 1
-            elseif firstByte >191 and firstByte < 224 then
+            elseif firstByte > 191 and firstByte < 224 then
                 i = i + 2
-            elseif firstByte >223 and firstByte < 240 then
+            elseif firstByte > 223 and firstByte < 240 then
                 i = i + 3
-            elseif firstByte >239 and firstByte < 248 then
+            elseif firstByte > 239 and firstByte < 248 then
                 i = i + 4
             end
 
