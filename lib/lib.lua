@@ -11,9 +11,6 @@ local type = type
 
 local _M = {}
 
-local logPath = config.get("logPath")
-local rulePath = config.get("rulePath")
-
 local blackIPLoaded = false
 
 local methodWhiteList = config.get("methodWhiteList")
@@ -259,9 +256,7 @@ end
 
 function _M.isEvilHeaders()
     local referer = ngx.var.http_referer
-
     if referer and referer ~= "" then
-        referer = decoder.decodeBase64(referer)
         local m, ruleTable = matchRule(config.rules.headers, referer)
         if m then
             doAction(ruleTable, referer, "headers-referer", nil)
@@ -271,7 +266,6 @@ function _M.isEvilHeaders()
 
     local ua = ngx.var.http_user_agent
     if ua and ua ~= "" then
-        ua = decoder.decodeBase64(ua)
         local m, ruleTable = matchRule(config.rules.headers, ua)
         if m then
             doAction(ruleTable, ua, "headers-ua", nil)
@@ -351,7 +345,6 @@ function _M.isEvilReqBody()
 
             local body = ''
             local isFile = false
-            local files = {}
 
             while size < contentLength do
                 if sock ~= nil then
@@ -396,7 +389,7 @@ function _M.isEvilReqBody()
                                 local ext = string.sub(line, from, to)
 
                                 if _M.isBlackFileExt(ext) then
-                                   return true 
+                                   return true
                                 end
 
                                 isFile = true
@@ -421,13 +414,13 @@ function _M.isEvilReqBody()
             local args, err = ngx.req.get_post_args()
 
             if args then
-                for key, val in pairs(args) do
+                for _, val in pairs(args) do
                     local vals = val
                     if type(val) == "table" then
                         vals = table.concat(val, ", ")
                     end
 
-                    if vals and type(vals) ~= "boolean" and vals ~="" then
+                    if vals and type(vals) ~= "boolean" and vals ~= "" then
                         if _M.isEvilBody(vals) then
                             return true
                         end
@@ -444,7 +437,7 @@ function _M.isEvilReqBody()
                 end
             end
 
-            if body_raw and body_raw ~="" then
+            if body_raw and body_raw ~= "" then
                 if _M.isEvilBody(body_raw) then
                     return true
                 end
