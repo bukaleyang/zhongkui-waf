@@ -104,7 +104,7 @@ end
 local function writeBuffer(self, msg, msg_len)
     self.buffer_index = self.buffer_index + 1
 
-    self.buffer_data[self.buffer_index] = msg    
+    self.buffer_data[self.buffer_index] = msg
 
     self.buffered_size = self.buffered_size + msg_len
 
@@ -119,7 +119,7 @@ local function startTimer(self)
             return
         end
         if ok then
-            self.timer = true         
+            self.timer = true
         end
     end
     return self.timer
@@ -137,6 +137,7 @@ function _M:log(msg)
         writeBuffer(self, msg, msg_len)
         startTimer(self)
     elseif len >= self.flush_limit then
+        writeBuffer(self, msg, msg_len)
         flushBuffer(self)
     end
 end
