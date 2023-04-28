@@ -24,7 +24,7 @@ if config.isWAFOn then
 
     elseif lib.isUnsafeHttpMethod() then
 
-    elseif lib.isBlackUA() then
+    elseif lib.isBot() then
 
     elseif lib.isCC() then
 

@@ -29,6 +29,7 @@ config.isCookieOn = config.isOptionOn("cookie")
 config.isRedirectOn = config.isOptionOn("redirect")
 config.isRedisOn = config.isOptionOn("redis")
 config.isSensitiveDataFilteringOn = config.isOptionOn("sensitive_data_filtering")
+config.isBotOn = config.isOptionOn("bot")
 
 config.isProtectionMode = (config.get("mode") == "protection" and true or false)
 config.ccCount = tonumber(match(config.get("CCRate"), "(.*)/"))

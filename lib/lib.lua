@@ -150,15 +150,16 @@ function _M.isUnsafeHttpMethod()
     return true
 end
 
-function _M.isBlackUA()
-    local ua = ngx.var.http_user_agent
+function _M.isBot()
+    if config.isBotOn then
+        local ua = ngx.var.http_user_agent
 
-    local m, ruleTable = matchRule(config.rules["user-agent"], ua)
-    if m then
-        doAction(ruleTable, "_", nil, nil)
-		return true
+        local m, ruleTable = matchRule(config.rules["user-agent"], ua)
+        if m then
+            doAction(ruleTable, "_", nil, nil)
+            return true
+        end
     end
-
     return false
 end
 
