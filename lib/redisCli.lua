@@ -26,7 +26,6 @@ end
 
 local redisSSL = config.get("redis_ssl")
 local filterName = "blackIpFilter"
-local logPath = config.get("logPath")
 
 local function getRedisConn()
 
@@ -41,7 +40,7 @@ local function getRedisConn()
         return ok, err
     end
 
-    if passwd ~= nil and pwsswd ~= ngx.null then
+    if passwd ~= nil and passwd ~= ngx.null then
         local times = 0
         times, err = red:get_reused_times()
 
