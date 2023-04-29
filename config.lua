@@ -66,6 +66,9 @@ local config = {
     -- 单个ip请求频率（r/s）
     CCRate = "100/60",
 
+    -- bot管理
+    bot = "on",
+
     -- 敏感数据脱敏
     sensitive_data_filtering = "off",
 
