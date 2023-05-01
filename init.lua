@@ -22,7 +22,7 @@ config.isWhiteURLOn = config.isOptionOn("whiteURL")
 config.isBlackURLOn = config.isOptionOn("blackURL")
 config.isWhiteIPOn = config.isOptionOn("whiteIP")
 config.isBlackIPOn = config.isOptionOn("blackIP")
-config.isCCDenyOn = config.isOptionOn("CCDeny")
+config.isCCDefenceOn = config.isOptionOn("cc_defence")
 config.isRequestBodyOn = config.isOptionOn("requestBodyCheck")
 config.isFileContentOn = config.isOptionOn("fileContentCheck")
 config.isCookieOn = config.isOptionOn("cookie")
@@ -32,8 +32,12 @@ config.isSensitiveDataFilteringOn = config.isOptionOn("sensitive_data_filtering"
 config.isBotOn = config.isOptionOn("bot")
 
 config.isProtectionMode = (config.get("mode") == "protection" and true or false)
-config.ccCount = tonumber(match(config.get("CCRate"), "(.*)/"))
-config.ccSeconds = tonumber(match(config.get("CCRate"), "/(.*)"))
+config.ccCount = tonumber(match(config.get("cc_rate"), "(.*)/"))
+config.ccSeconds = tonumber(match(config.get("cc_rate"), "/(.*)"))
+config.ccMaxFailTimes = config.get("cc_max_fail_times")
+config.reqMaxTimes = config.ccCount + config.ccMaxFailTimes
+config.ccAccessTokenTimeout = config.get("cc_accesstoken_timeout") == nil and 0 or tonumber(config.get("cc_accesstoken_timeout"))
+config.secret = config.get("secret")
 config.ipBlockTimeout = config.get("ipBlockTimeout") == nil and 0 or tonumber(config.get("ipBlockTimeout"))
 config.isRulesSortOn = config.isOptionOn("rules_sort")
 config.rulesSortPeriod = config.get("rules_sort_period") == nil and 60 or tonumber(config.get("rules_sort_period"))
@@ -54,7 +58,7 @@ rulesConfig.fileExt = {ruleType = "file-ext", rule = "file-ext", action = "REDIR
 rulesConfig.whiteIp = {ruleType = "whiteip", rule = "whiteip", action = "ALLOW"}
 rulesConfig.blackIp = {ruleType = "blackip", rule = "blackip", action = "DENY"}
 rulesConfig.unsafeMethod = {ruleType = "unsafe-method", rule = "unsafe http method", action = "DENY"}
-rulesConfig.cc = {ruleType = "cc", rule = "cc", action = "DENY"}
+rulesConfig.cc = {ruleType = "cc", rule = "cc", action = config.get("cc_action")}
 
 local jsonStr = cjson.encode(rulesConfig)
 dict_config:set("rules", jsonStr)

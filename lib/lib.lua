@@ -3,11 +3,13 @@ local redisCli = require "redisCli"
 local decoder = require "decoder"
 local ipUtils = require "ip"
 local action = require "action"
+local cc = require "cc"
 
 local blockIp = action.blockIp
 local doAction = action.doAction
 local ipairs, pairs = ipairs, pairs
 local type = type
+local md5 = ngx.md5
 
 local _M = {}
 
@@ -152,7 +154,7 @@ end
 
 function _M.isBot()
     if config.isBotOn then
-        local ua = ngx.var.http_user_agent
+        local ua = ngx.ctx.ua
 
         local m, ruleTable = matchRule(config.rules["user-agent"], ua)
         if m then
@@ -164,37 +166,53 @@ function _M.isBot()
 end
 
 function _M.isCC()
-    if config.isCCDenyOn then
+    if config.isCCDefenceOn then
+        if cc.checkAccessToken() then
+            return true
+        end
+
         local uri = ngx.var.uri
         local ip = ngx.ctx.ip
-        local token = ngx.md5(ip .. uri)
+        local token = md5(ip .. uri)
 
         if config.isRedisOn then
             local prefix = "cc_req_count:"
-            local count = redisCli.redisGet(prefix .. token)
+            local redisCount = redisCli.redisGet(prefix .. token)
+            local count = tonumber(redisCount)
             if not count then
                 redisCli.redisSet(prefix .. token, 1, config.ccSeconds)
-            elseif tonumber(count) > config.ccCount then
-                doAction(config.rules.cc, "_", nil, 503)
-                blockIp(ip)
+            elseif count >= config.ccCount then
+                redisCli.redisIncr(prefix .. token)
+                count = count + 1
+                if count >= config.reqMaxTimes then
+                    blockIp(ip)
+                end
+                doAction(config.rules.cc, "_", "cc", 503)
+
                 return true
             else
                 redisCli.redisIncr(prefix .. token)
             end
         else
             local limit = ngx.shared.dict_cclimit
-            local count,_ = limit:get(token)
+            local count, _ = limit:get(token)
             if not count then
                 limit:set(token, 1, config.ccSeconds)
-            elseif count > config.ccCount then
-                doAction(config.rules.cc, "_", nil, 503)
-                blockIp(ip)
+            elseif count >= config.ccCount then
+                limit:incr(token, 1)
+                count = count + 1
+                if count >= config.reqMaxTimes then
+                    blockIp(ip)
+                end
+                doAction(config.rules.cc, "_", "cc", 503)
+
                 return true
             else
                 limit:incr(token, 1)
             end
         end
     end
+
     return false
 end
 
@@ -265,7 +283,7 @@ function _M.isEvilHeaders()
         end
     end
 
-    local ua = ngx.var.http_user_agent
+    local ua = ngx.ctx.ua
     if ua and ua ~= "" then
         local m, ruleTable = matchRule(config.rules.headers, ua)
         if m then

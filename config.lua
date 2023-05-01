@@ -61,13 +61,22 @@ local config = {
     -- cookie检查
     cookie = "off",
 
-    -- cc攻击拦截
-    CCDeny = "off",
-    -- 单个ip请求频率（r/s）
-    CCRate = "100/60",
-
     -- bot管理
     bot = "on",
+
+    -- cc攻击拦截
+    cc_defence = "on",
+    -- 单个ip请求频率（r/s）
+    cc_rate = "100/60",
+    -- cc攻击处置动作，redirect_js、redirect_302仅适用于网页或H5，APP或API等环境，应设置为：deny
+    cc_action = "redirect_js",
+    -- 浏览器验证失败几次后自动拉黑IP地址，需要将autoIpBlock设置为on
+    cc_max_fail_times = 5,
+    -- 验证请求来自于真实浏览器后，浏览器cookie携带的访问令牌有效时间，单位是秒
+    cc_accesstoken_timeout = 1800,
+
+    -- 密钥,用于请求签名等，可任意修改，建议长度长一点
+    secret = "2215D605B798A5CCEB6D5C900EE3585B",
 
     -- 敏感数据脱敏
     sensitive_data_filtering = "off",

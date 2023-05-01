@@ -1,6 +1,7 @@
 local config = require "config"
 local redisCli = require "redisCli"
 local loggerFactory = require "loggerFactory"
+local cc = require "cc"
 
 local toUpper = string.upper
 local md5 = ngx.md5
@@ -20,7 +21,7 @@ local function writeLog(ruleType, data, rule, action)
         local geoName = ngx.ctx.geoip.name
         local method = ngx.req.get_method()
         local url = ngx.var.request_uri
-        local ua = ngx.var.http_user_agent
+        local ua = ngx.ctx.ua
         local host = ngx.var.server_name
         local time = ngx.localtime()
         if ua == nil or ua == "" then
@@ -144,6 +145,12 @@ function _M.doAction(ruleTable, data, ruleType, status)
     elseif action == "REDIRECT" then
         writeLog(ruleType, data, rule, "REDIRECT")
         redirect()
+    elseif action == "REDIRECT_302" then
+        writeLog(ruleType, data, rule, "REDIRECT_302")
+        cc.redirect302()
+    elseif action == "REDIRECT_JS" then
+        writeLog(ruleType, data, rule, "REDIRECT_JS")
+        cc.redirectJS()
     else
         writeLog(ruleType, data, rule, "REDIRECT")
         redirect()
