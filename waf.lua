@@ -6,6 +6,13 @@ local geoip_default = {isAllowed = true, name = '-'}
 
 local function init()
     local ip = ipUtils.getClientIP()
+    ngx.ctx.ip = ip
+
+    local ua = ngx.var.http_user_agent
+    if ua == nil then
+        ua = ""
+    end
+    ngx.ctx.ua = ua
 
     if config.isGeoIPOn then
         ngx.ctx.geoip = geoip.lookup(ip)

@@ -4,17 +4,45 @@ local bit = require "bit"
 local lshift, rshift = bit.lshift, bit.rshift
 local band = bit.band
 local ipairs = ipairs
+local type = type
+local lower = string.lower
 
 local base = {23, 16, 8, 0}
 local maskConst = 0xffffffff
 
 function _M.getClientIP()
-    local ip = ngx.var.remote_addr
+    local ip = ngx.var.http_x_forwarded_for
+    if ip then
+        if type(ip) == "table" then
+            ip = ip[1]
+        end
+    end
+
+    if ip == nil or ip == "" or lower(ip) == "unknown" then
+        ip = ngx.var.http_proxy_client_ip
+    end
+
+    if ip == nil or ip == "" or lower(ip) == "unknown" then
+        ip = ngx.var.http_wl_proxy_client_ip
+    end
+
+    if ip == nil or ip == "" or lower(ip) == "unknown" then
+        ip = ngx.var.http_http_client_ip
+    end
+
+    if ip == nil or ip == "" or lower(ip) == "unknown" then
+        ip = ngx.var.http_http_x_forwarded_for
+    end
+
+    if ip == nil or ip == "" or lower(ip) == "unknown" then
+        ip = ngx.var.remote_addr
+    end
+
     if ip == nil then
         ip = "unknown"
     end
-    ngx.ctx.ip = ip
-    return ip 
+
+    return ip
 end
 
 function _M.ipToNumber(ip)
