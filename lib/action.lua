@@ -69,16 +69,16 @@ function _M.blockIp(ip, ruleTab)
         local ok, err, exists = nil, nil, nil
 
         if config.isRedisOn then
+            local key = "black_ip:" .. ip
             if ruleTab.ipBlockTimeout > 0 then
-                local key = "black_ip:" .. ip
                 exists = redisCli.redisGet(key)
                 if not exists then
                     ok, err = redisCli.redisSet(key, 1, ruleTab.ipBlockTimeout)
                 end
             else
-                exists = redisCli.redisBFExists(ip)
+                exists = redisCli.redisGet(key)
                 if not exists then
-                    ok, err = redisCli.redisBFAdd(ip)
+                    ok, err = redisCli.redisSet(key, 1)
                 end
             end
         else

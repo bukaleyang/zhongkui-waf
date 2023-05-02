@@ -108,11 +108,7 @@ function _M.isBlackIp()
             exists = true
         else
             if config.isRedisOn then
-                if config.ipBlockTimeout > 0 then
-                    exists = redisCli.redisGet("black_ip:" .. ip)
-                else
-                    exists = redisCli.redisBFExists(ip)
-                end
+                exists = redisCli.redisGet("black_ip:" .. ip)
             else
                 local blackip = ngx.shared.dict_blackip
                 exists = blackip:get(ip)
