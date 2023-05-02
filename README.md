@@ -19,7 +19,7 @@
 + 请求体检查
 + 上传文件类型黑名单，防止webshell上传
 + 恶意Cookie拦截
-+ CC攻击拦截，并自动拉黑IP地址，可限时或永久拉黑
++ CC攻击拦截，浏览器验证失败后可以自动限时或永久拉黑拉黑IP地址
 + Sql注入、XSS、SSRF等攻击拦截
 + 可设置仅允许指定国家的IP访问
 + 敏感数据（身份证号码、手机号码、银行卡号、密码）脱敏及关键词过滤
@@ -44,6 +44,7 @@
 
 ```nginx
 lua_shared_dict dict_cclimit 10m;
+lua_shared_dict dict_accesstoken 10m;
 lua_shared_dict dict_blackip 10m;
 lua_shared_dict dict_locks 100k;
 lua_shared_dict dict_config 5m;
@@ -98,10 +99,32 @@ ip黑名单列表可以配置在`config.lua`文件中，也可以配置在`path-
 
 拦截动作有如下几种：
 
-+ `allow` 允许当前请求并记录日志
-+ `deny` 阻止当前请求，返回HTTP状态码403并记录日志
-+ `redirect` 阻止当前请求，返回拦截页面并记录日志
-+ `coding` 对匹配到的内容进行过滤，替换为`*`
++ `allow`：允许当前请求并记录日志。
++ `deny`：拒绝当前请求，返回HTTP状态码403并记录日志。
++ `redirect`：拒绝当前请求，返回拦截页面并记录日志。
++ `coding`：对匹配到的内容进行过滤，替换为`*`。
++ `redirect_js`：浏览器验证，JavaScript重定向。
++ `redirect_302`：浏览器验证，302重定向。
+
+一些配置项是通用的：
+
++ `state`：是该条规则的开关状态，`on`是开启，`off`是关闭。
++ `description`：是对该规则的描述，起到方便管理的作用。
+
+配置项`redirect`是`Zhongkui-WAF`的私钥，用于浏览器验证请求签名等，应妥善保管，安装后建议修改下，格式为任意字符组合，建议长度长一点。
+
+### CC攻击防御
+
+cc攻击的配置文件是`path-to-zhongkui-waf/rules/cc.json`，可按单`URL`和单`IP`进行统计，超过阈值时直接拒绝请求或对浏览器进行验证，验证失败后可自动屏蔽IP地址。
+
+配置项说明：
+
++ `countType`：统计类型，值为"url"或"ip"。
++ `duration`：统计时长，单位是秒。
++ `threshold`：阈值，单位是次。
++ `action`：cc攻击处置动作，`redirect_js`、`redirect_302`仅适用于网页或H5，APP或API等环境，应设置为：`deny`。
++ `autoIpBlock`：在浏览器验证失败后自动屏蔽IP，`on`是开启，`off`是关闭。拉黑日志保存在`./logPath/ipBlock.log`文件中。
++ `ipBlockTimeout`：ip禁止访问时间，单位是秒，如果设置为`0`则永久禁止并保存在`./rules/ipBlackList`文件中。
 
 #### 敏感数据过滤
 
@@ -134,8 +157,6 @@ ip黑名单列表可以配置在`config.lua`文件中，也可以配置在`path-
 }
 ```
 
-`state`是该条规则的开关状态，`on`是开启，`off`是关闭。
-
 `action`是匹配到该条规则后的响应动作，目前敏感信息过滤只有`coding`这一种有效，即对敏感信息脱敏处理。
 
 `rule`是要处理的信息的匹配规则，通常是一个正则表达式。
@@ -147,13 +168,11 @@ ip黑名单列表可以配置在`config.lua`文件中，也可以配置在`path-
     2. 起始位置也可以是一个负数，如字符串`15800000000`的`codingRange`为 `“4,-5”`，则会将对从第四个位置开始到倒数第五个位置之间的所有字符进行处理，结果为`158****0000`。
 2. 使用`$`字面量加数字，比如：`$0`指的是由该模式匹配的整个子串，而`$1`指第一个带括号的捕获子串。
 
-`description`是对该规则的描述，起到方便管理的作用。
-
 `words`是一个数组，可以用来配置一些需要过滤掉的关键词。
 
 ### Copyright and License
 
-This library is licensed under the Apache License, Version 2.
+ZhongKui-WAF is licensed under the Apache License, Version 2.
 
 Copyright 2023 bukale2022@163.com
 
