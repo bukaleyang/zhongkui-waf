@@ -19,7 +19,7 @@
 + 请求体检查
 + 上传文件类型黑名单，防止webshell上传
 + 恶意Cookie拦截
-+ CC攻击拦截，浏览器验证失败后可以自动限时或永久拉黑拉黑IP地址
++ CC攻击拦截，浏览器验证失败后可以自动限时或永久拉黑IP地址
 + Sql注入、XSS、SSRF等攻击拦截
 + 可设置仅允许指定国家的IP访问
 + 敏感数据（身份证号码、手机号码、银行卡号、密码）脱敏及关键词过滤
@@ -28,15 +28,17 @@
 
 ### 安装
 
-#### waf
+#### OpenResty
 
-强烈推荐使用`OpenResty`。
+由于`Zhongkui-WAF`基于`lua-nginx-module`，所以要先安装`Nginx`或`OpenResty`，强烈推荐使用`OpenResty`。
 
 如果你使用`Nginx`，则需要安装以下第三方模块：
 
 1. 安装`LuaJIT`和`lua-nginx-module`模块
 2. 下载[lua-resty-redis库](https://github.com/openresty/lua-resty-redis)到`path-to-zhongkui-waf/lib/resty`目录
 3. 安装[lua-cjson库](https://www.kyne.com.au/~mark/software/lua-cjson.php)
+
+#### zhongkui-waf
 
 假设`OpenResty`安装路径为：`/usr/local/openresty`，下载`zhongkui-waf`文件并放置在`/usr/local/openresty/zhongkui-waf`目录。
 
