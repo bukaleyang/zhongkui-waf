@@ -10,6 +10,7 @@ local doAction = action.doAction
 local ipairs, pairs = ipairs, pairs
 local type = type
 local md5 = ngx.md5
+local lower = string.lower
 
 local _M = {}
 
@@ -171,46 +172,56 @@ function _M.isCC()
             return true
         end
 
-        local uri = ngx.var.uri
         local ip = ngx.ctx.ip
-        local token = md5(ip .. uri)
 
-        if config.isRedisOn then
-            local prefix = "cc_req_count:"
-            local redisCount = redisCli.redisGet(prefix .. token)
-            local count = tonumber(redisCount)
-            if not count then
-                redisCli.redisSet(prefix .. token, 1, config.ccSeconds)
-            elseif count >= config.ccCount then
-                redisCli.redisIncr(prefix .. token)
-                count = count + 1
-                if count >= config.reqMaxTimes then
-                    blockIp(ip)
-                end
-                doAction(config.rules.cc, "_", "cc", 503)
-
-                return true
-            else
-                redisCli.redisIncr(prefix .. token)
+        local rules = config.rules.cc
+        for _, ruleTab in pairs(rules) do
+            local countType = lower(ruleTab.countType)
+            local token = ""
+            if countType == "url" then
+                token = md5(ip .. ngx.var.uri)
+            elseif countType == "ip" then
+                token = md5(ip)
             end
-        else
-            local limit = ngx.shared.dict_cclimit
-            local count, _ = limit:get(token)
-            if not count then
-                limit:set(token, 1, config.ccSeconds)
-            elseif count >= config.ccCount then
-                limit:incr(token, 1)
-                count = count + 1
-                if count >= config.reqMaxTimes then
-                    blockIp(ip)
-                end
-                doAction(config.rules.cc, "_", "cc", 503)
 
-                return true
+            if config.isRedisOn then
+                local prefix = "cc_req_count:"
+                local redisCount = redisCli.redisGet(prefix .. token)
+                local count = tonumber(redisCount)
+                if not count then
+                    redisCli.redisSet(prefix .. token, 1, ruleTab.duration)
+                elseif count >= ruleTab.threshold then
+                    redisCli.redisIncr(prefix .. token)
+                    count = count + 1
+                    if count >= (config.ccMaxFailTimes + ruleTab.threshold) then
+                        blockIp(ip, ruleTab)
+                    end
+                    doAction(ruleTab, "_", ruleTab.rule, 503)
+
+                    return true
+                else
+                    redisCli.redisIncr(prefix .. token)
+                end
             else
-                limit:incr(token, 1)
+                local limit = ngx.shared.dict_cclimit
+                local count, _ = limit:get(token)
+                if not count then
+                    limit:set(token, 1, ruleTab.duration)
+                elseif count >= ruleTab.threshold then
+                    limit:incr(token, 1)
+                    count = count + 1
+                    if count >= (config.ccMaxFailTimes + ruleTab.threshold) then
+                        blockIp(ip, ruleTab)
+                    end
+                    doAction(ruleTab, "_", ruleTab.rule, 503)
+
+                    return true
+                else
+                    limit:incr(token, 1)
+                end
             end
         end
+
     end
 
     return false

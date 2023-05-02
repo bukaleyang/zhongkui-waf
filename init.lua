@@ -4,7 +4,6 @@ local file = require "file"
 local ipUtils = require "ip"
 local cjson = require "cjson"
 
-local match = string.match
 local readRule = file.readRule
 local readFileToString = file.readFileToString
 local readFileToTable = file.readFileToTable
@@ -16,7 +15,6 @@ local rulePath = config.get("rulePath")
 
 config.isWAFOn = config.isOptionOn("waf")
 config.isAttackLogOn = config.isOptionOn("attackLog")
-config.isAutoIpBlockOn = config.isOptionOn("autoIpBlock")
 config.isGeoIPOn = config.isOptionOn("geoip")
 config.isWhiteURLOn = config.isOptionOn("whiteURL")
 config.isBlackURLOn = config.isOptionOn("blackURL")
@@ -32,13 +30,11 @@ config.isSensitiveDataFilteringOn = config.isOptionOn("sensitive_data_filtering"
 config.isBotOn = config.isOptionOn("bot")
 
 config.isProtectionMode = (config.get("mode") == "protection" and true or false)
-config.ccCount = tonumber(match(config.get("cc_rate"), "(.*)/"))
-config.ccSeconds = tonumber(match(config.get("cc_rate"), "/(.*)"))
-config.ccMaxFailTimes = config.get("cc_max_fail_times")
-config.reqMaxTimes = config.ccCount + config.ccMaxFailTimes
-config.ccAccessTokenTimeout = config.get("cc_accesstoken_timeout") == nil and 0 or tonumber(config.get("cc_accesstoken_timeout"))
+config.ccMaxFailTimes = config.get("cc_max_fail_times") == nil and 5 or tonumber(config.get("cc_max_fail_times"))
+config.ccActionTimeout = config.get("cc_action_timeout") == nil and 60 or tonumber(config.get("cc_action_timeout"))
+config.ccAccessTokenTimeout = config.get("cc_accesstoken_timeout") == nil and 1800 or tonumber(config.get("cc_accesstoken_timeout"))
 config.secret = config.get("secret")
-config.ipBlockTimeout = config.get("ipBlockTimeout") == nil and 0 or tonumber(config.get("ipBlockTimeout"))
+
 config.isRulesSortOn = config.isOptionOn("rules_sort")
 config.rulesSortPeriod = config.get("rules_sort_period") == nil and 60 or tonumber(config.get("rules_sort_period"))
 
@@ -51,6 +47,7 @@ rulesConfig.whiteUrl = readRule(rulePath, "whiteUrl")
 rulesConfig.post = readRule(rulePath, "post")
 rulesConfig.cookie = readRule(rulePath, "cookie")
 rulesConfig.headers = readRule(rulePath, "headers")
+rulesConfig.cc = readRule(rulePath, "cc")
 rulesConfig.sensitive, rulesConfig.sensitiveWords = readRule(rulePath, "sensitive")
 rulesConfig["user-agent"] = readRule(rulePath, "user-agent")
 
@@ -58,7 +55,6 @@ rulesConfig.fileExt = {ruleType = "file-ext", rule = "file-ext", action = "REDIR
 rulesConfig.whiteIp = {ruleType = "whiteip", rule = "whiteip", action = "ALLOW"}
 rulesConfig.blackIp = {ruleType = "blackip", rule = "blackip", action = "DENY"}
 rulesConfig.unsafeMethod = {ruleType = "unsafe-method", rule = "unsafe http method", action = "DENY"}
-rulesConfig.cc = {ruleType = "cc", rule = "cc", action = config.get("cc_action")}
 
 local jsonStr = cjson.encode(rulesConfig)
 dict_config:set("rules", jsonStr)

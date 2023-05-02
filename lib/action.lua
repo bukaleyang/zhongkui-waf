@@ -63,17 +63,17 @@ local function redirect()
 end
 
 -- block ip
-function _M.blockIp(ip)
-    if config.isAutoIpBlockOn and ip then
+function _M.blockIp(ip, ruleTab)
+    if toUpper(ruleTab.autoIpBlock) == "ON" and ip then
 
         local ok, err, exists = nil, nil, nil
 
         if config.isRedisOn then
-            if config.ipBlockTimeout > 0 then
+            if ruleTab.ipBlockTimeout > 0 then
                 local key = "black_ip:" .. ip
                 exists = redisCli.redisGet(key)
                 if not exists then
-                    ok, err = redisCli.redisSet(key, 1, config.ipBlockTimeout)
+                    ok, err = redisCli.redisSet(key, 1, ruleTab.ipBlockTimeout)
                 end
             else
                 exists = redisCli.redisBFExists(ip)
@@ -85,7 +85,7 @@ function _M.blockIp(ip)
             local blackip = ngx.shared.dict_blackip
             exists = blackip:get(ip)
             if not exists then
-                ok, err = blackip:set(ip, 1, config.ipBlockTimeout)
+                ok, err = blackip:set(ip, 1, ruleTab.ipBlockTimeout)
             end
         end
 
@@ -93,7 +93,7 @@ function _M.blockIp(ip)
             local hostLogger = loggerFactory.getLogger(logPath .. "ipBlock.log", 'ipBlock', false)
             hostLogger:log(ngx.localtime() .. " " .. ip .. "\n")
 
-            if config.ipBlockTimeout == 0 then
+            if ruleTab.ipBlockTimeout == 0 then
                 local ipBlackLogger = loggerFactory.getLogger(rulePath .. "ipBlackList", 'ipBlack', false)
                 ipBlackLogger:log(ip .. "\n")
             end

@@ -1,0 +1,26 @@
+{
+    "rules": [
+        {
+            "state": "on",
+            "rule": "cc-url",
+            "countType": "url",
+            "duration": 60,
+            "threshold": 100,
+            "action": "redirect_js",
+            "autoIpBlock": "on",
+            "ipBlockTimeout": 600,
+            "description": "统计单个IP访问单个URL次数"
+        },
+        {
+            "state": "on",
+            "rule": "cc-ip",
+            "countType": "ip",
+            "duration": 60,
+            "threshold": 100,
+            "action": "redirect_js",
+            "autoIpBlock": "on",
+            "ipBlockTimeout": 600,
+            "description": "统计单个IP访问次数"
+        }
+    ]
+}

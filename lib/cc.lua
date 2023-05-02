@@ -23,7 +23,7 @@ function _M.redirect302()
     local reqSign = ngx.var.arg_redirect302_sign
     local reqTime = tonumber(ngx.var.arg_redirect302_time)
 
-    if reqSign and reqTime and (reqTime <= time) then
+    if reqSign and reqTime and type(reqTime) == "number" and ((reqTime + config.ccActionTimeout) >= time) then
         local pass = _M.signVerify(args, "redirect302_sign", config.secret)
         if pass then
             -- 设置访问令牌
@@ -58,7 +58,7 @@ function _M.redirectJS()
     local reqSign = ngx.var.arg_redirectjs_sign
     local reqTime = tonumber(ngx.var.arg_redirectjs_time)
 
-    if reqSign and reqTime and (reqTime <= time) then
+    if reqSign and reqTime and type(reqTime) == "number" and ((reqTime + config.ccActionTimeout) >= time) then
         local pass = _M.signVerify(args, "redirectjs_sign", config.secret)
         if pass then
             -- 设置访问令牌
