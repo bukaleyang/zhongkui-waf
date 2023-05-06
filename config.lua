@@ -88,6 +88,10 @@ local config = {
     redirect = "on",
     -- 非法请求将重定向的html
     redirect_html = "/usr/local/openresty/zhongkui-waf/redirect.html"
+
+    -- 流量监控页面
+    dashboard = "off",
+    dashboard_html = "/usr/local/openresty/zhongkui-waf/dashboard/dashboard.html"
 }
 
 

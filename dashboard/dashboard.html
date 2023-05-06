@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>ZhongKui WAF Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></script>
+</head>
+
+<body>
+    <h2 style="text-align: center;margin-top: 50px;">ZhongKui WAF Dashboard</h2>
+    <div style="display: block; text-align: center;margin-top: 50px;">
+        <div id="traffic" style="width: 600px;height:400px; display: inline-block;border:1px solid #e2e2e2;"></div>
+        <div id="attackType" style="width: 600px;height:400px; display: inline-block;border:1px solid #e2e2e2;"></div>
+    </div>
+    <script type="text/javascript">
+        var trafficChart = echarts.init(document.getElementById('traffic'));
+        trafficOption = {
+            legend: {
+                icon: 'rect',
+                type: 'scroll',
+                orient: 'vertical',
+                right: 10,
+                top: 40,
+                bottom: 20,
+            },
+            tooltip: {
+                trigger: 'axis',
+                position: function (pt) {
+                    return [pt[0], '10%'];
+                }
+            },
+            dataset: {
+                // 提供一份数据。
+                source: [
+                    #trafficData#
+                ]
+            },
+            title: {
+                left: 'center',
+                top: 10,
+                text: '请求流量'
+            },
+            toolbox: {
+                feature: {
+                    saveAsImage: {}
+                }
+            },
+            xAxis: {
+                name: '时间',
+                type: 'category',
+                axisLabel: {
+                    interval: 0,
+                    rotate: 50,
+                    margin: 10,
+                    formatter: function (value, index) {
+                        return value.substring(11, 13) + '点';
+                    }
+                }
+            },
+            yAxis: {
+                name: '请求量',
+            },
+            series: [
+                {
+                    name: '请求量',
+                    type: 'line',
+                    areaStyle: { opacity: 0.1 }
+                },
+                {
+                    name: '攻击请求量',
+                    type: 'line',
+                    areaStyle: { opacity: 0.1 },
+                    itemStyle: { color: '#FF5722' }
+                }
+            ]
+        };
+
+        trafficChart.setOption(trafficOption);
+
+        var attackTypeChart = echarts.init(document.getElementById('attackType'));
+        trafficTypeOption = {
+            legend: {
+                icon: 'rect',
+                type: 'scroll',
+                orient: 'vertical',
+                right: 10,
+                top: 40,
+                bottom: 20,
+                formatter: function (name) {
+                    name = name.substring(name.lastIndexOf('_') + 1, name.length)
+                    return name
+                }
+            },
+            tooltip: {
+                trigger: 'item',
+                formatter: function (params) {
+                    var name = params.name
+                    name = name.substring(name.lastIndexOf('_') + 1, name.length)
+                    return name + ': ' + params.value + ' ' + params.percent + '%'
+                }
+            },
+            title: {
+                left: 'center',
+                top: 10,
+                text: '攻击类型统计',
+            },
+            toolbox: {
+                feature: {
+                    saveAsImage: {}
+                }
+            },
+            series: [
+                {
+                    name: '请求量',
+                    type: 'pie',
+                    radius: '50%',
+                    emphasis: {
+                        itemStyle: {
+                            shadowBlur: 10,
+                            shadowOffsetX: 0,
+                            shadowColor: 'rgba(0, 0, 0, 0.5)'
+                        }
+                    },
+                    label: {
+                        formatter: function (params) {
+                            var name = params.name
+                            name = name.substring(name.lastIndexOf('_') + 1, name.length)
+                            return name + ': ' + params.percent + '%'
+                        }
+                    },
+                    data: [#attackTypeData#]
+                }
+            ]
+        };
+
+        attackTypeChart.setOption(trafficTypeOption);
+    </script>
+</body>
+
+</html>

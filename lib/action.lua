@@ -3,17 +3,17 @@ local redisCli = require "redisCli"
 local loggerFactory = require "loggerFactory"
 local cc = require "cc"
 
-local toUpper = string.upper
 local md5 = ngx.md5
+local toUpper = string.upper
 
 local _M = {}
 
-local dict_hits = ngx.shared.dict_config_rules_hits
 local logPath = config.get("logPath")
 local rulePath = config.get("rulePath")
 
-local prefix = "waf_rules_hits:"
-local exptime = 60
+local dict_hits = ngx.shared.dict_config_rules_hits
+local RULES_HIT_PREFIX = "waf_rules_hits:"
+local RULES_HIT_EXPTIME = 60
 
 local function writeLog(ruleType, data, rule, action)
     if config.isAttackLogOn then
@@ -106,26 +106,26 @@ end
 local function hit(ruleTable)
     local ruleMd5Str = md5(ruleTable.rule)
     local ruleType = ruleTable.ruleType
-    local key = ruleType .. '_' .. ruleMd5Str
-    local key_total = ruleType .. '_total_' .. ruleMd5Str
-    local newHits = 1
-    local newTotalHits = 1
+    local key = RULES_HIT_PREFIX .. ruleType .. '_' .. ruleMd5Str
+    local key_total = RULES_HIT_PREFIX .. ruleType .. '_total_' .. ruleMd5Str
+    local newHits = nil
+    local newTotalHits = nil
 
     if config.isRedisOn then
-        local count = redisCli.redisGet(prefix .. key)
+        local count = redisCli.redisGet(key)
         if not count then
-            redisCli.redisSet(prefix .. key, 1, exptime)
+            redisCli.redisSet(key, 1, RULES_HIT_EXPTIME)
         else
-            newHits, _ = redisCli.redisIncr(prefix .. key)
+            newHits, _ = redisCli.redisIncr(key)
         end
-        newTotalHits, _ = redisCli.redisIncr(prefix .. key_total)
+        newTotalHits, _ = redisCli.redisIncr(key_total)
     else
-        newHits, _ = dict_hits:incr(key, 1, 0, exptime)
+        newHits, _ = dict_hits:incr(key, 1, 0, RULES_HIT_EXPTIME)
         newTotalHits, _ = dict_hits:incr(key_total, 1, 0)
     end
 
-    ruleTable.hits = newHits
-    ruleTable.totalHits = newTotalHits
+    ruleTable.hits = newHits or 1
+    ruleTable.totalHits = newTotalHits or 1
 end
 
 function _M.doAction(ruleTable, data, ruleType, status)
@@ -133,9 +133,12 @@ function _M.doAction(ruleTable, data, ruleType, status)
     local action = toUpper(ruleTable.action)
     if ruleType == nil then
         ruleType = ruleTable.ruleType
+    else
+        ruleTable.ruleType = ruleType
     end
 
     hit(ruleTable)
+    ngx.ctx.ruleTable = ruleTable
 
     if action == "ALLOW" then
         writeLog(ruleType, data, rule, "ALLOW")

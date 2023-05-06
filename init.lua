@@ -28,6 +28,7 @@ config.isRedirectOn = config.isOptionOn("redirect")
 config.isRedisOn = config.isOptionOn("redis")
 config.isSensitiveDataFilteringOn = config.isOptionOn("sensitive_data_filtering")
 config.isBotOn = config.isOptionOn("bot")
+config.isDashboardOn = config.isOptionOn("dashboard")
 
 config.isProtectionMode = (config.get("mode") == "protection" and true or false)
 config.ccMaxFailTimes = config.get("cc_max_fail_times") == nil and 5 or tonumber(config.get("cc_max_fail_times"))
@@ -61,3 +62,4 @@ dict_config:set("rules", jsonStr)
 
 config.rules = rulesConfig
 config.html = readFileToString(config.get("redirect_html"))
+config.dashboardHtml = readFileToString(config.get("dashboard_html"))
