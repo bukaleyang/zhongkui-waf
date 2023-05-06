@@ -25,6 +25,7 @@
 + 敏感数据（身份证号码、手机号码、银行卡号、密码）脱敏及关键词过滤
 + 支持Redis，开启后IP请求频率、IP黑名单等数据将从Redis中读写
 + 攻击日志记录，包含IP地址、IP所属地区、攻击时间、防御动作、拦截规则等
++ 流量统计可视化
 
 ### 安装
 
@@ -51,6 +52,7 @@ lua_shared_dict dict_blackip 10m;
 lua_shared_dict dict_locks 100k;
 lua_shared_dict dict_config 5m;
 lua_shared_dict dict_config_rules_hits 5m;
+lua_shared_dict dict_req_count 5m; 
 
 lua_package_path "/usr/local/openresty/zhongkui-waf/?.lua;/usr/local/openresty/zhongkui-waf/lib/?.lua;;";
 init_by_lua_file  /usr/local/openresty/zhongkui-waf/init.lua;
@@ -58,6 +60,7 @@ init_worker_by_lua_file /usr/local/openresty/zhongkui-waf/init_worker.lua;
 access_by_lua_file /usr/local/openresty/zhongkui-waf/waf.lua;
 body_filter_by_lua_file /usr/local/openresty/zhongkui-waf/body_filter.lua;
 header_filter_by_lua_file /usr/local/openresty/zhongkui-waf/header_filter.lua;
+log_by_lua_file /usr/local/openresty/zhongkui-waf/dashboard/count_traffic.lua;
 ```
 
 #### libmaxminddb库
@@ -115,7 +118,7 @@ ip黑名单列表可以配置在`config.lua`文件中，也可以配置在`path-
 
 配置项`redirect`是`Zhongkui-WAF`的私钥，用于浏览器验证请求签名等，应妥善保管，安装后建议修改下，格式为任意字符组合，建议长度长一点。
 
-### CC攻击防御
+#### CC攻击防御
 
 cc攻击的配置文件是`path-to-zhongkui-waf/rules/cc.json`，可按单`URL`和单`IP`进行统计，超过阈值时直接拒绝请求或对浏览器进行验证，验证失败后可自动屏蔽IP地址。
 
@@ -171,6 +174,28 @@ cc攻击的配置文件是`path-to-zhongkui-waf/rules/cc.json`，可按单`URL`�
 2. 使用`$`字面量加数字，比如：`$0`指的是由该模式匹配的整个子串，而`$1`指第一个带括号的捕获子串。
 
 `words`是一个数组，可以用来配置一些需要过滤掉的关键词。
+
+### 流量统计可视化
+
+`Zhongkui-WAF`内置了简单的流量统计可视化功能，目前仅支持查看当天请求流量、攻击请求流量及攻击类别统计。
+
+需要将`dashboard`设置为"on"，然后在`Nginx`配置文件中配置访问地址：
+
+```nginx
+location /zhongkui/dashboard {
+    auth_basic on;
+    auth_basic_user_file /usr/local/openresty/nginx/conf/passwd;
+	content_by_lua_file /usr/local/openresty/zhongkui-waf/dashboard/dashboard.lua;
+}
+```
+
+这个url地址可以是任意地址，建议安装后修改，并且不要太简单，如`/admin`之类，否则很容易被猜测到。
+
+建议开启`auth_basic`认证。
+
+浏览器访问`/zhongkui/dashboard`，效果图如下：
+
+ ![dashboard](https://github.com/bukaleyang/zhongkui-waf/blob/master/images/dashboard.png) 
 
 ### Copyright and License
 
