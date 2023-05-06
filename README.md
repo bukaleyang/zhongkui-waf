@@ -185,7 +185,7 @@ cc攻击的配置文件是`path-to-zhongkui-waf/rules/cc.json`，可按单`URL`�
 location /zhongkui/dashboard {
     auth_basic on;
     auth_basic_user_file /usr/local/openresty/nginx/conf/passwd;
-	content_by_lua_file /usr/local/openresty/zhongkui-waf/dashboard/dashboard.lua;
+    content_by_lua_file /usr/local/openresty/zhongkui-waf/dashboard/dashboard.lua;
 }
 ```
 
