@@ -46,7 +46,7 @@ local function countAttackRequestTraffic(ruleTable)
     end
 end
 
-if config.isDashboardOn then
+if config.isWAFOn and config.isDashboardOn then
     countRequestTraffic()
 
     local ruleTable = ngx.ctx.ruleTable

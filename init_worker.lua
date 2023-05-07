@@ -20,10 +20,10 @@ local function sort(ruleType, t)
         local ruleMd5Str = md5(rt.rule)
         local key = ruleType .. '_' .. ruleMd5Str
         local key_total = ruleType .. '_total_' .. ruleMd5Str
-        
-        local hits = 0
-        local totalHits = 0
-        
+
+        local hits = nil
+        local totalHits = nil
+
         if config.isRedisOn then
             hits = redisGet(prefix .. key)
             totalHits = redisGet(prefix .. key_total)
@@ -31,13 +31,11 @@ local function sort(ruleType, t)
             hits = dict_hits:get(key)
             totalHits = dict_hits:get(key_total)
         end
-        
-        hits = (hits ~= nil and hits or 0)
-        totalHits = (totalHits ~= nil and totalHits or 0)
-        rt.hits = tonumber(hits)
-        rt.totalHits = tonumber(totalHits)
+
+        rt.hits = tonumber(hits) or 0
+        rt.totalHits = tonumber(totalHits) or 0
     end
-    
+
     table.sort(t, function(a, b)
         if a.hits > b.hits then
             return true
@@ -66,7 +64,7 @@ local sortTimerHandler = function(premature)
             rulesTable = sort(k, rulesTable)
         end
     end
-    
+
     local newJsonStr = cjson.encode(rulesConfig)
     dict_config:set("rules", newJsonStr)
 end
@@ -81,7 +79,7 @@ local getRulesTimerHandler = function(premature)
     config.rules = rulesConfig
 end
 
-if config.isRulesSortOn then
+if config.isWAFOn and config.isRulesSortOn then
     local workerId = ngx.worker.id()
     if workerId == 0 then
         local ok, err = every(delay, sortTimerHandler)

@@ -43,7 +43,7 @@ local function getAttackTypeTraffic()
     return dataStr
 end
 
-if config.isDashboardOn then
+if config.isWAFOn and config.isDashboardOn then
     local html = config.dashboardHtml
     local trafficDataStr = getRequestTraffic()
     local attackTypeDataStr = getAttackTypeTraffic()
