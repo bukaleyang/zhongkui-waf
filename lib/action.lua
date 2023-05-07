@@ -104,28 +104,30 @@ function _M.blockIp(ip, ruleTab)
 end
 
 local function hit(ruleTable)
-    local ruleMd5Str = md5(ruleTable.rule)
-    local ruleType = ruleTable.ruleType
-    local key = RULES_HIT_PREFIX .. ruleType .. '_' .. ruleMd5Str
-    local key_total = RULES_HIT_PREFIX .. ruleType .. '_total_' .. ruleMd5Str
-    local newHits = nil
-    local newTotalHits = nil
+    if config.isRulesSortOn then
+        local ruleMd5Str = md5(ruleTable.rule)
+        local ruleType = ruleTable.ruleType
+        local key = RULES_HIT_PREFIX .. ruleType .. '_' .. ruleMd5Str
+        local key_total = RULES_HIT_PREFIX .. ruleType .. '_total_' .. ruleMd5Str
+        local newHits = nil
+        local newTotalHits = nil
 
-    if config.isRedisOn then
-        local count = redisCli.redisGet(key)
-        if not count then
-            redisCli.redisSet(key, 1, RULES_HIT_EXPTIME)
+        if config.isRedisOn then
+            local count = redisCli.redisGet(key)
+            if not count then
+                redisCli.redisSet(key, 1, RULES_HIT_EXPTIME)
+            else
+                newHits, _ = redisCli.redisIncr(key)
+            end
+            newTotalHits, _ = redisCli.redisIncr(key_total)
         else
-            newHits, _ = redisCli.redisIncr(key)
+            newHits, _ = dict_hits:incr(key, 1, 0, RULES_HIT_EXPTIME)
+            newTotalHits, _ = dict_hits:incr(key_total, 1, 0)
         end
-        newTotalHits, _ = redisCli.redisIncr(key_total)
-    else
-        newHits, _ = dict_hits:incr(key, 1, 0, RULES_HIT_EXPTIME)
-        newTotalHits, _ = dict_hits:incr(key_total, 1, 0)
-    end
 
-    ruleTable.hits = newHits or 1
-    ruleTable.totalHits = newTotalHits or 1
+        ruleTable.hits = newHits or 1
+        ruleTable.totalHits = newTotalHits or 1
+    end
 end
 
 function _M.doAction(ruleTable, data, ruleType, status)
