@@ -2,9 +2,12 @@ local config = require "config"
 local redisCli = require "redisCli"
 local loggerFactory = require "loggerFactory"
 local cc = require "cc"
+local cjson = require "cjson.safe"
+local stringutf8 = require "stringutf8"
 
 local md5 = ngx.md5
 local toUpper = string.upper
+local concat = table.concat
 
 local _M = {}
 
@@ -18,22 +21,51 @@ local RULES_HIT_EXPTIME = 60
 local function writeLog(ruleType, data, rule, action)
     if config.isAttackLogOn then
         local realIp = ngx.ctx.ip
-        local geoName = ngx.ctx.geoip.name
+        local country = ngx.ctx.geoip.country
+        local province = ngx.ctx.geoip.province
+        local city = ngx.ctx.geoip.city
         local method = ngx.req.get_method()
         local url = ngx.var.request_uri
         local ua = ngx.ctx.ua
         local host = ngx.var.server_name
+        local protocol = ngx.var.server_protocol
         local time = ngx.localtime()
-        if ua == nil or ua == "" then
-            ua = "-"
-        end
-        if action == nil or action == "" then
-            action = "-"
-        end
-        local logStr = ruleType .. " " .. realIp .. " " .. geoName .. " [" .. time .. "] \"" .. method .. " " .. host .. url .. "\" \"" .. data .. "\"  \"" .. ua .. "\" \"" .. rule .. "\" " .. action .. "\n"
 
-        local hostLogger = loggerFactory.getLogger(logPath, host, true)
-        hostLogger:log(logStr)
+        if config.isJsonFormatLogOn then
+            local logTable = {
+                attack_type = ruleType,
+                remote_addr = realIp,
+                geoip_country = country,
+                geoip_province = province,
+                geoip_city = city,
+                attack_time = time,
+                http_method = method,
+                server = host,
+                request_uri = url,
+                request_protocol = protocol,
+                request_data = data or '',
+                user_agent = ua,
+                hit_rule = rule,
+                action = action
+            }
+            local logStr, err = cjson.encode(logTable)
+            if logStr then
+                local hostLogger = loggerFactory.getLogger(logPath, host, true)
+                hostLogger:log(logStr .. '\n')
+            else
+                ngx.log(ngx.ERR, "failed to encode json: ", err)
+            end
+        else
+            local address = country .. province .. city
+            address = stringutf8.defaultIfBlank(address, '-')
+            ua = stringutf8.defaultIfBlank(ua, '-')
+            data = stringutf8.defaultIfBlank(data, '-')
+
+            local logStr = concat({ruleType, realIp, address, "[" .. time .. "]", '"' .. method, host, url, protocol .. '"', data, '"' .. ua .. '"', '"' .. rule .. '"', action},' ')
+            local hostLogger = loggerFactory.getLogger(logPath, host, true)
+            hostLogger:log(logStr .. '\n')
+        end
+
     end
 end
 
@@ -65,7 +97,6 @@ end
 -- block ip
 function _M.blockIp(ip, ruleTab)
     if toUpper(ruleTab.autoIpBlock) == "ON" and ip then
-
         local ok, err, exists = nil, nil, nil
 
         if config.isRedisOn then
@@ -91,7 +122,7 @@ function _M.blockIp(ip, ruleTab)
 
         if ok then
             local hostLogger = loggerFactory.getLogger(logPath .. "ipBlock.log", 'ipBlock', false)
-            hostLogger:log(ngx.localtime() .. " " .. ip .. "\n")
+            hostLogger:log(concat({ngx.localtime(), ip, ruleTab.ruleType}, ' ') .. "\n")
 
             if ruleTab.ipBlockTimeout == 0 then
                 local ipBlackLogger = loggerFactory.getLogger(rulePath .. "ipBlackList", 'ipBlack', false)

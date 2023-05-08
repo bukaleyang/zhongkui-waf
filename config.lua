@@ -8,13 +8,15 @@ local config = {
     -- protection: Intercept attack requests and record attack logs
     mode = "protection",
 
-	-- 开启规则自动排序，开启后按规则命中次数降序排序，可以提高拦截效率
+    -- 开启规则自动排序，开启后按规则命中次数降序排序，可以提高拦截效率
     rules_sort = "off",
     -- 规则每隔多少秒排序一次
     rules_sort_period = 60,
 
     -- 攻击日志
     attackLog = "on",
+    -- 攻击日志输出为json格式
+    attackLog_json_format = "off",
     -- waf日志文件路径
     logPath = "/usr/local/openresty/nginx/logs/hack/",
     -- 规则文件路径
@@ -37,7 +39,7 @@ local config = {
     -- 开启ip黑名单
     blackIP = "on",
     -- ip黑名单列表，支持网段配置，"127.0.0.1/24"或"127.0.0.1/255.255.255.0"，也可以配置在./rules/ipBlackList文件中
-    ipBlackList = {"127.0.0.1"},
+    ipBlackList = {},
 
     -- url白名单
     whiteURL = "on",
@@ -57,7 +59,7 @@ local config = {
     cookie = "off",
 
     -- bot管理
-    bot = "on",
+    bot = "off",
 
     -- cc攻击拦截
     cc_defence = "on",

@@ -1,5 +1,6 @@
 local len = string.len
 local sub = string.sub
+local match = string.match
 
 local concat = table.concat
 local insert = table.insert
@@ -128,6 +129,14 @@ function _M.len(str)
     end
 
     return strLength
+end
+
+function _M.defaultIfBlank(str, defaultStr)
+    if str == nil or match(str, "^%s*$") then
+        return defaultStr
+    end
+
+    return str
 end
 
 return _M

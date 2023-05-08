@@ -15,6 +15,7 @@ local rulePath = config.get("rulePath")
 
 config.isWAFOn = config.isOptionOn("waf")
 config.isAttackLogOn = config.isOptionOn("attackLog")
+config.isJsonFormatLogOn = config.isOptionOn("attackLog_json_format")
 config.isGeoIPOn = config.isOptionOn("geoip")
 config.isWhiteURLOn = config.isOptionOn("whiteURL")
 config.isBlackURLOn = config.isOptionOn("blackURL")

@@ -2,7 +2,7 @@ local geoip = require "geoip"
 local config = require "config"
 local lib = require "lib"
 local ipUtils = require "ip"
-local geoip_default = {isAllowed = true, name = '-'}
+local geoip_default = {isAllowed = true, country = '', province = '', city = ''}
 
 local function init()
     local ip = ipUtils.getClientIP()
@@ -37,7 +37,7 @@ if config.isWAFOn then
 
     elseif lib.isWhiteURL() then
 
-	elseif lib.isBlackURL() then
+    elseif lib.isBlackURL() then
 
     elseif lib.isEvilArgs() then
 

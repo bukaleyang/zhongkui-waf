@@ -4,7 +4,7 @@ local config = require "config"
 local _M = {}
 
 local dbFile = config.get('geoip_db_file')
-local allowCountryList = config.get('geoip_allow_country')
+local allowCountryList = config.get('geoip_allow_country') or {}
 local language = config.get("geoip_language") ~= '' and config.get("geoip_language") or 'en'
 local allowCountry = false
 
@@ -15,30 +15,26 @@ function _M.lookup(ip)
     end
 
     local isAllowed = true
-    local result = '-'
+    local country = nil
+    local province = nil
+    local city = nil
 
     --support ipv6 e.g. 2001:4860:0:1001::3004:ef68
-    local res,err = geo.lookup(ip)
+    local res, err = geo.lookup(ip)
 
     if not res then
         ngx.log(ngx.ERR, 'failed to lookup by ip ,reason:', err)
     else
-        result = res['country']['names'][language]
+        country = res['country']['names'][language] or ''
 
         local subdivisions = res['subdivisions']
         if subdivisions then
-            local name = subdivisions[1]['names'][language]
-            if name ~= nil then
-                result = result .. name
-            end
+            province = subdivisions[1]['names'][language] or ''
         end
 
-        local city = res['city']
-        if city then
-            local name = city['names'][language]
-            if name ~= nil then
-                result = result .. name
-            end
+        local cityRes = res['city']
+        if cityRes then
+            city = cityRes['names'][language] or ''
         end
 
         if allowCountry then
@@ -54,8 +50,7 @@ function _M.lookup(ip)
         end
     end
 
-    return {isAllowed = isAllowed, name = result}
+    return { isAllowed = isAllowed, country = country, province = province, city = city }
 end
-
 
 return _M
