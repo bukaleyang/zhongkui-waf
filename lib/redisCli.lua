@@ -3,40 +3,46 @@ local config = require "config"
 -- register the module prefix "bf" for RedisBloom
 redis.register_module_prefix("bf")
 
+local tonumber = tonumber
+local tostring = tostring
+local ngxmatch = ngx.re.match
+
 local _M = {}
 
 local host = config.get("redis_host")
-local port = 6379
-local redis_port = config.get("redis_port")
-if redis_port ~= nil and redis_port ~= "" then
-    port = tonumber(redis_port)
-end
-
+local port = tonumber(config.get("redis_port")) or 6379
 local passwd = config.get("redis_passwd")
-
 local poolSize = config.get("redis_pool_size")
 
 local redis_timeouts = config.get("redis_timeouts")
 local connect_timeout, send_timeout, read_timeout = 1000, 1000, 1000
 if redis_timeouts then
-    connect_timeout = tonumber(string.match(config.get("redis_timeouts"), "(%d+),%d+,%d+"))
-    send_timeout = tonumber(string.match(config.get("redis_timeouts"), "%d+,(%d+),%d+"))
-    read_timeout = tonumber(string.match(config.get("redis_timeouts"), "%d+,%d+,(%d+)"))
+    local m, err = ngxmatch(tostring(redis_timeouts), "(\\d+),(\\d+),(\\d+)")
+    if m then
+        connect_timeout = tonumber(m[1]) or 1000
+        send_timeout = tonumber(m[2]) or 1000
+        read_timeout = tonumber(m[3]) or 1000
+    else
+        ngx.log(ngx.ERR, "failed to read redis timeouts config:", err)
+    end
 end
 
 local redisSSL = config.get("redis_ssl")
 local filterName = "blackIpFilter"
 
 local function getRedisConn()
-
-    local red = redis:new()
+    local red, err1 = redis:new()
+    if not red then
+        ngx.log(ngx.ERR, "failed to new redis:", err1)
+        return nil, err1
+    end
 
     red:set_timeouts(connect_timeout, send_timeout, read_timeout)
 
-    local ok, err = red:connect(host, port, {ssl = redisSSL, pool_size = poolSize})
+    local ok, err = red:connect(host, port, { ssl = redisSSL, pool_size = poolSize })
 
     if not ok then
-        ngx.log(ngx.ERR, "failed to connect: " .. err .. "\n", err)
+        ngx.log(ngx.ERR, "failed to connect: ", err .. "\n")
         return ok, err
     end
 
@@ -45,10 +51,10 @@ local function getRedisConn()
         times, err = red:get_reused_times()
 
         if times == 0 then
-            local res, err = red:auth(passwd)
+            local res, err2 = red:auth(passwd)
             if not res then
-                ngx.log(ngx.ERR, "failed to authenticate: " .. err .. "\n", err)
-                return times, err
+                ngx.log(ngx.ERR, "failed to authenticate: ", err2)
+                return times, err2
             end
         end
     end
@@ -61,18 +67,18 @@ local function closeRedisConn(red)
     -- with 10 seconds max idle time
     local ok, err = red:set_keepalive(10000, 100)
     if not ok then
-        ngx.log(ngx.ERR, "failed to set keepalive: " .. err .. "\n", err)
+        ngx.log(ngx.ERR, "failed to set keepalive: ", err)
         return
     end
 end
 
 function _M.redisSet(key, value, expireTime)
-    local red, err = getRedisConn()
+    local red, _ = getRedisConn()
     if red then
-        local ok, err = red:set(key, value)
+        local ok, err1 = red:set(key, value)
         if not ok then
-            ngx.log(ngx.ERR, "failed to set key: " .. key .. " "  .. err .. "\n", err)
-            return ok, err
+            ngx.log(ngx.ERR, "failed to set key: " .. key .. " ", err1)
+            return ok, err1
         elseif expireTime and expireTime > 0 then
             red:expire(key, expireTime)
         end
@@ -87,7 +93,7 @@ function _M.redisGet(key)
     if red then
         value, err = red:get(key)
         if not value then
-            ngx.log(ngx.ERR, "failed to get key: " .. key .. " "  .. err .. "\n", err)
+            ngx.log(ngx.ERR, "failed to get key: " .. key, err)
             return value, err
         end
         if value == ngx.null then
@@ -98,13 +104,15 @@ function _M.redisGet(key)
     return value, err
 end
 
-function _M.redisIncr(key)
+function _M.redisIncr(key, expireTime)
     local red, err = getRedisConn()
     local res = 1
     if red then
         res, err = red:incr(key)
         if not res then
-            ngx.log(ngx.ERR, "failed to incr key: " .. key .. " " .. err .. "\n", err)
+            ngx.log(ngx.ERR, "failed to incr key: " .. key, err)
+        elseif res == 1 and expireTime and expireTime > 0 then
+            red:expire(key, expireTime)
         end
         closeRedisConn(red)
     end
@@ -118,7 +126,7 @@ function _M.redisBFAdd(value)
         -- call BF.ADD command with the prefix 'bf'
         res, err = red:bf():add(filterName, value)
         if not res then
-            ngx.log(ngx.ERR, "bf():add value: " .. value .. " " .. err .. "\n", err)
+            ngx.log(ngx.ERR, "bf():add value: " .. value, err)
             return res, err
         end
 
@@ -134,7 +142,7 @@ function _M.redisBFExists(value)
         -- call BF.EXISTS command
         res, err = red:bf():exists(filterName, value)
         if not res then
-            ngx.log(ngx.ERR, "bf():exists value: " .. value .. " " .. err .. "\n", err)
+            ngx.log(ngx.ERR, "bf():exists value: " .. value, err)
             return res, err
         elseif res == 1 then
             closeRedisConn(red)

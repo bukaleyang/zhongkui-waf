@@ -10,10 +10,11 @@ local ATTACK_TYPE_PREFIX = "attack_type_"
 local function countRequestTraffic()
     local hour = time.getDateHour()
     local dict = ngx.shared.dict_req_count
-    local count, err = dict:incr(hour, 1)
-    if not count and err == "not found" then
-        local expireTime = time.getExpireTime()
+    local expireTime = time.getExpireTime()
+    local count, err = dict:incr(hour, 1, 0, expireTime)
+    if not count then
         dict:set(hour, 1, expireTime)
+        ngx.log(ngx.ERR, "failed to count traffic ", err)
     end
 end
 
@@ -25,24 +26,25 @@ local function countAttackRequestTraffic(ruleTable)
     local ruleType = upper(ruleTable.ruleType)
     local dict = ngx.shared.dict_req_count
     local count, err = nil, nil
+    local expireTime = time.getExpireTime()
 
     if ruleType ~= 'WHITEIP' then
         local hour = time.getDateHour()
         local key = ATTACK_PREFIX .. hour
-        count, err = dict:incr(key, 1)
-        if not count and err == "not found" then
-            local expireTime = time.getExpireTime()
+        count, err = dict:incr(key, 1, 0, expireTime)
+        if not count then
             dict:set(key, 1, expireTime)
+            ngx.log(ngx.ERR, "failed to count attack traffic ", err)
         end
     end
 
     local today = ngx.today() .. '_'
     local typeKey = ATTACK_TYPE_PREFIX .. today .. ruleType
-    count, err = dict:incr(typeKey, 1)
+    count, err = dict:incr(typeKey, 1, 0, expireTime)
 
     if not count and err == "not found" then
-        local expireTime = time.getExpireTime()
         dict:set(typeKey, 1, expireTime)
+        ngx.log(ngx.ERR, "failed to count attack traffic ", err)
     end
 end
 

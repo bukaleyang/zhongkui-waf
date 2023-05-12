@@ -20,7 +20,6 @@ local methodWhiteList = config.get("methodWhiteList")
 
 -- whether or not the regular expression matches on the input
 local function matches(input, regex, options, ctx, nth)
-
     if not options then
         options = "isjo"
     end
@@ -34,17 +33,17 @@ end
 
 
 local function matchRule(ruleTab, str, options)
-	if str == nil or next(ruleTab) == nil then
+    if str == nil or next(ruleTab) == nil then
         return false
-	end
+    end
 
     for _, t in ipairs(ruleTab) do
         if matches(str, t.rule, options) then
             return true, t
-		end
-	end
+        end
+    end
 
-	return false
+    return false
 end
 
 
@@ -59,7 +58,7 @@ local function loadIPBlackList()
 
         for _, ip in ipairs(config.ipBlackList) do
             blackip:set(ip, 1)
-	    end
+        end
     end
 end
 
@@ -67,23 +66,23 @@ end
 function _M.isWhiteIp()
     if config.isWhiteIPOn then
         local ip = ngx.ctx.ip
-	    if ip == "unknown" then
+        if ip == "unknown" then
             return false
-	    end
+        end
 
-	    for _, v in pairs(config.ipWhiteList) do
+        for _, v in pairs(config.ipWhiteList) do
             if type(v) == 'table' then
                 if ipUtils.isSameSubnet(v, ip) then
-                    doAction(config.rules.whiteIp, "_", nil, nil)
+                    doAction(config.rules.whiteIp, nil, nil, nil)
                     return true
                 end
             else
                 if ip == v then
-                    doAction(config.rules.whiteIp, "-", nil, nil)
+                    doAction(config.rules.whiteIp, nil, nil, nil)
                     return true
-		        end
+                end
             end
-	    end
+        end
     end
 
     return false
@@ -93,8 +92,8 @@ end
 function _M.isBlackIp()
     if config.isBlackIPOn then
         if not blackIPLoaded then
-           loadIPBlackList()
-           blackIPLoaded = true
+            loadIPBlackList()
+            blackIPLoaded = true
         end
 
         local ip = ngx.ctx.ip
@@ -102,7 +101,7 @@ function _M.isBlackIp()
             return false
         end
 
-        local exists = false
+        local exists = nil
 
         if ngx.ctx.geoip.isAllowed == false then
             exists = true
@@ -127,7 +126,7 @@ function _M.isBlackIp()
         end
 
         if exists then
-            doAction(config.rules.blackIp, "-", nil, nil)
+            doAction(config.rules.blackIp, nil, nil, nil)
         end
 
         return exists
@@ -140,12 +139,12 @@ function _M.isUnsafeHttpMethod()
     local method_name = ngx.req.get_method()
 
     for _, m in ipairs(methodWhiteList) do
-	    if method_name == m then
-		    return false
-		end
-	end
+        if method_name == m then
+            return false
+        end
+    end
 
-    doAction(config.rules.unsafeMethod, method_name, nil, nil)
+    doAction(config.rules.unsafeMethod, nil, nil, nil)
     return true
 end
 
@@ -155,7 +154,7 @@ function _M.isBot()
 
         local m, ruleTable = matchRule(config.rules["user-agent"], ua)
         if m then
-            doAction(ruleTable, "_", nil, nil)
+            doAction(ruleTable, nil, nil, nil)
             return true
         end
     end
@@ -182,42 +181,32 @@ function _M.isCC()
 
             if config.isRedisOn then
                 local prefix = "cc_req_count:"
-                local redisCount = redisCli.redisGet(prefix .. token)
-                local count = tonumber(redisCount)
+                local count, _ = redisCli.redisIncr(prefix .. token, ruleTab.duration)
                 if not count then
                     redisCli.redisSet(prefix .. token, 1, ruleTab.duration)
-                elseif count >= ruleTab.threshold then
-                    redisCli.redisIncr(prefix .. token)
-                    count = count + 1
-                    if count >= (config.ccMaxFailTimes + ruleTab.threshold) then
+                elseif count > ruleTab.threshold then
+                    if count > (config.ccMaxFailTimes + ruleTab.threshold) then
                         blockIp(ip, ruleTab)
                     end
-                    doAction(ruleTab, "_", ruleTab.rule, 503)
+                    doAction(ruleTab, nil, ruleTab.rule, 503)
 
                     return true
-                else
-                    redisCli.redisIncr(prefix .. token)
                 end
             else
                 local limit = ngx.shared.dict_cclimit
-                local count, _ = limit:get(token)
+                local count, _ = limit:incr(token, 1, 0, ruleTab.duration)
                 if not count then
                     limit:set(token, 1, ruleTab.duration)
-                elseif count >= ruleTab.threshold then
-                    limit:incr(token, 1)
-                    count = count + 1
-                    if count >= (config.ccMaxFailTimes + ruleTab.threshold) then
+                elseif count > ruleTab.threshold then
+                    if count > (config.ccMaxFailTimes + ruleTab.threshold) then
                         blockIp(ip, ruleTab)
                     end
-                    doAction(ruleTab, "_", ruleTab.rule, 503)
+                    doAction(ruleTab, nil, ruleTab.rule, 503)
 
                     return true
-                else
-                    limit:incr(token, 1)
                 end
             end
         end
-
     end
 
     return false
@@ -232,13 +221,13 @@ function _M.isWhiteURL()
         end
         local m, ruleTable = matchRule(config.rules.whiteUrl, url)
         if m then
-            doAction(ruleTable, "-", nil, nil)
-		    return true
+            doAction(ruleTable, nil, nil, nil)
+            return true
         end
         return false
     end
 
-	return false
+    return false
 end
 
 -- Returns true if the url rule is matched, otherwise false
@@ -251,13 +240,12 @@ function _M.isBlackURL()
 
         local m, ruleTable = matchRule(config.rules.blackUrl, url)
         if m then
-            doAction(ruleTable, "-", nil, nil)
+            doAction(ruleTable, nil, nil, nil)
             return true
         end
     end
-	return false
+    return false
 end
-
 
 function _M.isEvilArgs()
     local args = ngx.req.get_uri_args()
@@ -268,10 +256,10 @@ function _M.isEvilArgs()
                 vals = table.concat(val, ", ")
             end
 
-            if vals and type(vals) ~= "boolean" and vals ~="" then
+            if vals and type(vals) ~= "boolean" and vals ~= "" then
                 local m, ruleTable = matchRule(config.rules.args, decoder.unescapeUri(vals))
                 if m then
-                    doAction(ruleTable, "-", nil, nil)
+                    doAction(ruleTable, nil, nil, nil)
                     return true
                 end
             end
@@ -294,7 +282,7 @@ function _M.isEvilHeaders()
     if ua and ua ~= "" then
         local m, ruleTable = matchRule(config.rules.headers, ua)
         if m then
-            doAction(ruleTable, ua, "headers-ua", nil)
+            doAction(ruleTable, nil, "headers-ua", nil)
             return true
         end
     end
@@ -364,7 +352,7 @@ function _M.isEvilReqBody()
         if boundary then
             local sock, erro = ngx.req.socket()
             local size = 0
-            ngx.req.init_body(128 * 1024)  -- buffer is 128KB
+            ngx.req.init_body(128 * 1024) -- buffer is 128KB
 
             local delimiter = '--' .. boundary
             local delimiterEnd = '--' .. boundary .. '--'
@@ -397,8 +385,7 @@ function _M.isEvilReqBody()
                             end
                             body = ''
                         end
-                    elseif line ~='' then
-
+                    elseif line ~= '' then
                         if isFile then
                             if body == '' then
                                 local fr = matches(line, "Content-Type:\\s*\\S+/\\S+", "ijo")
@@ -409,13 +396,15 @@ function _M.isEvilReqBody()
                                 body = body .. line .. '\n'
                             end
                         else
-                            local from, to = matches(line, [[Content-Disposition:\s*form-data;[\s\S]+filename=["|'][\s\S]+\.(\w+)(?:"|')]], "ijo", nil, 1)
+                            local from, to = matches(line,
+                                [[Content-Disposition:\s*form-data;[\s\S]+filename=["|'][\s\S]+\.(\w+)(?:"|')]], "ijo",
+                                nil, 1)
 
                             if from then
                                 local ext = string.sub(line, from, to)
 
                                 if _M.isBlackFileExt(ext) then
-                                   return true
+                                    return true
                                 end
 
                                 isFile = true
@@ -426,7 +415,6 @@ function _M.isEvilReqBody()
                                 end
                             end
                         end
-
                     end
                     size = size + string.len(line)
                     ngx.req.append_body(line .. '\n')
@@ -434,7 +422,6 @@ function _M.isEvilReqBody()
             end
 
             ngx.req.finish_body()
-
         elseif matches(contentType, "\\s*x-www-form-urlencoded") then
             ngx.req.read_body()
             local args, err = ngx.req.get_post_args()
@@ -481,7 +468,7 @@ function _M.isEvilCookies()
     if config.isCookieOn and cookie then
         local m, ruleTable = matchRule(config.rules.cookie, cookie)
         if m then
-            doAction(ruleTable, "-", nil, nil)
+            doAction(ruleTable, nil, nil, nil)
             return true
         end
     end
