@@ -50,7 +50,7 @@ function _M.lookup(ip)
         end
     end
 
-    return { isAllowed = isAllowed, country = country, province = province, city = city }
+    return { isAllowed = isAllowed, country = country or '', province = province or '', city = city or '' }
 end
 
 return _M
