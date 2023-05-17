@@ -5,6 +5,7 @@ redis.register_module_prefix("bf")
 
 local tonumber = tonumber
 local tostring = tostring
+local ipairs = ipairs
 local ngxmatch = ngx.re.match
 
 local _M = {}
@@ -81,6 +82,31 @@ function _M.redisSet(key, value, expireTime)
             return ok, err1
         elseif expireTime and expireTime > 0 then
             red:expire(key, expireTime)
+        end
+
+        closeRedisConn(red)
+    end
+end
+
+function _M.redisBathSet(keyTable, value, keyPrefix)
+    local red, _ = getRedisConn()
+    if red then
+        red:init_pipeline()
+
+        if keyPrefix then
+            for _, ip in ipairs(keyTable) do
+                red:set(keyPrefix .. ip, value)
+            end
+        else
+            for _, ip in ipairs(keyTable) do
+                red:set(ip, value)
+            end
+        end
+
+        local results, err = red:commit_pipeline()
+        if not results then
+            ngx.log(ngx.ERR, "failed to set keys: ", err)
+            return results, err
         end
 
         closeRedisConn(red)

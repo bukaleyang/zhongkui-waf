@@ -49,15 +49,15 @@ end
 
 -- Load the ip blacklist in the configuration file and log file to the ngx.shared.dict_blackip or Redis
 local function loadIPBlackList()
-    if config.isRedisOn then
-        for _, ip in ipairs(config.ipBlackList) do
-            redisCli.redisBFAdd(ip)
-        end
-    else
-        local blackip = ngx.shared.dict_blackip
+    if config.ipBlackList then
+        if config.isRedisOn then
+            redisCli.redisBathSet(config.ipBlackList, 0, "black_ip:")
+        else
+            local blackip = ngx.shared.dict_blackip
 
-        for _, ip in ipairs(config.ipBlackList) do
-            blackip:set(ip, 1)
+            for _, ip in ipairs(config.ipBlackList) do
+                blackip:set(ip, 1)
+            end
         end
     end
 end
