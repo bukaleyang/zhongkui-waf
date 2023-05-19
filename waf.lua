@@ -47,6 +47,8 @@ if config.isWAFOn then
 
     elseif lib.isEvilCookies() then
 
+    elseif lib.isACL() then
+
     end
 
 end

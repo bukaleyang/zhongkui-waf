@@ -212,6 +212,107 @@ function _M.isCC()
     return false
 end
 
+function _M.isACL()
+    local rules = config.rules.acl
+    for _, ruleTab in pairs(rules) do
+        local conditions = ruleTab.conditions
+        local match = true
+        for _, condition in pairs(conditions) do
+            local field = condition.field
+            local pattern = condition.pattern
+            if field == 'URL' then
+                local url = ngx.var.request_uri
+                if not matches(url, pattern) then
+                    match = false
+                    break
+                end
+            elseif field == 'Cookie' then
+                local cookie = ngx.var.http_cookie
+                local name = condition.name
+                if name ~= nil and name ~= '' then
+                    cookie = ngx.var.http_cookie
+                    local cookies = ngx.req.get_headers()["Cookie"]
+                    if not cookies or not cookies[name] then
+                        match = false
+                        break
+                    else
+                        cookie = cookies[name]
+                    end
+                else
+                    cookie = ngx.var.http_cookie
+                end
+
+                if pattern == '' then
+                    if cookie ~= nil and cookie ~= '' then
+                        match = false
+                        break
+                    end
+                else
+                    if not matches(cookie, pattern) then
+                        match = false
+                        break
+                    end
+                end
+            elseif field == 'Header' then
+                local name = condition.name
+                local value = nil
+                if name ~= nil and name ~= '' then
+                    local headers = ngx.req.get_headers()
+                    if not headers then
+                        match = false
+                        break
+                    else
+                        value = headers[name]
+                    end
+                end
+
+                if pattern == '' then
+                    if value ~= nil and value ~= '' then
+                        match = false
+                        break
+                    end
+                else
+                    if not matches(value, pattern) then
+                        match = false
+                        break
+                    end
+                end
+            elseif field == 'Referer' then
+                local referer = ngx.var.http_referer
+                if pattern == '' then
+                    if referer ~= nil and referer ~= '' then
+                        match = false
+                        break
+                    end
+                else
+                    if not matches(referer, pattern) then
+                        match = false
+                        break
+                    end
+                end
+            elseif field == 'User-Agent' then
+                local ua = ngx.var.http_user_agent
+                if pattern == '' then
+                    if ua ~= nil and ua ~= '' then
+                        match = false
+                        break
+                    end
+                else
+                    if not matches(ua, pattern) then
+                        match = false
+                        break
+                    end
+                end
+            end
+        end
+        if match then
+            local ip = ngx.ctx.ip
+            blockIp(ip, ruleTab)
+            doAction(ruleTab, nil, ruleTab.rule)
+        end
+    end
+end
+
 -- Returns true if the whiteURL rule is matched, otherwise false
 function _M.isWhiteURL()
     if config.isWhiteURLOn then

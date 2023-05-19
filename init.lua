@@ -50,6 +50,7 @@ rulesConfig.post = readRule(rulePath, "post")
 rulesConfig.cookie = readRule(rulePath, "cookie")
 rulesConfig.headers = readRule(rulePath, "headers")
 rulesConfig.cc = readRule(rulePath, "cc")
+rulesConfig.acl = readRule(rulePath, "acl")
 rulesConfig.sensitive, rulesConfig.sensitiveWords = readRule(rulePath, "sensitive")
 rulesConfig["user-agent"] = readRule(rulePath, "user-agent")
 
