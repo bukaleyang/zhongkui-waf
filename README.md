@@ -11,6 +11,7 @@
     2. 保护模式（protection）：拦截攻击请求并记录攻击日志
     3. 监控模式（monitor）：记录攻击日志但不拦截攻击请求
 + 支持规则自动排序，开启后按规则命中次数降序排序，可提高拦截效率
++ 支持ACL自定义规则
 + IP黑名单、白名单，支持网段配置，"127.0.0.1/24"或"127.0.0.1/255.255.255.0"
 + HTTP Method白名单
 + URL黑名单、白名单
@@ -130,6 +131,48 @@ cc攻击的配置文件是`path-to-zhongkui-waf/rules/cc.json`，可按单`URL`�
 + `action`：cc攻击处置动作，`redirect_js`、`redirect_302`仅适用于网页或H5，APP或API等环境，应设置为：`deny`。
 + `autoIpBlock`：在浏览器验证失败后自动屏蔽IP，`on`是开启，`off`是关闭。拉黑日志保存在`./logPath/ipBlock.log`文件中。
 + `ipBlockTimeout`：ip禁止访问时间，单位是秒，如果设置为`0`则永久禁止并保存在`./rules/ipBlackList`文件中。
+
+#### ACL自定义规则
+
+自定义规则的配置文件是`path-to-zhongkui-waf/rules/acl.json`，你可以按实际需要灵活配置规则组合。
+
+配置项说明：
+
++ `rule`：规则名称。
++ `conditions`：匹配条件，可以是多个条件的组合，每个条件之间为”且“的关系。
+    + `field`：匹配字段，可以是`URL`、`Cookie`、`Header`、`Referer`、`User-Agent`。
+    + `pattern`：匹配内容，对字段进行匹配的正则表达式，当设置为""时，则表示匹配对应`field`不存在的请求。
+    + `name`：当field为`Cookie`或`Header`时，可以匹配具体的Cookie Name或Header Name。
++ `action`：匹配到规则后的处置动作，`redirect_js`、`redirect_302`仅适用于网页或H5，APP或API等环境，应设置为：`deny`。
++ `autoIpBlock`：在浏览器验证失败后自动屏蔽IP，`on`是开启，`off`是关闭。拉黑日志保存在`./logPath/ipBlock.log`文件中。
++ `ipBlockTimeout`：ip禁止访问时间，单位是秒，如果设置为`0`则永久禁止并保存在`./rules/ipBlackList`文件中。
+
+下面这个例子，可以拦截URL为`/test/12345.html`且没有`Cookie`的请求。
+
+```json
+{
+    "rules": [
+        {
+            "state": "off",
+            "rule": "no Cookie",
+            "conditions": [
+                {
+                    "field": "URL",
+                    "pattern": "/test/\\d+\\.html"
+                },
+                {
+                    "field": "Cookie",
+                    "pattern": ""
+                }
+            ],
+            "action": "deny",
+            "autoIpBlock": "off",
+            "ipBlockTimeout": 60,
+            "description": "拦截不带Cookie的请求"
+        }
+    ]
+}
+```
 
 #### 敏感数据过滤
 
