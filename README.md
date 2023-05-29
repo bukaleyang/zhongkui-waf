@@ -144,16 +144,16 @@ cc攻击的配置文件是`path-to-zhongkui-waf/rules/cc.json`，可按单`URL`�
     + `pattern`：匹配内容，对字段进行匹配的正则表达式，当设置为""时，则表示匹配对应`field`不存在的请求。
     + `name`：当field为`Cookie`或`Header`时，可以匹配具体的Cookie Name或Header Name。
 + `action`：匹配到规则后的处置动作，`redirect_js`、`redirect_302`仅适用于网页或H5，APP或API等环境，应设置为：`deny`。
-+ `autoIpBlock`：在浏览器验证失败后自动屏蔽IP，`on`是开启，`off`是关闭。拉黑日志保存在`./logPath/ipBlock.log`文件中。
++ `autoIpBlock`：匹配到规则后自动屏蔽IP，`on`是开启，`off`是关闭。拉黑日志保存在`./logPath/ipBlock.log`文件中。
 + `ipBlockTimeout`：ip禁止访问时间，单位是秒，如果设置为`0`则永久禁止并保存在`./rules/ipBlackList`文件中。
 
-下面这个例子，可以拦截URL为`/test/12345.html`且没有`Cookie`的请求。
+下面这个例子，可以拦截URL为`/test/12345.html`且没有`Cookie`的请求：
 
 ```json
 {
     "rules": [
         {
-            "state": "off",
+            "state": "on",
             "rule": "no Cookie",
             "conditions": [
                 {
@@ -169,6 +169,30 @@ cc攻击的配置文件是`path-to-zhongkui-waf/rules/cc.json`，可按单`URL`�
             "autoIpBlock": "off",
             "ipBlockTimeout": 60,
             "description": "拦截不带Cookie的请求"
+        }
+    ]
+}
+```
+
+拦截Cookie name为`JSESSIONID`，值为`aaaROKLSA3MYZ9rvxgLHy`的请求：
+
+```json
+{
+    "rules": [
+        {
+            "state": "on",
+            "rule": "Cookie JSESSIONID",
+            "conditions": [
+                {
+                    "field": "Cookie",
+                    "name": "JSESSIONID",
+                    "pattern": "aaaROKLSA3MYZ9rvxgLHy"
+                }
+            ],
+            "action": "deny",
+            "autoIpBlock": "off",
+            "ipBlockTimeout": 60,
+            "description": "拦截JSESSIONID为aaaROKLSA3MYZ9rvxgLHy的请求"
         }
     ]
 }
