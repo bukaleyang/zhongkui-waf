@@ -208,7 +208,7 @@ zhongkui-waf includes a number of subcomponents with separate copyright notices
 and license terms. Your use of these subcomponents is subject to the terms and
 conditions of the following licenses:
 
-- lib/maxminddb.lua:
+- lib/resty/maxminddb.lua:
     A Lua library for reading MaxMind's Geolocation database format
     Project URL: https://github.com/anjia0532/lua-resty-maxminddb
     License: Apache License, Version 2.0
@@ -224,4 +224,13 @@ conditions of the following licenses:
 	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 	See the License for the specific language governing permissions and
 	limitations under the License.
+	
+- lib/resty/cookie.lua:
+    Lua library for HTTP cookie manipulations for OpenResty/ngx_lua
+    Project URL: https://github.com/cloudflare/lua-resty-cookie
+    License: BSD
+	
+	Copyright (C) 2013, by Jiale Zhi vipcalio@gmail.com, CloudFlare Inc.
+
+	Copyright (C) 2013, by Yichun Zhang agentzh@gmail.com, CloudFlare Inc.
 
