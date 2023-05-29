@@ -4,6 +4,7 @@ local decoder = require "decoder"
 local ipUtils = require "ip"
 local action = require "action"
 local cc = require "cc"
+local ck = require "resty.cookie"
 
 local blockIp = action.blockIp
 local doAction = action.doAction
@@ -213,6 +214,7 @@ function _M.isCC()
 end
 
 function _M.isACL()
+    local cookies, err = ck:new()
     local rules = config.rules.acl
     for _, ruleTab in pairs(rules) do
         local conditions = ruleTab.conditions
@@ -227,28 +229,30 @@ function _M.isACL()
                     break
                 end
             elseif field == 'Cookie' then
-                local cookie = ngx.var.http_cookie
+                local cookieValue = nil
                 local name = condition.name
                 if name ~= nil and name ~= '' then
-                    cookie = ngx.var.http_cookie
-                    local cookies = ngx.req.get_headers()["Cookie"]
-                    if not cookies or not cookies[name] then
+                    if not cookies then
                         match = false
                         break
-                    else
-                        cookie = cookies[name]
+                    end
+
+                    cookieValue, err = cookies:get(name)
+                    if not cookieValue then
+                        match = false
+                        break
                     end
                 else
-                    cookie = ngx.var.http_cookie
+                    cookieValue = ngx.var.http_cookie
                 end
 
                 if pattern == '' then
-                    if cookie ~= nil and cookie ~= '' then
+                    if cookieValue ~= nil and cookieValue ~= '' then
                         match = false
                         break
                     end
                 else
-                    if not matches(cookie, pattern) then
+                    if not matches(cookieValue, pattern) then
                         match = false
                         break
                     end
