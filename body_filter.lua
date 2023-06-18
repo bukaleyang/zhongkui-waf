@@ -27,7 +27,7 @@ if config.isWAFOn and config.isProtectionMode then
 
         end
 
-        if config.isBotTrapOn then
+        if config.isBotOn and config.isBotTrapOn then
             if contentType then
                 local from = ngxfind(contentType, HTML_CONTENT_TYPE_REGEX, "isjo")
                 if from then
