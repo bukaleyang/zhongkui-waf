@@ -151,11 +151,24 @@ end
 
 function _M.isBot()
     if config.isBotOn then
+        if config.isBotTrapOn then
+            local ruri = ngx.var.request_uri
+            local uri = ngx.var.uri
+
+            if uri == config.botTrapUri or ruri == config.botTrapUri then
+                local ip = ngx.ctx.ip
+                local ruleTab = config.rules.botTrap
+                blockIp(ip, ruleTab)
+                doAction(ruleTab)
+                return true
+            end
+        end
+
         local ua = ngx.ctx.ua
 
         local m, ruleTable = matchRule(config.rules["user-agent"], ua)
         if m then
-            doAction(ruleTable, nil, nil, nil)
+            doAction(ruleTable)
             return true
         end
     end

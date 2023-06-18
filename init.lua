@@ -30,12 +30,16 @@ config.isRedisOn = config.isOptionOn("redis")
 config.isSensitiveDataFilteringOn = config.isOptionOn("sensitive_data_filtering")
 config.isBotOn = config.isOptionOn("bot")
 config.isDashboardOn = config.isOptionOn("dashboard")
+config.isBotTrapOn = config.isOptionOn("bot_trap")
+config.isBotTrapIpBlockOn = config.isOptionOn("bot_trap_ip_block")
 
 config.isProtectionMode = (config.get("mode") == "protection" and true or false)
 config.ccMaxFailTimes = config.get("cc_max_fail_times") == nil and 5 or tonumber(config.get("cc_max_fail_times"))
 config.ccActionTimeout = config.get("cc_action_timeout") == nil and 60 or tonumber(config.get("cc_action_timeout"))
 config.ccAccessTokenTimeout = config.get("cc_accesstoken_timeout") == nil and 1800 or tonumber(config.get("cc_accesstoken_timeout"))
 config.secret = config.get("secret")
+config.botTrapUri = config.get("bot_trap_uri") or "/zhongkuiwaf/honey/trap"
+config.botTrapIpBlockTimeout = tonumber(config.get("bot_trap_ip_block_timeout")) or 60
 
 config.isRulesSortOn = config.isOptionOn("rules_sort")
 config.rulesSortPeriod = config.get("rules_sort_period") == nil and 60 or tonumber(config.get("rules_sort_period"))
@@ -58,6 +62,7 @@ rulesConfig.fileExt = {ruleType = "file-ext", rule = "file-ext", action = "REDIR
 rulesConfig.whiteIp = {ruleType = "whiteip", rule = "whiteip", action = "ALLOW"}
 rulesConfig.blackIp = {ruleType = "blackip", rule = "blackip", action = "DENY"}
 rulesConfig.unsafeMethod = {ruleType = "unsafe-method", rule = "unsafe http method", action = "DENY"}
+rulesConfig.botTrap = {ruleType = "bot-trap", rule = "bot-trap", autoIpBlock = config.get("bot_trap_ip_block"), ipBlockTimeout = config.botTrapIpBlockTimeout, action = "DENY"}
 
 local jsonStr = cjson.encode(rulesConfig)
 dict_config:set("rules", jsonStr)
