@@ -138,6 +138,31 @@ cc攻击的配置文件是`path-to-zhongkui-waf/rules/cc.json`，可按单`URL`�
 + `autoIpBlock`：在浏览器验证失败后自动屏蔽IP，`on`是开启，`off`是关闭。拉黑日志保存在`./logPath/ipBlock.log`文件中。
 + `ipBlockTimeout`：ip禁止访问时间，单位是秒，如果设置为`0`则永久禁止并保存在`./rules/ipBlackList`文件中。
 
+#### Bot管理
+
+Bot管理的配置文件是`path-to-zhongkui-waf/rules/user-agent.json`。可以配置对bot采取阻止、放行、浏览器验证或IP屏蔽等处置动作。
+
+##### bot黑名单
+
+`zhongkui-waf`内置了一些自动扫描工具及恶意爬虫等的`User-Agent`，默认会阻止`User-Agent`在黑名单中的请求。
+
+##### bot白名单
+
+开启后，一些常见的搜索引擎爬虫将被放行，目前包含Google、百度、搜狗、Bing、360、Yandex等。
+
+##### bot陷阱
+
+bot陷阱的配置在`config.lua`文件中，开启bot陷阱后，将会在上游服务器返回的HTML页面中添加配置的陷阱URL，这个URL隐藏在页面中，对普通正常用户不可见，访问此URL的请求被视为bot。
+
+建议bot陷阱结合`robots协议`使用，将陷阱URI配置为禁止所有bot访问，不听话的bot将访问陷阱URL，从而被识别，而那些遵循`robots协议`的友好bot将不会被陷阱捕获。
+
+你可以在robots.txt中这样配置：
+
+```
+User-agent: *
+Disallow: /zhongkuiwaf/honey/trap
+```
+
 #### ACL自定义规则
 
 自定义规则的配置文件是`path-to-zhongkui-waf/rules/acl.json`，你可以按实际需要灵活配置规则组合。
