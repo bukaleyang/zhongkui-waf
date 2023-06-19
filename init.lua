@@ -62,7 +62,7 @@ rulesConfig.fileExt = {ruleType = "file-ext", rule = "file-ext", action = "REDIR
 rulesConfig.whiteIp = {ruleType = "whiteip", rule = "whiteip", action = "ALLOW"}
 rulesConfig.blackIp = {ruleType = "blackip", rule = "blackip", action = "DENY"}
 rulesConfig.unsafeMethod = {ruleType = "unsafe-method", rule = "unsafe http method", action = "DENY"}
-rulesConfig.botTrap = {ruleType = "bot-trap", rule = "bot-trap", autoIpBlock = config.get("bot_trap_ip_block"), ipBlockTimeout = config.botTrapIpBlockTimeout, action = "DENY"}
+rulesConfig.botTrap = {ruleType = "bot-trap", rule = "bot-trap", autoIpBlock = config.get("bot_trap_ip_block"), ipBlockTimeout = config.botTrapIpBlockTimeout, action = config.get("bot_trap_action")}
 
 local jsonStr = cjson.encode(rulesConfig)
 dict_config:set("rules", jsonStr)

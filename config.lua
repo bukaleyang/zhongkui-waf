@@ -64,6 +64,8 @@ local config = {
     bot_trap = "off",
     -- 陷阱URI，隐藏在页面中，对普通正常用户不可见，访问此URI的请求被视为bot，建议安装后修改
     bot_trap_uri = "/zhongkuiwaf/honey/trap",
+    -- 被陷阱捕获后的处置动作
+    bot_trap_action = "deny",
     -- 访问陷阱URI后屏蔽ip
     bot_trap_ip_block = "off",
     -- ip禁止访问时间，单位是秒，如果设置为0则永久禁止
