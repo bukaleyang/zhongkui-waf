@@ -1,7 +1,7 @@
 local redis = require "resty.redis"
 local config = require "config"
 -- register the module prefix "bf" for RedisBloom
-redis.register_module_prefix("bf")
+-- redis.register_module_prefix("bf")
 
 local tonumber = tonumber
 local tostring = tostring
@@ -29,7 +29,7 @@ if redis_timeouts then
 end
 
 local redisSSL = config.get("redis_ssl")
-local filterName = "blackIpFilter"
+--local filterName = "blackIpFilter"
 
 local function getRedisConn()
     local red, err1 = redis:new()
@@ -145,6 +145,7 @@ function _M.redisIncr(key, expireTime)
     return res, err
 end
 
+--[[
 function _M.redisBFAdd(value)
     local red, err = getRedisConn()
     local res = nil
@@ -180,5 +181,5 @@ function _M.redisBFExists(value)
     end
     return false
 end
-
+]]
 return _M
