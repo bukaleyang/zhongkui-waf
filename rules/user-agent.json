@@ -9,9 +9,9 @@
             "description": "bad bot ua"
         },
         {
-            "state": "on",
+            "state": "off",
             "action": "allow",
-            "rule": "Baiduspider|Googlebot|360Spider|Bytespider|Sosospider|Applebot|bingbot|sogou|HuaweiSymantecSpider|YoudaoBot|Speedy Spider|EasouSpider|Yisouspider|yandex|Yahoo!",
+            "rule": "Baiduspider|Googlebot|360Spider|Bytespider|Sosospider|Applebot|bingbot|sogou|HuaweiSymantecSpider|YoudaoBot|Speedy Spider|EasouSpider|Yisouspider|yandex|Yahoo!|GPTBot",
             "autoIpBlock": "off",
             "ipBlockTimeout": 60,
             "description": "一些搜索引擎爬虫ua"
