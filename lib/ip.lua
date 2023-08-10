@@ -11,38 +11,24 @@ local base = {23, 16, 8, 0}
 local maskConst = 0xffffffff
 
 function _M.getClientIP()
-    local ip = ngx.var.http_x_forwarded_for
-    if ip then
+    local ips = {
+        ngx.var.http_x_forwarded_for,
+        ngx.var.http_proxy_client_ip,
+        ngx.var.http_wl_proxy_client_ip,
+        ngx.var.http_http_client_ip,
+        ngx.var.http_http_x_forwarded_for,
+        ngx.var.remote_addr
+    }
+    local unknown = "unknown"
+    for _,ip in ipairs(ips) do
         if type(ip) == "table" then
             ip = ip[1]
         end
+        if ip and #ip ~= 0 and lower(ip) ~= unknown then 
+            return ip
+        end
     end
-
-    if ip == nil or ip == "" or lower(ip) == "unknown" then
-        ip = ngx.var.http_proxy_client_ip
-    end
-
-    if ip == nil or ip == "" or lower(ip) == "unknown" then
-        ip = ngx.var.http_wl_proxy_client_ip
-    end
-
-    if ip == nil or ip == "" or lower(ip) == "unknown" then
-        ip = ngx.var.http_http_client_ip
-    end
-
-    if ip == nil or ip == "" or lower(ip) == "unknown" then
-        ip = ngx.var.http_http_x_forwarded_for
-    end
-
-    if ip == nil or ip == "" or lower(ip) == "unknown" then
-        ip = ngx.var.remote_addr
-    end
-
-    if ip == nil then
-        ip = "unknown"
-    end
-
-    return ip
+    return unknown
 end
 
 function _M.ipToNumber(ip)
