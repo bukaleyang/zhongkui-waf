@@ -19,15 +19,18 @@ function _M.getClientIP()
         ngx.var.http_http_x_forwarded_for,
         ngx.var.remote_addr
     }
+
     local unknown = "unknown"
-    for _,ip in ipairs(ips) do
+
+    for _, ip in ipairs(ips) do
         if type(ip) == "table" then
             ip = ip[1]
         end
-        if ip and #ip ~= 0 and lower(ip) ~= unknown then 
+        if ip and #ip ~= 0 and lower(ip) ~= unknown then
             return ip
         end
     end
+
     return unknown
 end
 
