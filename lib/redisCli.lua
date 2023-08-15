@@ -47,7 +47,7 @@ local function getRedisConn()
         return nil, err
     end
 
-    if passwd ~= nil and passwd ~= ngx.null and #passwd ~= 0 then
+    if passwd ~= nil and #passwd ~= 0 then
         local times = 0
         times, err = red:get_reused_times()
 
