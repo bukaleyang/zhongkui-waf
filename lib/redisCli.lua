@@ -44,10 +44,10 @@ local function getRedisConn()
 
     if not ok then
         ngx.log(ngx.ERR, "failed to connect: ", err .. "\n")
-        return ok, err
+        return nil, err
     end
 
-    if passwd ~= nil and passwd ~= ngx.null then
+    if passwd ~= nil and #passwd ~= 0 then
         local times = 0
         times, err = red:get_reused_times()
 
@@ -55,7 +55,7 @@ local function getRedisConn()
             local res, err2 = red:auth(passwd)
             if not res then
                 ngx.log(ngx.ERR, "failed to authenticate: ", err2)
-                return times, err2
+                return nil, err2
             end
         end
     end
