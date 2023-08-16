@@ -57,12 +57,7 @@ local function flushUnlock(self)
 end
 
 local function writeFile(self, value)
-    local fileName = ''
-    if self.rolling then
-        fileName = self.prefix .. ngx.today() .. ".log"
-    else
-        fileName = self.logPath
-    end
+    local fileName = self.rolling and (self.prefix .. ngx.today() .. ".log") or self.logPath .. "hack.log"
 
 	local file = io.open(fileName, "a+")
 
@@ -74,7 +69,6 @@ local function writeFile(self, value)
 	file:flush()
 	file:close()
 
-	return
 end
 
 local function flushBuffer(self)
