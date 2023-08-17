@@ -1,6 +1,7 @@
 local config = require "config"
 local ahocorasick = require "ahocorasick"
 local stringutf8 = require "stringutf8"
+local nkeys = require "table.nkeys"
 
 local ipairs = ipairs
 local sort = table.sort
@@ -29,13 +30,15 @@ local CODING_RANGE_DOLLAR_REGEX = "\\$(\\d+)"
 
 local rules = config.rules.sensitive
 local sensitiveWords = config.rules.sensitiveWords
+local needFilterSensitiveWords = false
 local ac = ahocorasick:new()
 
 local function initSensitiveWordsAC()
     if sensitiveWords then
         local wordsList = sensitiveWords["words"]
-        if wordsList then
+        if wordsList and nkeys(wordsList) > 0 then
             ac:add(wordsList)
+            needFilterSensitiveWords = true
         end
     end
 end
@@ -91,7 +94,7 @@ local function codingString(strMatches, from, to)
     local str = strMatches[0]
 
     if from then
-        if type(from) =='table' then
+        if type(from) == 'table' then
             for _, v in ipairs(from) do
                 local subStr = strMatches[v]
                 local subStrLen = utf8len(subStr)
@@ -172,7 +175,7 @@ function _M.sensitive_data_filtering(content)
         end
     end
 
-    if sensitiveWords then
+    if needFilterSensitiveWords then
         local text = _M.textPreprocessing(content)
         local t = ac:match(text, true)
         if t and #t > 0 then
