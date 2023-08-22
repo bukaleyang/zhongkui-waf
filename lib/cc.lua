@@ -108,7 +108,6 @@ function _M.checkAccessToken()
         end
 
         if token and token == accesstoken then
-            ngx.log(ngx.ERR, "accesstoken pass=", '\n')
             return true
         end
     end
