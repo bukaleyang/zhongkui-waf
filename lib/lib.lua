@@ -414,7 +414,7 @@ function _M.isEvilHeaders()
     return false
 end
 
-function _M.isBlackFileExt(ext)
+function _M.isBlackFileExt(ext, body)
     if ext == nil then
         return false
     end
@@ -422,7 +422,7 @@ function _M.isBlackFileExt(ext)
     local t = config.get("fileExtBlackList")
     for _, v in ipairs(t) do
         if ext == v then
-            doAction(config.rules.fileExt, ext, nil, nil)
+            doAction(config.rules.fileExt, body, nil, nil)
             return true
         end
     end
@@ -527,7 +527,7 @@ function _M.isEvilReqBody()
                             if from then
                                 local ext = string.sub(line, from, to)
 
-                                if _M.isBlackFileExt(ext) then
+                                if _M.isBlackFileExt(ext, line) then
                                     return true
                                 end
 
