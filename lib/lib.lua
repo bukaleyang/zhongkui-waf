@@ -414,15 +414,18 @@ function _M.isEvilHeaders()
     return false
 end
 
-function _M.isBlackFileExt(ext)
+function _M.isBlackFileExt(ext, line)
     if ext == nil then
         return false
     end
 
-    local t = config.get("fileExtBlackList")
+    local t = config.get("fileExtBlackList") or {}
     for _, v in ipairs(t) do
         if ext == v then
-            doAction(config.rules.fileExt, ext, nil, nil)
+            if not config.isJsonFormatLogOn then
+                line = "[" ..  line .. "]"
+            end
+            doAction(config.rules.fileExt, line, nil, nil)
             return true
         end
     end
@@ -465,7 +468,7 @@ end
 
 function _M.isEvilReqBody()
     if config.isRequestBodyOn then
-        local method = ngx.req.get_method()
+       -- local method = ngx.req.get_method()
 
         local contentType = ngx.var.http_content_type
         local contentLength = tonumber(ngx.var.http_content_length)
@@ -480,7 +483,7 @@ function _M.isEvilReqBody()
 
         -- form-data
         if boundary then
-            local sock, erro = ngx.req.socket()
+            local sock, _ = ngx.req.socket()
             local size = 0
             ngx.req.init_body(128 * 1024) -- buffer is 128KB
 
@@ -492,7 +495,7 @@ function _M.isEvilReqBody()
 
             while size < contentLength do
                 if sock ~= nil then
-                    local line, err, partial = sock:receive()
+                    local line, err, _ = sock:receive()
                     if line == nil or err then
                         break
                     end
@@ -526,14 +529,12 @@ function _M.isEvilReqBody()
                                 body = body .. line .. '\n'
                             end
                         else
-                            local from, to = matches(line,
-                                [[Content-Disposition:\s*form-data;[\s\S]+filename=["|'][\s\S]+\.(\w+)(?:"|')]], "ijo",
-                                nil, 1)
+                            local from, to = matches(line, [[Content-Disposition:\s*form-data;[\s\S]+filename=["|'][\s\S]+\.(\w+)(?:"|')]], "ijo", nil, 1)
 
                             if from then
                                 local ext = string.sub(line, from, to)
 
-                                if _M.isBlackFileExt(ext) then
+                                if _M.isBlackFileExt(ext, line) then
                                     return true
                                 end
 
