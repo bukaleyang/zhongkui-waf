@@ -1,8 +1,9 @@
 local _M = {}
 
 local bit = require "bit"
-local lshift, rshift = bit.lshift, bit.rshift
+local lshift = bit.lshift
 local band = bit.band
+local pairs = pairs
 local ipairs = ipairs
 local type = type
 local lower = string.lower
@@ -22,12 +23,14 @@ function _M.getClientIP()
 
     local unknown = "unknown"
 
-    for _, ip in ipairs(ips) do
-        if type(ip) == "table" then
-            ip = ip[1]
-        end
-        if ip and #ip ~= 0 and lower(ip) ~= unknown then
-            return ip
+    for _, ip in pairs(ips) do
+        if ip then
+            if type(ip) == "table" then
+                ip = ip[1]
+            end
+            if #ip ~= 0 and lower(ip) ~= unknown then
+                return ip
+            end
         end
     end
 
