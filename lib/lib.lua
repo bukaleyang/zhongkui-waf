@@ -433,7 +433,10 @@ end
 function _M.isEvilFile(body)
     local m, ruleTable = matchRule(config.rules.post, body)
     if m then
-        doAction(ruleTable, "[" .. body .. "]", "post-file", nil)
+        if not config.isJsonFormatLogOn then
+            body = ""
+        end
+        doAction(ruleTable, body, "post-file", nil)
         return true
     end
 
@@ -443,7 +446,10 @@ end
 function _M.isEvilBody(body)
     local m, ruleTable = matchRule(config.rules.post, body)
     if m then
-        doAction(ruleTable, "[" .. body .. "]", "request-body", nil)
+        if not config.isJsonFormatLogOn then
+            body = ""
+        end
+        doAction(ruleTable, body, "request-body", nil)
         return true
     end
 
