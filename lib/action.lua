@@ -97,32 +97,55 @@ end
 -- block ip
 function _M.blockIp(ip, ruleTab)
     if toUpper(ruleTab.autoIpBlock) == "ON" and ip then
-        local ok, err, exists = nil, nil, nil
+        local ok, err, needLog = nil, nil, nil
 
         if config.isRedisOn then
             local key = "black_ip:" .. ip
-            if ruleTab.ipBlockTimeout > 0 then
-                exists = redisCli.redisGet(key)
-                if not exists then
-                    ok, err = redisCli.redisSet(key, 1, ruleTab.ipBlockTimeout)
-                end
-            else
-                exists = redisCli.redisGet(key)
-                if not exists then
-                    ok, err = redisCli.redisSet(key, 1)
+
+            local red, err1 = redisCli.getRedisConn()
+            if not red then
+                return nil, err1
+            end
+
+            local exists = red:exists(key)
+            if exists == 0 then
+                ok, err = red:set(key, 1)
+                if ok then
+                    needLog = true
+                else
+                    ngx.log(ngx.ERR, "failed to set redis key " .. key, err)
                 end
             end
+
+            if ruleTab.ipBlockTimeout > 0 then
+                ok, err = red:expire(key, ruleTab.ipBlockTimeout)
+                if not ok then
+                    ngx.log(ngx.ERR, "failed to expire redis key " .. key, err)
+                end
+            end
+
+            redisCli.closeRedisConn(red)
         else
             local blackip = ngx.shared.dict_blackip
-            exists = blackip:get(ip)
+            local exists = blackip:get(ip)
             if not exists then
                 ok, err = blackip:set(ip, 1, ruleTab.ipBlockTimeout)
+                if ok then
+                    needLog = true
+                else
+                    ngx.log(ngx.ERR, "failed to set key " .. ip, err)
+                end
+            elseif ruleTab.ipBlockTimeout > 0 then
+                ok, err = blackip:expire(ip, ruleTab.ipBlockTimeout)
+                if not ok then
+                    ngx.log(ngx.ERR, "failed to expire key " .. ip, err)
+                end
             end
         end
 
-        if ok then
+        if needLog then
             local hostLogger = loggerFactory.getLogger(logPath .. "ipBlock.log", 'ipBlock', false)
-            hostLogger:log(concat({ngx.localtime(), ip, ruleTab.ruleType}, ' ') .. "\n")
+            hostLogger:log(concat({ngx.localtime(), ip, ruleTab.ruleType, ruleTab.ipBlockTimeout .. 's'}, ' ') .. "\n")
 
             if ruleTab.ipBlockTimeout == 0 then
                 local ipBlackLogger = loggerFactory.getLogger(rulePath .. "ipBlackList", 'ipBlack', false)
