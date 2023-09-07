@@ -132,6 +132,7 @@ cc攻击的配置文件是`path-to-zhongkui-waf/rules/cc.json`，可按单`URL`�
 配置项说明：
 
 + `countType`：统计类型，值为"url"或"ip"。
++ `pattern`：匹配内容，对统计类型进行匹配的正则表达式，当设置为""时，则表示匹配所有请求。
 + `duration`：统计时长，单位是秒。
 + `threshold`：阈值，单位是次。
 + `action`：cc攻击处置动作，`redirect_js`、`redirect_302`仅适用于网页或H5，APP或API等环境，应设置为：`deny`。
