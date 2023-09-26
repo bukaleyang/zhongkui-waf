@@ -30,6 +30,8 @@
 
 ### 安装
 
+可以执行安装脚本`install.sh`，自动安装`OpenResty`、`ZhongKui`、`libmaxminddb`和`geoipupdate`。也可以自行逐个安装。
+
 #### OpenResty
 
 由于`Zhongkui-WAF`基于`lua-nginx-module`，所以要先安装`Nginx`或`OpenResty`，强烈推荐使用`OpenResty`。
