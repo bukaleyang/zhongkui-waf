@@ -97,9 +97,9 @@ curl http://localhost/?t=../../etc/passwd
 
 ### 配置
 
-`Zhongkui-WAF`的基本配置在`config.lua`文件中，你可以对它进行修改。
+`Zhongkui-WAF`的基本配置在`/conf/zhongkui.conf`文件中，你可以对它进行修改。
 
-ip黑名单列表可以配置在`config.lua`文件中，也可以配置在`path-to-zhongkui-waf/rules/ipBlackList`文件中。
+ip黑名单列表可以配置在`/conf/zhongkui.conf`文件中，也可以配置在`path-to-zhongkui-waf/rules/ipBlackList`文件中。
 
 不管是基本配置还是规则文件，修改完后都要执行`nginx -s reload`命令来重新载入配置。
 
@@ -155,7 +155,7 @@ Bot管理的配置文件是`path-to-zhongkui-waf/rules/user-agent.json`。可以
 
 ##### bot陷阱
 
-bot陷阱的配置在`config.lua`文件中，开启bot陷阱后，将会在上游服务器返回的HTML页面中添加配置的陷阱URL，这个URL隐藏在页面中，对普通正常用户不可见，访问此URL的请求被视为bot。
+bot陷阱的配置在`/conf/zhongkui.conf`文件中，开启bot陷阱后，将会在上游服务器返回的HTML页面中添加配置的陷阱URL，这个URL隐藏在页面中，对普通正常用户不可见，访问此URL的请求被视为bot。
 
 建议bot陷阱结合`robots协议`使用，将陷阱URI配置为禁止所有bot访问，不听话的bot将访问陷阱URL，从而被识别，而那些遵循`robots协议`的友好bot将不会被陷阱捕获。
 
