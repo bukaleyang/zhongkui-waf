@@ -85,7 +85,7 @@ local configRegex = {
     sensitive_data_filtering = CONFIG_REGEX_SWITCH,
     -- Redis支持，打开后请求频率统计及ip黑名单将从Redis中存取
     redis = CONFIG_REGEX_SWITCH,
-    redis_host = "127.0.0.1",
+    redis_host = "^\"?\\S*\"?$",
     redis_port = CONFIG_REGEX_NUMBER,
     redis_passwd = "^\"\"$|^\"?\\S+\"?$",
     redis_ssl = "^(?:true|false)$",
