@@ -308,6 +308,12 @@ openssl passwd -apr1
 
  ![dashboard](https://github.com/bukaleyang/zhongkui-waf/blob/master/images/dashboard.png) 
 
+### 交流群
+
+欢迎大家进群交流，如果遇到bug或新的需求，请优先提交Issues。
+
+QQ群：903430639
+
 ### Copyright and License
 
 ZhongKui-WAF is licensed under the Apache License, Version 2.
