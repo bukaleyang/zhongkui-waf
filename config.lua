@@ -7,6 +7,7 @@ local nkeys = require "table.nkeys"
 local readRule = fileUtils.readRule
 local readFileToString = fileUtils.readFileToString
 local readFileToTable = fileUtils.readFileToTable
+local writeStringToFile = fileUtils.writeStringToFile
 
 local ngxfind = ngx.re.find
 local ngxmatch = ngx.re.match
@@ -18,9 +19,11 @@ local sub = string.sub
 local trim = stringutf8.trim
 
 local insert = table.insert
+local concat = table.concat
 
 local pairs = pairs
 local tonumber = tonumber
+local type = type
 
 local _M = {}
 
@@ -43,7 +46,7 @@ local configRegex = {
     logPath = CONFIG_REGEX_PATH,
     geoip = CONFIG_REGEX_SWITCH,
     geoip_db_file = "^\"?[^\\n\\v]+GeoLite2-City.mmdb\"?$",
-    geoip_allow_country = "^\\[\\S*\\]$",
+    geoip_disallow_country = "^\\[\\S*\\]$",
     geoip_language = "^\"?\\S+\"?$",
     whiteIP = CONFIG_REGEX_SWITCH,
     ipWhiteList = CONFIG_REGEX_ARRAY_IP,
@@ -91,13 +94,7 @@ local configRegex = {
     redis_ssl = "^(?:true|false)$",
     redis_pool_size = CONFIG_REGEX_NUMBER,
     -- Respectively sets the connect, send, and read timeout thresholds (in ms)
-    redis_timeouts = "^\"?[1-9]\\d*,[1-9]\\d*,[1-9]\\d*\"?$",
-    -- 是否重定向
-    redirect = CONFIG_REGEX_SWITCH,
-    -- 非法请求将重定向的html
-    redirect_html = CONFIG_REGEX_PATH,
-    -- 流量监控页面
-    dashboard = CONFIG_REGEX_SWITCH
+    redis_timeouts = "^\"?[1-9]\\d*,[1-9]\\d*,[1-9]\\d*\"?$"
 }
 
 -- Returns true if the config option is "on",otherwise false
@@ -107,11 +104,6 @@ end
 
 -- 初始化配置项
 local function initConfig()
-    local dict_config = ngx.shared.dict_config
-    local rulesConfig = {}
-
-    local rulePath = _M.ZHONGKUI_PATH .. "/rules/"
-
     _M.isWAFOn = isOptionOn("waf")
     _M.isAttackLogOn = isOptionOn("attackLog")
     _M.isJsonFormatLogOn = isOptionOn("attackLog_json_format")
@@ -124,11 +116,9 @@ local function initConfig()
     _M.isRequestBodyOn = isOptionOn("requestBodyCheck")
     _M.isFileContentOn = isOptionOn("fileContentCheck")
     _M.isCookieOn = isOptionOn("cookie")
-    _M.isRedirectOn = isOptionOn("redirect")
     _M.isRedisOn = isOptionOn("redis")
     _M.isSensitiveDataFilteringOn = isOptionOn("sensitive_data_filtering")
     _M.isBotOn = isOptionOn("bot")
-    _M.isDashboardOn = isOptionOn("dashboard")
     _M.isBotTrapOn = isOptionOn("bot_trap")
     _M.isBotTrapIpBlockOn = isOptionOn("bot_trap_ip_block")
 
@@ -143,12 +133,13 @@ local function initConfig()
     _M.isRulesSortOn = isOptionOn("rules_sort")
     _M.rulesSortPeriod = _M.get("rules_sort_period") == nil and 60 or tonumber(_M.get("rules_sort_period"))
 
+    local rulePath = _M.ZHONGKUI_PATH .. "/rules/"
     _M.rulePath = rulePath
 
-    _M.ipBlackList_subnet, _M.ipBlackList = ipUtils.mergeAndSort(_M.get("ipBlackList"), readFileToTable(rulePath .. "ipBlackList"))
-    _M.ipWhiteList = ipUtils.initIpList(_M.get("ipWhiteList"))
+    _M.ipBlackList_subnet, _M.ipBlackList = ipUtils.filterIPList(readFileToTable(rulePath .. "ipBlackList"))
+    _M.ipWhiteList_subnet, _M.ipWhiteList = ipUtils.filterIPList(readFileToTable(rulePath .. "ipWhiteList"))
 
-
+    local rulesConfig = {}
     rulesConfig.blackUrl = readRule(rulePath, "blackUrl")
     rulesConfig.args = readRule(rulePath, "args")
     rulesConfig.whiteUrl = readRule(rulePath, "whiteUrl")
@@ -167,21 +158,28 @@ local function initConfig()
     rulesConfig.botTrap = { ruleType = "bot-trap", rule = "bot-trap", autoIpBlock = _M.get("bot_trap_ip_block"), ipBlockTimeout = _M.botTrapIpBlockTimeout, action = _M.get("bot_trap_action") }
 
     local jsonStr = cjson.encode(rulesConfig)
+    local dict_config = ngx.shared.dict_config
     dict_config:set("rules", jsonStr)
 
     _M.rules = rulesConfig
 
-    local redirect_html = _M.get("redirect_html")
-    if not redirect_html or #redirect_html == 0 then
-        redirect_html = _M.ZHONGKUI_PATH .. "/redirect_html"
-    end
+    _M.html = readFileToString(_M.ZHONGKUI_PATH .. "/redirect.html")
 
-    _M.html = readFileToString(redirect_html)
-    _M.dashboardHtml = readFileToString(_M.ZHONGKUI_PATH .. "/dashboard/dashboard.html")
+    local logPath = config.logPath
+    if logPath and #logPath > 0 then
+        local last = sub(logPath, -1)
+        if last ~= "/" and last ~= "\\" then
+            config.logPath = logPath .. "/"
+        end
+    end
 end
 
 function _M.get(option)
     return config[option]
+end
+
+function _M.getConfigTable()
+    return config
 end
 
 -- 数组字符串转table ["aaa","bbb","ccc"] -> {"aaa","bbb","ccc"}
@@ -201,18 +199,20 @@ local function arrayStrToTable(inputStr)
 end
 
 -- 配置文件读取并进行语法分析
-function _M.parseConfigFile(fileName)
-    local file = io.open(fileName, "r")
+function _M.parseConfigFile()
+    local fileName = _M.ZHONGKUI_PATH .. "/conf/zhongkui.conf"
+    local file, err = io.open(fileName, "r")
+    if not file then
+        ngx.log(ngx.ERR, "failed to open file ", err)
+        return
+    end
+
     local configTable = {}
 
-    if file then
-        for line in file:lines() do
-            -- 忽略空行和注释行
-            local from = ngxfind(line, "^\\s*$|^\\s*#", "jo")
-            if from then
-                goto continue
-            end
-
+    for line in file:lines() do
+        -- 忽略空行和注释行
+        local from = ngxfind(line, "^\\s*$|^\\s*#", "jo")
+        if not from then
             -- 解析键值对
             local m, err = ngxmatch(line, "^\\s*([^\\s=]+)\\s?=\\s?(.+)\\s*$", "isjo")
 
@@ -250,19 +250,16 @@ function _M.parseConfigFile(fileName)
             else
                 ngx.log(ngx.ERR, "failed to read config file:", err)
             end
-
-            ::continue::
         end
-        file:close()
     end
+    file:close()
 
     return configTable
 end
 
 -- 加载配置文件
 function _M.loadConfigFile()
-    local fileName = _M.ZHONGKUI_PATH .. "/conf/zhongkui.conf"
-    local configTable = _M.parseConfigFile(fileName)
+    local configTable = _M.parseConfigFile()
     config = configTable or {}
 
     initConfig()
@@ -271,41 +268,63 @@ function _M.loadConfigFile()
 end
 
 -- 修改配置文件
-function _M.updateConfigFile(fileName, configTable)
+function _M.updateConfigFile(configTable)
     if not configTable or nkeys(configTable) == 0 then
         return
     end
 
-    -- 打开文件并读取内容
-    local file = io.open(fileName, "r+")
+    local fileName = _M.ZHONGKUI_PATH .. "/conf/zhongkui.conf"
+    local newContent = readFileToString(fileName)
+    if not newContent then
+        ngx.log(ngx.ERR, "failed to read config file ")
+        return
+    end
 
-    if file then
-        local content = file:read("*all")
-        local newContent = content
-
-        for key, value in pairs(configTable) do
-            newContent = ngxsub(newContent, key .. "\\s?=\\s?([\"\\[])?[^\r\n]*?([\"\\]])?\\n", key .. " = $1" .. value .. "$2\n", "jo")
+    for key, value in pairs(configTable) do
+        if type(value) == "table" then
+            if nkeys(value) > 0 then
+                value = "\"" .. concat(value, "\",\"") .. "\""
+            else
+                value = ""
+            end
         end
+        newContent = ngxsub(newContent, key .. "\\s?=\\s?(\"|\\[)?.*?(\"|])?\r?\n", key .. " = ${1}" .. value .. "${2}\n", "jo")
+    end
 
-        file:write(newContent)
-        file:close()
+    writeStringToFile(fileName, newContent)
+end
+
+-- 获取nginx安装目录
+local function getNginxCommandPath()
+    local path = ''
+    -- 获取当前 Lua 脚本的文件路径
+    local scriptPath = debug.getinfo(1, "S").source:sub(2)
+    -- 获取 OpenResty 安装目录（假设 OpenResty 在 "/usr/local/openresty" 目录下）
+    local openrestyPath = scriptPath:match("(.*/openresty/)")
+    if openrestyPath then
+        path = openrestyPath .. 'nginx/sbin/'
+    end
+    return path
+end
+
+-- 重新加载nginx配置
+function _M.reloadNginx()
+    -- Nginx重新加载配置文件的系统命令
+    local command = getNginxCommandPath() .. "nginx -s reload"
+    local success = os.execute(command)
+
+    if success then
+        ngx.log(ngx.INFO, "nginx configuration has been successfully reloaded.")
+    else
+        ngx.log(ngx.ERR, "failed to reload Nginx configuration.")
     end
 end
 
 -- 如果配置文件正确，则重载nginx
 function _M.reloadConfigFile()
-    local fileName = _M.ZHONGKUI_PATH .. "/conf/zhongkui.conf"
-    local configTable = _M.parseConfigFile(fileName)
+    local configTable = _M.parseConfigFile()
     if configTable and nkeys(configTable) > 0 then
-        -- Nginx重新加载配置文件的系统命令
-        local command = "sudo nginx -s reload"
-        local code = os.execute(command)
-
-        if code == 0 then
-            ngx.log(ngx.INFO, "nginx configuration has been successfully reloaded.")
-        else
-            ngx.log(ngx.ERR, "failed to reload Nginx configuration.")
-        end
+        _M.reloadNginx()
     else
         ngx.log(ngx.ERR, "failed to reload Nginx configuration:zhongkui config file error.")
     end

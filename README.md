@@ -4,6 +4,8 @@
 
 `Zhongkui-WAF`基于`lua-nginx-module`，可以多维度检查和拦截恶意网络请求，具有简单易用、高性能、轻量级的特点。它的配置简单，你可以根据实际情况设置不同的安全规则和策略。
 
+ ![dashboard](https://github.com/bukaleyang/zhongkui-waf/blob/master/images/dashboard.png) 
+
 ### 主要特性
 
 + 多种工作模式，可随时切换
@@ -49,21 +51,28 @@
 修改`nginx.conf`，在`http`模块下添加`zhongkui-waf`相关配置：
 
 ```nginx
+include /usr/local/openresty/zhongkui-waf/conf/waf.conf;
+include /usr/local/openresty/zhongkui-waf/conf/admin.conf;
+```
+
+可根据访问量大小适当调整`waf.conf`文件中配置的字典内存大小。
+
+```nginx
 lua_shared_dict dict_cclimit 10m;
 lua_shared_dict dict_accesstoken 10m;
 lua_shared_dict dict_blackip 10m;
 lua_shared_dict dict_locks 100k;
-lua_shared_dict dict_config 5m;
-lua_shared_dict dict_config_rules_hits 5m;
-lua_shared_dict dict_req_count 5m; 
+lua_shared_dict dict_config 2m;
+lua_shared_dict dict_config_rules_hits 1m;
+lua_shared_dict dict_req_count 10m;
 
-lua_package_path "/usr/local/openresty/zhongkui-waf/?.lua;/usr/local/openresty/zhongkui-waf/lib/?.lua;;";
+lua_package_path "/usr/local/openresty/zhongkui-waf/?.lua;/usr/local/openresty/zhongkui-waf/lib/?.lua;/usr/local/openresty/zhongkui-waf/admin/lua/?.lua;;";
 init_by_lua_file  /usr/local/openresty/zhongkui-waf/init.lua;
 init_worker_by_lua_file /usr/local/openresty/zhongkui-waf/init_worker.lua;
 access_by_lua_file /usr/local/openresty/zhongkui-waf/waf.lua;
 body_filter_by_lua_file /usr/local/openresty/zhongkui-waf/body_filter.lua;
 header_filter_by_lua_file /usr/local/openresty/zhongkui-waf/header_filter.lua;
-log_by_lua_file /usr/local/openresty/zhongkui-waf/dashboard/count_traffic.lua;
+log_by_lua_file /usr/local/openresty/zhongkui-waf/log_and_traffic.lua;
 ```
 
 #### libmaxminddb库
@@ -96,6 +105,8 @@ curl http://localhost/?t=../../etc/passwd
 看到拦截信息则说明安装成功。
 
 ### 配置
+
+`Zhongkui-WAF`内置了管理界面，但你依然可以通过直接修改相应配置文件来进行自定义配置。
 
 `Zhongkui-WAF`的基本配置在`/conf/zhongkui.conf`文件中，你可以对它进行修改。
 
@@ -276,41 +287,19 @@ Disallow: /zhongkuiwaf/honey/trap
 
 `words`是一个数组，可以用来配置一些需要过滤掉的关键词。
 
-### 流量统计可视化
+### 管理页面
 
-`Zhongkui-WAF`内置了简单的流量统计可视化功能，目前仅支持查看当天请求流量、攻击请求流量及攻击类别统计。
+安装配置完成后，浏览器访问`http://localhost:1226`，账号`admin`，默认密码为`zhongkui`。
 
-需要将`dashboard`设置为"on"，然后在`Nginx`配置文件中配置访问地址：
-
-```nginx
-location /zhongkui/dashboard {
-    auth_basic on;
-    auth_basic_user_file /usr/local/openresty/nginx/conf/passwd;
-    content_by_lua_file /usr/local/openresty/zhongkui-waf/dashboard/dashboard.lua;
-}
-```
-
-这个url地址可以是任意地址，建议安装后修改，并且不要太简单，如`/admin`之类，否则很容易被猜测到。
-
-建议开启`auth_basic`认证，可以使用openssl生成密码：
+请确保`OpenResty`对`zhongkui-waf`目录有读、写权限，否则`WAF`会无法修改配置文件和生成日志文件。你可以使用类似如下命令来授权：
 
 ```bash
-openssl passwd -apr1
+chown ./zhongkui-waf nobody 或者 chmod 744 ./zhongkui-waf
 ```
-
-`auth_basic_user_file`文件内容格式为：
-
-```
-用户名:密码
-```
-
-浏览器访问`/zhongkui/dashboard`，效果图如下：
-
- ![dashboard](https://github.com/bukaleyang/zhongkui-waf/blob/master/images/dashboard.png) 
 
 ### 交流群
 
-欢迎大家进群交流，如果遇到bug或新的需求，请优先提交Issues。
+欢迎大家进群交流，如果遇到bug或有新的需求，请优先提交Issues。
 
 QQ群：903430639
 

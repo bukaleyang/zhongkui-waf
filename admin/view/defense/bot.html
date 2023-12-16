@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+		<title>Bot管理</title>
+		<link href="../../component/pear/css/pear.css" rel="stylesheet">
+		<style>
+			.layui-card-body .layui-form {margin-top: 0px;}
+		</style>
+	</head>
+	<body class="pear-container" >
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
+				<form class="layui-form" lay-filter="form_config">
+					<div class="layui-card">
+						<div class="layui-card-header">Bot管理设置</div>
+						<div class="layui-card-body layui-row layui-col-space10">
+							<div class="layui-col-md12">
+								<div class="layui-form-item">
+									<label class="layui-form-label">Bot识别</label>
+									<div class="layui-input-block">
+										<input type="checkbox" name="bot" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">Bot陷阱</label>
+									<div class="layui-input-block">
+										<input type="checkbox" name="bot_trap" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">陷阱URI</label>
+									<div class="layui-input-group">
+										<input type="text" name="bot_trap_uri" lay-verify="uriRule" lay-filter="config_input" autocomplete="off" class="layui-input" />
+										<div class="layui-input-suffix">隐藏在页面中，对普通正常用户不可见，访问此URI的请求被视为Bot</div>
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">处置动作</label>
+									<div class="layui-input-group">
+										<select name="bot_trap_action" lay-filter="config_select">
+											<option value="deny">拒绝访问</option>
+											<option value="allow">允许访问</option>
+											<option value="redirect">拒绝访问并返回拦截页面</option>
+											<option value="redirect_js">浏览器验证，JS重定向</option>
+											<option value="redirect_302">浏览器验证，302重定向</option>
+										</select>
+										<div class="layui-input-suffix">被陷阱捕获后的处置动作</div>
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">IP屏蔽</label>
+									<div class="layui-input-group">
+										<input type="checkbox" name="bot_trap_ip_block" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
+										<div class="layui-input-suffix">访问陷阱URI后屏蔽IP</div>
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">IP屏蔽时长</label>
+									<div class="layui-input-group">
+										<input type="text" name="bot_trap_ip_block_timeout" lay-verify="required|number" lay-filter="config_input" autocomplete="off" class="layui-input" />
+										<div class="layui-input-suffix">秒，如果设置为0则永久禁止</div>
+									</div>
+								</div>
+								<div class="layui-input-block">
+									<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="config_save">保存</button>
+									<button type="reset" class="pear-btn">重置</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+
+		<div class="layui-row layui-col-space10" style="margin-top: 10px;">
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">User-Agent管理</div>
+					<div class="layui-card-body">
+						<table id="table_rule" lay-filter="table_rule"></table>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="form_rule" id="form_rule">
+			<input type="hidden" name="id" />
+			<input type="hidden" name="state" />
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md6 layui-col-sm6">处置动作</div>
+				<div class="layui-col-md2 layui-col-sm2">自动屏蔽IP</div>
+				<div class="layui-col-md4 layui-col-sm4">IP屏蔽时长（秒，0 为永久）</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md6 layui-col-sm6">
+					<select id="rule_select" name="action" lay-filter="rule_select"></select>
+				</div>
+				<div class="layui-col-md2 layui-col-sm2">
+					<input type="checkbox" name="autoIpBlock" lay-skin="switch" lay-filter="rule_switch" title="ON|OFF" />
+				</div>
+				<div class="layui-col-md4 layui-col-sm4">
+					<input type="text" name="ipBlockTimeout" lay-verify="required|number" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+				</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">User-Agent列表</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-form-text">
+						<textarea name="rule" placeholder="User-Agent，每行一个。" style="height: 150px;" class="layui-textarea"></textarea>
+					</div>
+				</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">备注</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-form-text">
+						<textarea name="description" placeholder="请输入备注" lay-filter="rule_textarea" class="layui-textarea" style="min-height: 60px;"></textarea>
+					</div>
+				</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div style="float: right;">
+						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="rule_save">保存</button>
+						<button type="button" class="pear-btn" lay-on="ruleCancel">取消</button>
+					</div>
+				</div>
+			</div>
+		</form>
+
+		<script type="text/html" id="ualist_bar">
+			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i></button>
+		</script>
+		<script type="text/html" id="ualist_state">
+			<input type="checkbox" name="state" value="{{= d.id }}" lay-skin="switch" lay-filter="rule_switch_status" title="ON|OFF" {{= d.state == "on" ? "checked" : "" }} />
+		</script>
+
+		<script src="../../component/layui/layui.js"></script>
+		<script src="../../component/pear/pear.js"></script>
+		<script src="../../js/config.js"></script>
+		<script src="../../js/action.js"></script>
+
+		<script>
+			layui.use(['form','table','util','jquery','popup'], function() {
+				var table = layui.table;
+				var form = layui.form;
+				var util = layui.util;
+				var popup = layui.popup;
+				var $ = layui.$;
+
+				table.render({
+					elem: '#table_rule',
+					url: '/defense/rule/ua/list',
+					cols: [[ //标题栏
+						{field: 'rule', title: '规则名称'},
+						{field: 'state', title: '状态', templet: '#ualist_state', width: 100},
+						{field: 'action', title: '响应动作', templet: function(d) {
+							return '<div>' + getActionText(d.action) + '</div>';
+						}},
+						{field: 'autoIpBlock', title: '自动屏蔽IP', width: 100, templet: function(d) {
+							return d.autoIpBlock == 'on' ? '是' : '否';
+						}},
+						{field: 'ipBlockTimeout', title: 'IP屏蔽时长', width: 100, templet: function(d) {
+							if (d.ipBlockTimeout == 0) {
+								return '永久';
+							} else {
+								return d.ipBlockTimeout + ' 秒';
+							}
+						}},
+						{field: 'description', title: '备注', minWidth: 200},
+						{fixed: 'right', title:'操作', width: 110, minWidth: 110, toolbar: '#ualist_bar'}
+					]]
+				});
+
+				// 触发单元格工具事件
+				table.on('tool(table_rule)', function(obj) {
+					var data = obj.data; // 获得当前行数据
+					if(obj.event === 'edit') {
+						layer.open({
+							type: 1,
+							title: '编辑规则',
+							area: ['600px', 'auto'],
+							shade: 0.6,
+							shadeClose: true,
+							content: $('#form_rule'),
+							end: function() {
+								$("#form_rule").trigger("reset");
+							}
+						});
+
+						var autoIpBlock = data.autoIpBlock == 'on' ? true : false;
+						data.autoIpBlock = autoIpBlock;
+
+						var rule = data.rule;
+						if (rule && rule.length > 0) {
+							var arr = rule.split('|');
+							rule = arr.join('\n');
+							data.rule = rule;
+						}
+
+						form.val('form_rule', data);
+					}
+				});
+
+				util.on('lay-on', {
+					ruleCancel: function() {
+						layer.closeLast('page');
+					}
+				});
+
+				// 提交事件
+				form.on('submit(rule_save)', function(data) {
+					var field = data.field; // 获取表单字段值
+					if (!field.id) {
+						field.state = 'off';
+					}
+					if (field.autoIpBlock != 'on') {
+						field.autoIpBlock = 'off';
+					}
+					
+					$.post('/defense/rule/ua/save',  {rule: JSON.stringify(field)}, function(data) {
+						if (data && data.code == 200) {
+							table.reloadData('table_rule');
+							layer.closeLast('page');
+							popup.success("已保存");
+							return true;
+						} else {
+							popup.failure(data.msg);
+						}
+					}, "json");
+
+					return false;
+				});
+
+				form.on('switch(rule_switch_status)', function(obj) {
+					var id = this.value;
+					var name = this.name;
+					var state = this.checked ? 'on' : 'off';
+					$.post('/defense/rule/ua/state',  {id: id, state: state}, function(data) {
+						if (data && data.code == 200) {
+							table.reloadData('table_rule');
+							return true;
+						} else {
+							popup.failure(data.msg);
+							return false;
+						}
+					}, "json");
+				});
+
+				$(function() {
+					initActionSelect('rule_select', 'coding', function() {
+						form.render($('#rule_select'));
+					});
+				});
+			});
+		</script>
+	</body>
+</html>

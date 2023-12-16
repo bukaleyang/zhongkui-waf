@@ -7,10 +7,11 @@ local pairs = pairs
 local _M = {}
 
 function _M.readRule(filePath, fileName)
-	local file = io.open(filePath .. fileName .. ".json", "r")
-	if file == nil then
+	local file, err = io.open(filePath .. fileName .. ".json", "r")
+    if not file then
+        ngx.log(ngx.ERR, "Failed to open file ", err)
         return
-	end
+    end
 
     local rulesTable = {}
     local otherTable = {}
@@ -43,10 +44,11 @@ function _M.readRule(filePath, fileName)
 end
 
 function _M.readFileToTable(filePath)
-	local file = io.open(filePath, "r")
-	if file == nil then
+	local file, err = io.open(filePath, "r")
+    if not file then
+        ngx.log(ngx.ERR, "Failed to open file ", err)
         return
-	end
+    end
 
     local t = {}
 
@@ -60,17 +62,55 @@ function _M.readFileToTable(filePath)
 	return t
 end
 
-function _M.readFileToString(filePath)
-	local file = io.open(filePath, "r")
-	if file == nil then
+function _M.readFileToString(filePath, binary)
+    if not filePath then
+        ngx.log(ngx.ERR, "No file found ", filePath)
+        return
+    end
+
+    local mode = "r"
+    if binary == true then
+        mode = "rb"
+    end
+
+    local file, err = io.open(filePath, mode)
+    if not file then
+        ngx.log(ngx.ERR, "Failed to open file ", err)
+        return
+    end
+
+    local content = ""
+    repeat
+        local chunk = file:read(8192) -- 读取 8KB 的块
+        if chunk then
+            content = content .. chunk
+        else
+            break
+        end
+    until not chunk
+
+    file:close()
+    return content
+end
+
+function _M.writeStringToFile(filePath, str, append)
+    if str == nil then
         return
 	end
 
-    local text = file:read('*a')
+    local mode = 'w'
+    if append == true then
+        mode = 'a'
+    end
+	local file, err = io.open(filePath, mode)
+    if not file then
+        ngx.log(ngx.ERR, "Failed to open file ", err)
+        return
+    end
 
+    file:write(str)
+    file:flush()
 	file:close()
-
-	return text
 end
 
 return _M

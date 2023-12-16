@@ -1,0 +1,100 @@
+[
+	{
+		"id": 1,
+		"title": "数据统计",
+		"icon": "layui-icon layui-icon-chart",
+		"type": 1,
+		"href": "view/dashboard.html"
+	},
+	{
+		"id": 2,
+		"title": "防御配置",
+		"icon": "layui-icon layui-icon-auz",
+		"type": 0,
+		"href": "",
+		"children": [
+			{
+				"id": 21,
+				"title": "基本配置",
+				"icon": "layui-icon layui-icon-console",
+				"type": 1,
+				"openType": "_iframe",
+				"href": "view/defense/basic.html"
+			},
+			{
+				"id": 22,
+				"title": "IP黑白名单",
+				"icon": "layui-icon layui-icon-list",
+				"type": 1,
+				"openType": "_iframe",
+				"href": "view/defense/ip.html"
+			},
+			{
+				"id": 23,
+				"title": "Bot管理",
+				"icon": "layui-icon layui-icon-console",
+				"type": 1,
+				"openType": "_iframe",
+				"href": "view/defense/bot.html"
+			},
+			{
+				"id": 24,
+				"title": "CC防护",
+				"icon": "layui-icon layui-icon-console",
+				"type": 1,
+				"openType": "_iframe",
+				"href": "view/defense/cc.html"
+			},
+			{
+				"id": 25,
+				"title": "访问控制(ACL)",
+				"icon": "layui-icon layui-icon-console",
+				"type": 1,
+				"openType": "_iframe",
+				"href": "view/defense/acl.html"
+			}
+		]
+	},
+	{
+		"id": 3,
+		"title": "通用配置",
+		"icon": "layui-icon layui-icon-set-fill",
+		"type": 0,
+		"href": "",
+		"children": [
+			{
+				"id": 31,
+				"title": "数据存储",
+				"icon": "layui-icon layui-icon-console",
+				"type": 1,
+				"openType": "_iframe",
+				"href": "view/defense/storage.html"
+			}
+		]
+	},
+	{
+		"id": 4,
+		"title": "其它配置",
+		"icon": "layui-icon layui-icon-util",
+		"type": 0,
+		"href": "",
+		"children": [
+			{
+				"id": 41,
+				"title": "敏感数据过滤",
+				"icon": "layui-icon layui-icon-console",
+				"type": 1,
+				"openType": "_iframe",
+				"href": "view/other/sensitive.html"
+			},
+			{
+				"id": 42,
+				"title": "密码修改",
+				"icon": "layui-icon layui-icon-console",
+				"type": 1,
+				"openType": "_iframe",
+				"href": "view/other/password.html"
+			}
+		]
+	}
+]

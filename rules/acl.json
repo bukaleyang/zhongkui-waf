@@ -1,41 +1,6 @@
 {
+    "nextId": 1,
     "rules": [
-        {
-            "state": "off",
-            "rule": "no Cookie",
-            "conditions": [
-                {
-                    "field": "URL",
-                    "pattern": "/test/\\d+\\.html"
-                },
-                {
-                    "field": "Cookie",
-                    "name": "",
-                    "pattern": ""
-                }
-            ],
-            "action": "deny",
-            "autoIpBlock": "off",
-            "ipBlockTimeout": 60,
-            "description": "拦截不带Cookie的请求"
-        },
-        {
-            "state": "off",
-            "rule": "no Referer",
-            "conditions": [
-                {
-                    "field": "URL",
-                    "pattern": "/test/\\d+\\.html"
-                },
-                {
-                    "field": "Referer",
-                    "pattern": ""
-                }
-            ],
-            "action": "deny",
-            "autoIpBlock": "off",
-            "ipBlockTimeout": 60,
-            "description": "拦截不带Referer的请求"
-        }
+        
     ]
 }

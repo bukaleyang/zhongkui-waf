@@ -6,7 +6,12 @@ local band = bit.band
 local pairs = pairs
 local ipairs = ipairs
 local type = type
+local tonumber = tonumber
 local lower = string.lower
+local find = string.find
+local match = string.match
+
+local insert = table.insert
 
 local base = {23, 16, 8, 0}
 local maskConst = 0xffffffff
@@ -67,7 +72,7 @@ function _M.maskToNumber(mask)
 
     local number = 0
 
-    if string.find(mask, "%d%.") then
+    if find(mask, "%d%.") then
         number = _M.ipToNumber(mask)
     else
         if tonumber(mask) > 32 then
@@ -100,13 +105,13 @@ function _M.initIpList(ipList)
     local result = {}
     local subnetTab = {}
 
-    if #ipList == 0 then
+    if not ipList or #ipList == 0 then
         return result
     end
 
     for _, v in ipairs(ipList) do
-        local ip = string.match(v, "([%d%.]+)/?")
-        local mask = string.match(v, "/([%d%.]+)")
+        local ip = match(v, "([%d%.]+)/?")
+        local mask = match(v, "/([%d%.]+)")
 
         local ipNumber = _M.ipToNumber(ip)
 
@@ -116,32 +121,26 @@ function _M.initIpList(ipList)
 
             subnetTab[res] = maskNumber
         else
-            table.insert(result, ip)
+            insert(result, ip)
         end
     end
 
-    table.insert(result, subnetTab)
+    insert(result, subnetTab)
 
     return result
 end
 
 -- 把配置中混合在一起的单ip和ip网段区分开，{ip网段table},{ipList}
-function _M.mergeAndSort(ipList1, ipList2)
+function _M.filterIPList(ipList)
     local t1, t2 = {}, {}
 
-    for _, v in ipairs(ipList1) do
-        if string.find(v, '/') then
-            table.insert(t1, v)
-        else
-            table.insert(t2, v)
-        end
-    end
-
-    for _, v in ipairs(ipList2) do
-        if string.find(v, '/') then
-            table.insert(t1, v)
-        else
-            table.insert(t2, v)
+    if ipList and #ipList > 0 then
+        for _, v in ipairs(ipList) do
+            if find(v, '/') then
+                insert(t1, v)
+            else
+                insert(t2, v)
+            end
         end
     end
 

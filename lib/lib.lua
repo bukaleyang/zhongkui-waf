@@ -4,6 +4,8 @@ local decoder = require "decoder"
 local ipUtils = require "ip"
 local action = require "action"
 local cc = require "cc"
+local stringutf8 = require "stringutf8"
+local fileUtils = require "file"
 local ck = require "resty.cookie"
 
 local blockIp = action.blockIp
@@ -12,6 +14,12 @@ local ipairs, pairs = ipairs, pairs
 local type = type
 local md5 = ngx.md5
 local lower = string.lower
+local sub = string.sub
+local trim = stringutf8.trim
+
+local concat = table.concat
+local ngxgmatch = ngx.re.gmatch
+local ngxfind = ngx.re.find
 
 local _M = {}
 
@@ -29,7 +37,7 @@ local function matches(input, regex, options, ctx, nth)
         nth = 0
     end
 
-    return ngx.re.find(input, regex, options, ctx, nth)
+    return ngxfind(input, regex, options, ctx, nth)
 end
 
 
@@ -72,14 +80,16 @@ function _M.isWhiteIp()
         end
 
         for _, v in pairs(config.ipWhiteList) do
+            if ip == v then
+                doAction(config.rules.whiteIp)
+                return true
+            end
+        end
+
+        for _, v in pairs(config.ipWhiteList_subnet) do
             if type(v) == 'table' then
                 if ipUtils.isSameSubnet(v, ip) then
-                    doAction(config.rules.whiteIp, nil, nil, nil)
-                    return true
-                end
-            else
-                if ip == v then
-                    doAction(config.rules.whiteIp, nil, nil, nil)
+                    doAction(config.rules.whiteIp)
                     return true
                 end
             end
@@ -127,7 +137,7 @@ function _M.isBlackIp()
         end
 
         if exists then
-            doAction(config.rules.blackIp, nil, nil, nil)
+            doAction(config.rules.blackIp)
         end
 
         return exists
@@ -247,98 +257,58 @@ function _M.isCC()
 end
 
 function _M.isACL()
-    local cookies, err = ck:new()
     local rules = config.rules.acl
     for _, ruleTab in pairs(rules) do
         local conditions = ruleTab.conditions
         local match = true
         for _, condition in pairs(conditions) do
             local field = condition.field
+            local fieldName = condition.name
             local pattern = condition.pattern
+            local matchValue = ''
             if field == 'URL' then
-                local url = ngx.var.request_uri
-                if not matches(url, pattern) then
-                    match = false
-                    break
-                end
+                matchValue = ngx.var.request_uri
             elseif field == 'Cookie' then
-                local cookieValue = nil
-                local name = condition.name
-                if name ~= nil and name ~= '' then
+                if fieldName ~= nil and fieldName ~= '' then
+                    local cookies, _ = ck:new()
                     if not cookies then
                         match = false
                         break
-                    end
-
-                    cookieValue, err = cookies:get(name)
-                    if not cookieValue then
-                        match = false
-                        break
+                    else
+                        matchValue, _ = cookies:get(fieldName)
                     end
                 else
-                    cookieValue = ngx.var.http_cookie
-                end
-
-                if pattern == '' then
-                    if cookieValue ~= nil and cookieValue ~= '' then
-                        match = false
-                        break
-                    end
-                else
-                    if not matches(cookieValue, pattern) then
-                        match = false
-                        break
-                    end
+                    matchValue = ngx.var.http_cookie
                 end
             elseif field == 'Header' then
-                local name = condition.name
-                local value = nil
-                if name ~= nil and name ~= '' then
-                    local headers = ngx.req.get_headers()
-                    if not headers then
-                        match = false
-                        break
+                local headers = ngx.req.get_headers()
+                if headers then
+                    if fieldName ~= nil and fieldName ~= '' then
+                        matchValue = headers[fieldName]
                     else
-                        value = headers[name]
-                    end
-                end
-
-                if pattern == '' then
-                    if value ~= nil and value ~= '' then
-                        match = false
-                        break
+                        matchValue = concat(headers, '')
                     end
                 else
-                    if not matches(value, pattern) then
-                        match = false
-                        break
-                    end
+                    match = false
+                    break
                 end
             elseif field == 'Referer' then
-                local referer = ngx.var.http_referer
-                if pattern == '' then
-                    if referer ~= nil and referer ~= '' then
-                        match = false
-                        break
-                    end
-                else
-                    if not matches(referer, pattern) then
-                        match = false
-                        break
-                    end
-                end
+                matchValue = ngx.var.http_referer
             elseif field == 'User-Agent' then
-                local ua = ngx.var.http_user_agent
-                if pattern == '' then
-                    if ua ~= nil and ua ~= '' then
-                        match = false
-                        break
-                    end
-                else
-                    if not matches(ua, pattern) then
-                        match = false
-                        break
-                    end
+                matchValue = ngx.var.http_user_agent
+            elseif field == 'IP' then
+                matchValue = ngx.ctx.ip
+            end
+
+            if pattern == '' then
+                if matchValue ~= nil and matchValue ~= '' then
+                    match = false
+                    break
+                end
+            else
+                if not matches(matchValue, pattern) then
+                    match = false
+                    break
                 end
             end
         end
@@ -473,11 +443,16 @@ function _M.isEvilBody(body)
     return false
 end
 
-local function readFile(fileName)
-    local f = assert(io.open(fileName, "r"))
-    local string = f:read("*all")
-    f:close()
-    return string
+local function getRequestBody()
+    ngx.req.read_body()
+    local bodyData = ngx.req.get_body_data()
+    if not bodyData then
+        local bodyFile = ngx.req.get_body_file()
+        if bodyFile then
+            bodyData = fileUtils.readFileToString(bodyFile, true)
+        end
+    end
+    return bodyData
 end
 
 function _M.isEvilReqBody()
@@ -485,88 +460,94 @@ function _M.isEvilReqBody()
        -- local method = ngx.req.get_method()
 
         local contentType = ngx.var.http_content_type
-        local contentLength = tonumber(ngx.var.http_content_length)
         local boundary = nil
 
         if contentType then
-            local bfrom, bto = matches(contentType, "\\s*boundary\\s*=(\\S+)", "isjo", nil, 1)
+            local bfrom, bto = matches(contentType, "\\s*boundary\\s*=\\s*(\\S+)", "isjo", nil, 1)
             if bfrom then
-                boundary = string.sub(contentType, bfrom, bto)
+                boundary = sub(contentType, bfrom, bto)
             end
         end
 
         -- form-data
         if boundary then
-            local sock, _ = ngx.req.socket()
-            local size = 0
-            ngx.req.init_body(128 * 1024) -- buffer is 128KB
-
             local delimiter = '--' .. boundary
             local delimiterEnd = '--' .. boundary .. '--'
 
             local body = ''
             local isFile = false
 
-            while size < contentLength do
-                if sock ~= nil then
-                    local line, err, _ = sock:receive()
-                    if line == nil or err then
-                        break
-                    end
+            local bodyRaw = getRequestBody()
+            local it, err = ngxgmatch(bodyRaw, ".+?(?:\n|$)", "isjo")
+            if not it then
+                ngx.log(ngx.ERR, "error: ", err)
+                return
+            end
 
-                    if line == delimiter or line == delimiterEnd then
-                        if body ~= '' then
-                            body = string.sub(body, 1, -2)
-                            if isFile then
-                                if config.isFileContentOn then
-                                    -- 文件内容检查
-                                    if _M.isEvilFile(body) then
-                                        return true
-                                    end
-                                end
-                                isFile = false
-                            else
-                                if _M.isEvilBody(body) then
+            while true do
+                local m, err = it()
+                if err then
+                    ngx.log(ngx.ERR, "error: ", err)
+                    return
+                end
+
+                if not m then
+                    break
+                end
+
+                local line = trim(m[0])
+                if line == nil then
+                    break
+                end
+
+                if line == delimiter or line == delimiterEnd then
+                    if body ~= '' then
+                        body = sub(body, 1, -2)
+                        if isFile then
+                            if config.isFileContentOn then
+                                -- 文件内容检查
+                                if _M.isEvilFile(body) then
                                     return true
                                 end
                             end
-                            body = ''
+                            isFile = false
+                        else
+                            if _M.isEvilBody(body) then
+                                return true
+                            end
                         end
-                    elseif line ~= '' then
-                        if isFile then
-                            if body == '' then
-                                local fr = matches(line, "Content-Type:\\s*\\S+/\\S+", "ijo")
-                                if fr == nil then
-                                    body = body .. line .. '\n'
-                                end
-                            else
+                        body = ''
+                    end
+                elseif line ~= '' then
+                    if isFile then
+                        if body == '' then
+                            local fr = matches(line, "Content-Type:\\s*\\S+/\\S+", "ijo")
+                            if fr == nil then
                                 body = body .. line .. '\n'
                             end
                         else
-                            local from, to = matches(line, [[Content-Disposition:\s*form-data;[\s\S]+filename=["|'][\s\S]+\.(\w+)(?:"|')]], "ijo", nil, 1)
+                            body = body .. line .. '\n'
+                        end
+                    else
+                        local from, to = matches(line, [[Content-Disposition:\s*form-data;[\s\S]+filename=["|'][\s\S]+\.(\w+)(?:"|')]], "ijo", nil, 1)
 
-                            if from then
-                                local ext = string.sub(line, from, to)
+                        if from then
+                            local ext = sub(line, from, to)
 
-                                if _M.isBlackFileExt(ext, line) then
-                                    return true
-                                end
+                            if _M.isBlackFileExt(ext, line) then
+                                return true
+                            end
 
-                                isFile = true
-                            else
-                                local fr = matches(line, "Content-Disposition:\\s*form-data;\\s*name=", "ijo")
-                                if fr == nil then
-                                    body = body .. line .. '\n'
-                                end
+                            isFile = true
+                        else
+                            local fr = matches(line, "Content-Disposition:\\s*form-data;\\s*name=", "ijo")
+                            if fr == nil then
+                                body = body .. line .. '\n'
                             end
                         end
                     end
-                    size = size + string.len(line)
-                    ngx.req.append_body(line .. '\n')
                 end
             end
-
-            ngx.req.finish_body()
         elseif matches(contentType, "\\s*x-www-form-urlencoded") then
             ngx.req.read_body()
             local args, err = ngx.req.get_post_args()
@@ -586,17 +567,10 @@ function _M.isEvilReqBody()
                 end
             end
         else
-            ngx.req.read_body()
-            local body_raw = ngx.req.get_body_data()
-            if not body_raw then
-                local body_file = ngx.req.get_body_file()
-                if body_file then
-                    body_raw = readFile(body_file)
-                end
-            end
+            local bodyRaw = getRequestBody()
 
-            if body_raw and body_raw ~= "" then
-                if _M.isEvilBody(body_raw) then
+            if bodyRaw and bodyRaw ~= "" then
+                if _M.isEvilBody(bodyRaw) then
                     return true
                 end
             end

@@ -1,5 +1,5 @@
 {
     "rules":[
-        {"state":"on","action":"allow","rule":"^/123/$"}
+        {"state":"off","action":"allow","rule":"^/123/$"}
     ]
 }

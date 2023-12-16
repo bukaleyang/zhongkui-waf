@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+		<title>敏感数据过滤</title>
+		<link href="../../component/pear/css/pear.css" rel="stylesheet">
+		<style>
+			.layui-card-body .layui-form {margin-top: 0px;}
+			p {margin: 6px 15px;}
+		</style>
+	</head>
+	<body class="pear-container" >
+		<div class="layui-row layui-col-space10 layui-form">
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">敏感数据过滤设置</div>
+					<div class="layui-card-body">
+						<div class="layui-row layui-col-space10">
+							<div class="layui-col-md12">
+								<label class="layui-form-label" style="width: auto;">敏感数据过滤</label>
+								<div class="layui-input-block">
+									<input type="checkbox" name="sensitive_data_filtering" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
+								</div>
+							</div>
+						</div>
+						<div class="layui-row layui-col-space10">
+							<div class="layui-col-md12">
+								<table id="table_rule" lay-filter="table_rule"></table>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">敏感词</div>
+					<div class="layui-card-body">
+						<div class="layui-row layui-col-space10">
+							<div class="layui-col-md12">
+								<div style="float: left;">将会对上游服务器返回的页面内容中包含的敏感词打码处理。</div>
+								<div style="float: right;"><button class="pear-btn pear-btn-primary pear-btn-xs" lay-on="editWords"><i class="layui-icon layui-icon-edit"></i></button></div>
+							</div>
+						</div>
+						<div class="layui-row layui-col-space10">
+							<div class="layui-col-md12">
+								<div class="layui-form-text">
+									<textarea name="senstiveWords" placeholder="要过滤的敏感词，每行一个。" style="height: 150px;" class="layui-textarea" readonly></textarea>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="form_rule" id="form_rule">
+			<input type="hidden" name="id" />
+			<input type="hidden" name="state" />
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">匹配正则</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<input type="text" name="rule" lay-verify="required" autocomplete="off" class="layui-input" />
+				</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">打码范围</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<input type="text" name="codingRange" lay-verify="required|codingRange" autocomplete="off" class="layui-input" />
+				</div>
+			</div>
+			<div class="layui-row layui-col-space10 layui-bg-gray">
+				<div class="layui-col-md12 layui-col-sm12">
+					<p>打码范围是匹配到的字符串中要处理的子字符串范围，有两种形式：</p>
+					<p>1. 直接标明要处理的子字符串的起始位置：</p>
+					<p><div style="padding-left: 30px;">1. 如“4,7”，则会将对从第4个位置开始到第7个位置之间的所有字符进行处理。</div></p>
+					<p><div style="padding-left: 30px;">2. 起止位置也可以是一个负数，如“4,-5”`，则会将对从第4个位置开始到倒数第5个位置之间的所有字符进行处理。</div></p>
+					<p>2. 使用`$`字面量加数字，比如：`$0`指的是由该模式匹配的整个子串，而`$1`指第一个带括号的捕获子串。</p>
+				</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">备注</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-form-text">
+						<textarea name="description" placeholder="请输入备注" lay-filter="rule_textarea" class="layui-textarea" style="min-height: 60px;"></textarea>
+					</div>
+				</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div style="float: right;">
+						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="rule_save">保存</button>
+						<button type="button" class="pear-btn" lay-on="ruleCancel">取消</button>
+					</div>
+				</div>
+			</div>
+		</form>
+
+		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="form_wordlist" id="form_wordlist">
+			<input type="hidden" name="id" />
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">敏感词列表</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-form-text">
+						<textarea name="content" placeholder="敏感词，每行一个。" style="height: 210px;" class="layui-textarea"></textarea>
+					</div>
+				</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div style="float: right;">
+						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="wordlist_save">保存</button>
+						<button type="button" class="pear-btn" lay-on="ruleCancel">取消</button>
+					</div>
+				</div>
+			</div>
+		</from>
+
+		<script type="text/html" id="user_toolbar">
+			<button class="pear-btn pear-btn-primary pear-btn-md" lay-event="add">
+				<i class="layui-icon layui-icon-add-1"></i>
+				新增
+			</button>
+		</script>
+		<script type="text/html" id="ualist_bar">
+			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i></button>
+		</script>
+		<script type="text/html" id="ualist_state">
+			<input type="checkbox" name="state" value="{{= d.id }}" lay-skin="switch" lay-filter="rule_switch_status" title="ON|OFF" {{= d.state == "on" ? "checked" : "" }} />
+		</script>
+
+		<script src="../../component/layui/layui.js"></script>
+		<script src="../../component/pear/pear.js"></script>
+		<script src="../../js/action.js"></script>
+
+		<script>
+			layui.use(['form','table','util','jquery','popup'], function() {
+				var table = layui.table;
+				var form = layui.form;
+				var util = layui.util;
+				var popup = layui.popup;
+				var $ = layui.$;
+
+				function getData() {
+					// 加载配置
+					$.get('/other/sensitive/get', {}, function(data) {
+						if (data.data) {
+							$.each(data.data, function(key, value) {	
+								if (value == "on") {
+									$("[name='" + key + "']").prop('checked', true);
+								} else if (value == "off") {
+									$("[name='" + key + "']").prop('checked', false);
+								} else {
+									$("[name='" + key + "']").val(value);
+								}
+							});
+
+							form.render();
+						}
+					}, "json");
+				}
+
+				table.render({
+					elem: '#table_rule',
+					url: '/other/sensitive/list',
+					cols: [[ //标题栏
+						{field: 'state', title: '状态', templet: '#ualist_state', width: 100},
+						{field: 'action', title: '响应动作', templet: function(d) {
+							return '<div>' + getActionText(d.action) + '</div>';
+						}},
+						{field: 'description', title: '备注', minWidth: 200},
+						{fixed: 'right', title:'操作', width: 110, minWidth: 110, toolbar: '#ualist_bar'}
+					]],
+					toolbar: '#user_toolbar',
+					css:'.layui-form{margin-top:0px;}',
+					page: true, // 是否显示分页
+					limits: [5, 10, 15, 20, 25, 30],
+					limit: 10, // 每页默认显示的数量
+				});
+
+				$(function() {
+					getData();
+				});
+
+				// 触发单元格工具事件
+				table.on('tool(table_rule)', function(obj) {
+					var data = obj.data; // 获得当前行数据
+
+					if(obj.event === 'edit') {
+						layer.open({
+							type: 1,
+							title: '编辑规则',
+							area: ['600px', 'auto'],
+							shade: 0.6,
+							shadeClose: true,
+							content: $('#form_rule'),
+							end: function() {
+								$("#form_rule").trigger("reset");
+							}
+						});
+
+						form.val('form_rule', data);
+					}
+				});
+
+				table.on('toolbar(table_rule)', function(obj) {
+					if (obj.event === 'add') {
+						layer.open({
+							type: 1,
+							title: '新增规则',
+							area: ['600px', 'auto'],
+							shade: 0.6,
+							shadeClose: true,
+							content: $('#form_rule'),
+							end: function() {
+								$("#form_rule").trigger("reset");
+							}
+						});
+					}
+				});
+
+				util.on('lay-on', {
+					editWords: function() {
+						$.get('/other/sensitive/words/get', function(res) {
+							if (res && res.code == 200) {
+								layer.open({
+									type: 1,
+									title: '编辑敏感词',
+									shade: 0.6,
+									shadeClose: true,
+									area: ['430px', '360px'],
+									content: $('#form_wordlist'),
+									end: function() {
+										$("#form_wordlist").trigger("reset");
+									}
+								});
+
+								form.val('form_wordlist', res.data);
+							} else {
+								popup.failure(res.msg);
+								return false;
+							}
+						}, "json");
+					},
+					ruleCancel: function() {
+						layer.closeLast('page');
+					}
+				});
+
+				form.verify({
+					codingRange: function(value, elem) {
+						var regex = /^-?[1-9]\d*,-?[1-9]\d*$|^\$(?:0|[1-9]+\d*)$/
+						if (regex.test(value) == false) {
+							return "打码范围格式不正确";
+						}
+					}
+				});
+
+				// 提交事件
+				form.on('submit(rule_save)', function(data) {
+					var field = data.field;
+					
+					$.post('/other/sensitive/save',  {rule: JSON.stringify(field)}, function(data) {
+						if (data && data.code == 200) {
+							table.reloadData('table_rule');
+							layer.closeLast('page');
+							popup.success("已保存");
+							return true;
+						} else {
+							popup.failure(data.msg);
+							return false;
+						}
+					}, "json");
+
+					return false;
+				});
+
+				form.on('switch(rule_switch_status)', function(obj) {
+					var id = this.value;
+					var name = this.name;
+					var state = this.checked ? 'on' : 'off';
+					$.post('/other/sensitive/state',  {id: id, state: state}, function(data) {
+						if (data && data.code == 200) {
+							table.reloadData('table_rule');
+							return true;
+						} else {
+							popup.failure(data.msg);
+							return false;
+						}
+					}, "json");
+				});
+
+				form.on('switch(config_switch)', function(data) {
+					var key = data.elem.name;
+					var val = this.checked ? 'on' : 'off';
+					var json = {};
+					json[key] = val;
+
+					$.post('/defense/basic/update', {config: JSON.stringify(json)}, function(data) {
+						popup.success("已保存");
+					});
+				});
+
+				// 提交事件
+				form.on('submit(wordlist_save)', function(data) {
+					var field = data.field; // 获取表单字段值
+
+					$.post('/other/sensitive/words/update',  {content: field.content}, function(data) {
+						if (data && data.code == 200) {
+							getData();
+							layer.closeLast('page');
+							popup.success("已保存");
+							return true;
+						} else {
+							popup.failure(data.msg);
+							return false;
+						}
+					}, "json");
+
+					return false;
+				});
+
+				$(function() {
+					initActionSelect('rule_select', 'coding', function() {
+						form.render($('#rule_select'));
+					});
+				});
+			});
+
+		</script>
+	</body>
+</html>

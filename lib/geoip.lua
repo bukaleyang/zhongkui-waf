@@ -4,16 +4,24 @@ local config = require "config"
 local _M = {}
 
 local pcall = pcall
+local next = next
+local ipairs = ipairs
 
 local dbFile = config.get('geoip_db_file')
-local allowCountryList = config.get('geoip_allow_country') or {}
+local disallowCountryList = config.get('geoip_disallow_country') or {}
 local language = config.get("geoip_language") ~= '' and config.get("geoip_language") or 'en'
-local allowCountry = false
+local disallowCountryTable = nil
 
 function _M.lookup(ip)
     if not geo.initted() then
         geo.init(dbFile)
-        allowCountry = (next(allowCountryList) ~= nil)
+
+        if next(disallowCountryList) ~= nil then
+            disallowCountryTable = {}
+            for _, code in ipairs(disallowCountryList) do
+                disallowCountryTable[code] = 1
+            end
+        end
     end
 
     local isAllowed = true
@@ -54,15 +62,11 @@ function _M.lookup(ip)
                 city = names[language] or ''
             end
 
-            if allowCountry then
+            if disallowCountryTable then
                 local iso_code = res['country']['iso_code']
-                isAllowed = false
 
-                for _, c in ipairs(allowCountryList) do
-                    if iso_code == c then
-                        isAllowed = true
-                        break
-                    end
+                if disallowCountryTable[iso_code] then
+                    isAllowed = false
                 end
             end
         end

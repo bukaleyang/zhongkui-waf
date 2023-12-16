@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+		<title>IP黑白名单</title>
+		<link href="../../component/pear/css/pear.css" rel="stylesheet">
+		<style>
+			.layui-card-body .layui-form {margin-top: 0px;}
+		</style>
+	</head>
+	<body class="pear-container">
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">IP黑白名单</div>
+					<div class="layui-card-body">
+						<div class="layui-row layui-col-space10 layui-form" lay-filter="form_config">
+							<div class="layui-col-md6">
+								<label class="layui-form-label">白名单</label>
+								<div class="layui-input-block">
+									<input type="checkbox" name="whiteIP" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
+								</div>
+							</div>
+							<div class="layui-col-md6">
+								<label class="layui-form-label">黑名单</label>
+								<div class="layui-input-block">
+									<input type="checkbox" name="blackIP" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
+								</div>
+							</div>
+						</div>
+						<div class="layui-row layui-col-space10">
+							<div class="layui-col-md12">
+								<table id="table_iplist" lay-filter="table_iplist"></table>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="layui-row layui-col-space10 layui-form" lay-filter="form_geoip">
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">地域级IP黑名单</div>
+					<div class="layui-card-body">
+						<div class="layui-row layui-col-space10">
+							<div class="layui-col-md12" id="tab_geoip"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="form_iplist" id="form_iplist">
+			<input type="hidden" name="id" />
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">名单列表</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-form-text">
+						<textarea name="content" placeholder="IP或网段，每行一个。" style="height: 210px;" class="layui-textarea"></textarea>
+					</div>
+				</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div style="float: right;">
+						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="iplist_save">保存</button>
+						<button type="button" class="pear-btn" lay-on="cancel">取消</button>
+					</div>
+				</div>
+			</div>
+		</from>
+
+		<script type="text/html" id="iplist_bar">
+			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i></button>
+		</script>
+		<script type="text/html" id="iplist_state">
+			<input type="checkbox" name="state" value="{{= d.id }}" lay-skin="switch" lay-filter="iplist_switch_status" title="ON|OFF" {{= d.state == "on" ? "checked" : "" }} />
+		</script>
+
+		<script src="../../component/layui/layui.js"></script>
+		<script src="../../component/pear/pear.js"></script>
+		
+		<script>
+			layui.use(['form','table','util','jquery','popup'], function() {
+				var table = layui.table;
+				var form = layui.form;
+				var util = layui.util;
+				var element = layui.element
+				var $ = layui.$;
+				var popup = layui.popup;
+
+				var currentTabId;
+				var disallowArray;
+
+				function loadConfig() {
+					// 加载配置
+					$.get('/defense/ipRule', {}, function(data) {
+						if (data.data) {
+							$.each(data.data, function(key, value) {
+								if (key == 'geoip_disallow_country') {
+									if (Array.isArray(value)) {
+										disallowArray = value;
+										$.each(disallowArray, function(idx, val) {
+											$(":checkbox[name='geoip_disallow_country'][value='" + val + "']").prop('checked', true);
+										});
+										form.render('checkbox', 'form_geoip');
+									}
+								} else if (value == "on") {
+									$("[name='" + key + "']").prop('checked', true);
+								} else if (value == "off") {
+									$("[name='" + key + "']").prop('checked', false);
+								} else {
+									$("[name='" + key + "']").val(value);
+								}
+							});
+
+							form.render(null, 'form_config');
+						}
+					}, "json");
+				}
+
+				$(function() {
+					// 加载国家和地区
+					$.get('/admin/data/countries.json', function(res) {
+							if (res) {
+								var html = '<div class="layui-tab layui-tab-brief" lay-filter="tab_geoip"><ul class="layui-tab-title">';
+								html += '<input type="checkbox" id="chooseAll" lay-filter="chooseAll" title="全选">';
+								var lis = '';
+								var items = '';
+								$.each(res, function(key, value) {
+									lis +='<li lay-id="' + key + '" style="min-width: 50px;">'+ key + '</li>';
+									items += '<div class="layui-tab-item" id="item' + key + '">';
+
+									$.each(value, function(idx, v) {
+										if (idx == 0) {
+											items += '<div class="layui-row layui-col-space10">';
+										} else if (idx % 4 == 0) {
+											items += '</div><div class="layui-row layui-col-space10">';
+										}
+										items += '<div class="layui-col-md3">';
+										items += '<input type="checkbox" name="geoip_disallow_country" value="' + v.iso_code + '" title="' + v.name_cn + '" />';
+										items += '</div>';
+										if (idx == value.length - 1) {
+											var left = 4 - value.length % 4;
+											// 如果最后一行不够4个，补齐4列
+											if (left > 0 && left < 4) {
+												items += '<div class="layui-col-md' + left * 3 + '"></div>';
+											}
+											items += '</div>';
+										}
+									});
+									items += '</div>';
+								});
+
+								html += lis;
+								html += '<div style="float: right;display:inline-block;"><button type="submit" class="pear-btn pear-btn-primary pear-btn-sm" lay-submit lay-filter="geoip_save">保存</button></div>';
+							    html += '</ul><div class="layui-tab-content">';
+								html += items;
+								html += '</div></div>';
+
+								$('#tab_geoip').html(html);
+								form.render('checkbox', 'form_geoip');
+
+								currentTabId = 'A';
+								element.render('tab', 'tab_geoip');
+								element.tabChange('tab_geoip', currentTabId);
+								element.on('tab(tab_geoip)', function(data){
+									var id = $(this).attr('lay-id');
+									if (currentTabId != id) {
+										$("#chooseAll").prop('checked', false);
+										form.render('checkbox', 'form_geoip');
+									}
+									currentTabId = $(this).attr('lay-id');
+								});
+
+								// 全选按钮点击事件
+								form.on('checkbox(chooseAll)', function(data) {
+									var checked = data.elem.checked;
+									var countries = $('#item' + currentTabId).find(':checkbox[name="geoip_disallow_country"]');
+									if (checked) {
+										countries.each(function() {
+											$(this).prop('checked', true);
+										});
+									} else {
+										countries.each(function() {
+											$(this).prop('checked', false);
+										});
+									}
+									form.render('checkbox', 'form_geoip');
+								});
+
+								// 保存地域级IP黑名单设置
+								form.on('submit(geoip_save)', function(data) {
+									var arr = [];
+									$(':checkbox[name="geoip_disallow_country"]:checked').each(function() {
+										arr.push($(this).val());
+									});
+									
+									$.post('/defense/ipRule/geoip/update',  {geoip_disallow_country : JSON.stringify(arr)}, function(data) {
+										if (data && data.code == 200) {
+											popup.success("已保存");
+											return true;
+										} else {
+											popup.failure(data.msg);
+											return false;
+										}
+									}, "json");
+
+									return false;
+								});
+							}
+
+							loadConfig();
+					}, "json");
+				});
+
+				table.render({
+					elem: '#table_iplist',
+					url: '/defense/ipRule/list',
+					cols: [[ //标题栏
+						{title: '类型', templet: function(d) {
+							return d.id == 1 ? '白名单' : '黑名单';
+						}, width: 100},
+						{field: 'content', title: '内容'},
+						{fixed: 'right', title:'操作', width: 110, minWidth: 110, toolbar: '#iplist_bar'}
+					]],
+					skin: 'line'
+				});
+
+				// 触发单元格工具事件
+				table.on('tool(table_iplist)', function(obj) {
+					var data = obj.data; // 获得当前行数据
+
+					if(obj.event === 'edit') {
+						$.get('/defense/ipRule/get',  {id: data.id}, function(res) {
+							if (res && res.code == 200) {
+								layer.open({
+									type: 1,
+									title: '编辑IP' + (data.id == 1 ? '白名单' : '黑名单'),
+									shade: 0.6,
+									shadeClose: true,
+									area: ['430px', '360px'],
+									content: $('#form_iplist'),
+									end: function() {
+										$("#form_iplist").trigger("reset");
+									}
+								});
+
+								form.val('form_iplist', res.data);
+							} else {
+								popup.failure(res.msg);
+								return false;
+							}
+						}, "json");
+					}
+				});
+
+				util.on('lay-on', {
+					cancel: function() {
+						layer.closeLast('page');
+					}
+				});
+
+				// 提交事件
+				form.on('submit(iplist_save)', function(data) {
+					var field = data.field; // 获取表单字段值
+					
+					$.post('/defense/ipRule/update',  {id: field.id, content: field.content}, function(data) {
+						if (data && data.code == 200) {
+							table.reloadData('table_iplist');
+							layer.closeLast('page');
+							popup.success("已保存");
+							return true;
+						} else {
+							popup.failure(data.msg);
+							return false;
+						}
+					}, "json");
+
+					return false;
+				});
+
+				form.on('switch(config_switch)', function(obj) {
+					var name = this.name;
+					var state = this.checked ? 'on' : 'off';
+					var param = {}
+					param[name] = name;
+					param.state = state;
+					$.post('/defense/ipRule/state',  param, function(data) {
+						if (data && data.code == 200) {
+							table.reloadData('table_iplist');
+							return true;
+						} else {
+							popup.failure(data.msg);
+							return false;
+						}
+					}, "json");
+				});
+
+			});
+
+		</script>
+	</body>
+</html>

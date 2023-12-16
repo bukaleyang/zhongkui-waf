@@ -1,7 +1,9 @@
 {
+    "nextId": 3,
     "rules": [
         {
-            "state": "on",
+            "id": 1,
+            "state": "off",
             "rule": "cc-url",
             "countType": "url",
             "pattern": "",
@@ -13,7 +15,8 @@
             "description": "统计单个IP访问单个URL次数"
         },
         {
-            "state": "on",
+            "id": 2,
+            "state": "off",
             "rule": "cc-ip",
             "countType": "ip",
             "pattern": "",
