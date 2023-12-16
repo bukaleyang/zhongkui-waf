@@ -41,7 +41,6 @@
 如果你使用`Nginx`，则需要安装以下第三方模块：
 
 1. 安装`LuaJIT`和`lua-nginx-module`模块
-2. 下载[lua-resty-redis库](https://github.com/openresty/lua-resty-redis)到`path-to-zhongkui-waf/lib/resty`目录
 3. 安装[lua-cjson库](https://www.kyne.com.au/~mark/software/lua-cjson.php)
 
 #### zhongkui-waf
@@ -296,6 +295,8 @@ Disallow: /zhongkuiwaf/honey/trap
 ```bash
 chown ./zhongkui-waf nobody 或者 chmod 744 ./zhongkui-waf
 ```
+
+目前只支持查看当天的流量情况。
 
 ### 交流群
 
