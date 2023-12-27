@@ -7,8 +7,7 @@ window.rootPath = (function (src) {
 
 layui.config({
 	base: rootPath + "module/",
-	//version: "3.40.0"
-	version: new Date().getTime()
+	version: "3.40.0"
 }).extend({
 	admin: "admin", 	         // 框架布局组件
 	common: "common",            // 公共方法封装

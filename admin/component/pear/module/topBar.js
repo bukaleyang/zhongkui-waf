@@ -1,13 +1,1 @@
-layui.define(['jquery', 'element','util'], function(exports) {
-	"use strict";
-
-	var MOD_NAME = 'topBar',
-		$ = layui.jquery,
-		util = layui.util,
-		element = layui.element;
-	
-	var topBar = new function() {
-		util.fixbar({});
-	}
-	exports(MOD_NAME,topBar);
-});
+layui.define(["jquery","element","util"],function(e){"use strict";layui.jquery;var i=layui.util;layui.element;e("topBar",new function(){i.fixbar({})})});
