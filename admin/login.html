@@ -59,7 +59,11 @@
 					$.post('/user/login',  field, function(data) {
 						if (data && data.code == 200) {
 							popup.success("登录成功", function() {
-								location.href = "index.html";
+								if (window.parent !== window) {
+									window.parent.location.href = "index.html";
+								} else {
+									location.href = "index.html";
+								}
 							});
 						} else {
 							popup.failure(data.msg);
