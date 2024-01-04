@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+		<title>防护站点</title>
+		<link href="../component/pear/css/pear.css" rel="stylesheet">
+		<style>
+			.layui-card-body .layui-form {margin-top: 0px;}
+		</style>
+	</head>
+	<body class="pear-container">
+		<div class="layui-row">
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">防护站点</div>
+					<div class="layui-card-body">
+						<div class="layui-row">
+							<div class="layui-col-md12">
+								<table id="table_rule" lay-filter="table_rule"></table>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="form_rule" id="form_rule">
+			<input type="hidden" name="id" />
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">域名</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-btn-container tag" lay-filter="serverNames" lay-verify="serverNames" lay-allowclose="true" lay-newTag="true" id="serverNames"></div>
+				</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">监听端口</div>
+			</div>
+
+			<div class="layui-row layui-col-space10" id="sites">
+				<div class="layui-col-md12">
+					<div class="layui-row layui-col-space5 site-row">
+						<div class="layui-col-md8">
+							<input type="text" name="port" placeholder="80" lay-verify="required|number" lay-reqtext="监听端口不能为空" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+						</div>
+						<div class="layui-col-md4">
+							<div class="layui-input-inline" style="width: 70%;">
+								<label class="layui-form-label" style="width: 30px;">SSL</label>
+								<input type="checkbox" name="ssl" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
+							</div>
+							<i class="layui-icon layui-icon-delete" style="cursor: pointer;vertical-align: middle;" lay-on="removeSite"></i>
+						</div>
+					</div>
+					<div class="layui-row layui-col-space10" id="addSiteRow">
+						<div class="layui-col-md12 layui-col-sm12" style="padding-left: 10px;" >
+							<button type="button" class="pear-btn pear-btn-primary pear-btn-xs" lay-on="addSite">
+								<i class="layui-icon layui-icon-add-1"></i>添加监听端口
+							</button> 最多可添加3个端口
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">上游服务器地址</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<input type="text" name="upstream" placeholder="http://192.168.0.1:8080" lay-verify="required|url" lay-reqtext="上游服务器地址不能为空" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+				</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">备注</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-form-text">
+						<textarea name="description" placeholder="请输入备注" lay-filter="rule_textarea" class="layui-textarea"></textarea>
+					</div>
+				</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div style="float: right;">
+						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="rule_save">保存</button>
+						<button type="button" class="pear-btn" lay-on="ruleCancel">取消</button>
+					</div>
+				</div>
+			</div>
+		</from>
+
+		<script type="text/html" id="user_toolbar">
+			<button class="pear-btn pear-btn-primary pear-btn-md" lay-event="add">
+				<i class="layui-icon layui-icon-add-1"></i>
+				添加站点
+			</button>
+		</script>
+		<script type="text/html" id="rule_bar">
+			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i></button>
+			<button class="pear-btn pear-btn-danger pear-btn-xs" lay-event="remove"><i class="layui-icon layui-icon-delete"></i></button>
+		</script>
+
+		<script src="../component/layui/layui.js"></script>
+		<script src="../component/pear/pear.js"></script>
+		<script>
+			layui.use(['form','table','util','jquery','popup','tag'], function() {
+				var table = layui.table;
+				var form = layui.form;
+				var util = layui.util;
+				var popup = layui.popup;
+				var tag = layui.tag;
+				var $ = layui.$;
+
+				function tagRender() {
+					tag.render("serverNames", {
+						tagText: '<i class="layui-icon layui-icon-add-1"></i>添加域名'
+					});
+				}
+
+				table.render({
+					elem: '#table_rule',
+					url: '/sites/list',
+					cols: [[ //标题栏
+						{field: 'serverNames', title: '域名'},
+						{field: 'listenPorts', title: '监听端口', templet: function(d) {
+							var portsStr = '';
+							$.each(d.listenPorts, function(i, item) {
+								if (item.ssl == 'on') {
+									portsStr += item.port + '/SSL,';
+								} else {
+									portsStr += item.port + ',';
+								}
+							});
+							return portsStr.slice(0, -1);
+						}},
+						{field: 'mode', title: '运行模式', width: 110, templet: function(d) {
+							if (d.mode == 'protection') {
+								return '<div>防御</div>';
+							} else if (d.mode == 'monitor') {
+								return '<div>监控</div>';
+							}
+						}},
+						{field: 'description', title: '备注', minWidth: 200},
+						{fixed: 'right', title:'操作', width: 110, minWidth: 110, toolbar: '#rule_bar'}
+					]],
+					toolbar: '#user_toolbar',
+					css:'.layui-form{margin-top:0px;}',
+					//skin: 'line', // 表格风格
+					//even: true,
+					page: true, // 是否显示分页
+					limits: [5, 10, 15, 20, 25, 30],
+					limit: 10, // 每页默认显示的数量
+				});
+
+				// 触发单元格工具事件
+				table.on('tool(table_rule)', function(obj) {
+					var data = obj.data; // 获得当前行数据
+
+					if(obj.event === 'edit') {
+						var serverNames = $('#serverNames');
+						if (serverNames.length) {
+							var html = '';
+							$.each(data.serverNames, function(idx, val) {
+								html += '<button lay-id="' + idx + '" type="button" class="tag-item tag-item-normal">' + val + '</button>';
+							});
+							serverNames.html(html);
+
+							tagRender();
+						}
+
+						var listenPorts = data.listenPorts;
+
+						$.each(listenPorts, function(i, item) {
+							var newSite = $(".site-row:first").clone();
+							if (i == 0) {
+								$(".site-row:first").remove();
+							}
+
+							if (item.ssl === "on") {
+								newSite.find(":checkbox[name='ssl']").prop("checked", true);
+							} else {
+								newSite.find(":checkbox[name='ssl']").prop("checked", false);
+							}
+
+							newSite.find(":text[name='port']").val(item.port);
+
+							$('#addSiteRow').before(newSite);
+						});
+
+						form.val('form_rule', data);
+						form.render(null, 'form_rule');
+						
+						layer.open({
+							type: 1,
+							title: '编辑站点',
+							shade: 0.6,
+							shadeClose: true,
+							area: ['620px', 'auto'],
+							content: $('#form_rule'),
+							end: function() {
+								$("#form_rule").trigger("reset");
+								$(".site-row:not(:first)").remove();
+								$('#serverNames').find('button:not(:last)').remove();
+								tagRender();
+							}
+						});
+
+					} else if(obj.event === 'remove') {
+						layer.confirm('确定删除该站点吗？', {
+							icon: 3,
+							title: '提示'
+						}, 
+						function(index) {
+							$.post('/sites/remove',  {id: data.id}, function(resData) {
+								if (resData && resData.code == 200) {
+									obj.del(); // 删除对应行（tr）的 DOM 结构，并更新缓存
+									table.reloadData('table_rule');
+									layer.close(index);
+									return true;
+								} else {
+									popup.failure(resData.msg);
+									return false;
+								}
+							}, "json");
+						});
+					}
+				});
+
+				table.on('toolbar(table_rule)', function(obj) {
+					if (obj.event === 'add') {
+						layer.open({
+							type: 1,
+							title: '添加站点',
+							shade: 0.6,
+							shadeClose: true,
+							area: ['620px', 'auto'],
+							content: $('#form_rule'),
+							end: function() {
+								$("#form_rule").trigger("reset");
+								$(".site-row:not(:first)").remove();
+								$('#serverNames').find('button:not(:last)').remove();
+								tagRender();
+							}
+						});
+					} else if (obj.event === 'refresh') {
+						table.reload('table_rule');
+					}
+				});
+
+				util.on('lay-on', {
+					ruleCancel: function() {
+						layer.closeLast('page');
+					},
+					addSite: function() {
+						var newSite = $(".site-row:first").clone();
+
+						var count = $('.site-row').length;
+						if (count < 3) {
+							newSite.find(":text[name='port']").val("");
+							newSite.find(":checkbox[name='ssl']").prop("checked", false);
+							$('#addSiteRow').before(newSite);
+							form.render(null, 'form_rule');
+						} else {
+							popup.failure("最多添加3个监听端口");
+						}
+					},
+					removeSite: function() {
+						var count = $('.site-row').length;
+						if (count > 1) {
+							$(this).closest(".layui-row").remove();
+						} else {
+							popup.failure("至少添加一个监听端口");
+						}
+					}
+				});
+
+				// 自定义验证规则
+				form.verify({
+					serverNames: function(value, elem) {
+						if ($('#serverNames').find('button').length < 2) {
+							return "最少添加一个域名";
+						}
+					}
+				});
+
+				// 提交事件
+				form.on('submit(rule_save)', function(data) {
+					var field = data.field;
+					delete field.port;
+					delete field.ssl;
+
+					var serverNames = $('#serverNames');
+					if (serverNames.length) {
+						var arr = [];
+						$('#serverNames').find('button').not(":last").each(function(i, el) {
+							arr.push($(el).text().replace('ဆ','').trim())
+						});
+						field.serverNames = arr;
+					}
+
+					var listenPorts = [];
+					$('#sites').find(':text[name="port"]').each(function(i, el) {
+						var row = $(el).closest(".site-row");
+						var port = {};
+						port.port = $(el).val();
+						port.ssl = row.find(':checkbox[name="ssl"]').prop('checked') ? 'on' : 'off';
+						listenPorts.push(port);
+					});
+					field.listenPorts = listenPorts;
+
+					$.post('/sites/save',  {rule: JSON.stringify(field)}, function(data) {
+						if (data && data.code == 200) {
+							table.reloadData('table_rule');
+							layer.closeLast('page');
+							popup.success("已保存");
+							return true;
+						} else {
+							popup.failure(data.msg);
+							return false;
+						}
+					}, "json");
+
+					return false; // 阻止默认 form 跳转
+				});
+
+				tagRender();
+
+				tag.on('add(serverNames)', function(data) {
+					var newText = $(data.othis).text().trim();
+					var exists = false;
+					$('#serverNames').find('button').each(function(i, el) {
+						if (newText == $(el).text().replace('ဆ','').trim()) {
+							exists = true;
+							return;
+						}
+					});
+					if (exists) {
+						popup.failure('域名已存在');
+						return false;
+					}
+				});
+
+				$(function(){
+					// 阻止回车触发表单提交
+					$(document).on('keydown', function (e) {
+						if (e.keyCode === 13) {
+							e.preventDefault();
+							return false;
+						}
+					});
+				});
+			});
+		</script>
+	</body>
+</html>

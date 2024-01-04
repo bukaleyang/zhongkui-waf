@@ -52,6 +52,7 @@
 ```nginx
 include /usr/local/openresty/zhongkui-waf/conf/waf.conf;
 include /usr/local/openresty/zhongkui-waf/conf/admin.conf;
+include /usr/local/openresty/zhongkui-waf/conf/sites.conf;
 ```
 
 可根据访问量大小适当调整`waf.conf`文件中配置的字典内存大小。

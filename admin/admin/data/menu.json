@@ -8,6 +8,13 @@
 	},
 	{
 		"id": 2,
+		"title": "防护站点",
+		"icon": "layui-icon layui-icon-website",
+		"type": 1,
+		"href": "view/website.html"
+	},
+	{
+		"id": 3,
 		"title": "防御配置",
 		"icon": "layui-icon layui-icon-auz",
 		"type": 0,
@@ -56,7 +63,7 @@
 		]
 	},
 	{
-		"id": 3,
+		"id": 4,
 		"title": "通用配置",
 		"icon": "layui-icon layui-icon-set-fill",
 		"type": 0,
@@ -73,7 +80,7 @@
 		]
 	},
 	{
-		"id": 4,
+		"id": 5,
 		"title": "其它配置",
 		"icon": "layui-icon layui-icon-util",
 		"type": 0,

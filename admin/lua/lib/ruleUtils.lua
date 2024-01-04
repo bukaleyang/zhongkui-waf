@@ -5,6 +5,7 @@ local nkeys = require "table.nkeys"
 
 local tonumber = tonumber
 local insert = table.insert
+local remove = table.remove
 
 local _M = {}
 
@@ -157,7 +158,6 @@ function _M.saveOrUpdateRule(filePath, newRule)
             else
                 local nextId = tonumber(ruleTable.nextId) or nkeys(rules) + 1
                 newRule.id = nextId
-                newRule.state = 'off'
                 insert(rules, newRule)
                 ruleTable.nextId = nextId + 1
             end
@@ -197,7 +197,7 @@ function _M.deleteRule(filePath)
                     if rules then
                         for k, v in pairs(rules) do
                             if tonumber(v.id) == id then
-                                rules[k] = nil
+                                remove(rules, k)
                                 break
                             end
                         end
