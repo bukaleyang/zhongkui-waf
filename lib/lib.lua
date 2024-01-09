@@ -162,7 +162,7 @@ end
 function _M.isBot()
     if config.isBotOn then
         if cc.checkAccessToken() then
-            return true
+            return false
         end
 
         local ip = ngx.ctx.ip
@@ -194,7 +194,7 @@ end
 function _M.isCC()
     if config.isCCDefenceOn then
         if cc.checkAccessToken() then
-            return true
+            return false
         end
 
         local ip = ngx.ctx.ip

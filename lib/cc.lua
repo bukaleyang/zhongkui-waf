@@ -86,30 +86,29 @@ function _M.redirectJS()
     end
 end
 
--- 验证请求中的AccessToken
+-- 验证请求中的AccessToken，验证通过则返回true,否则返回false
 function _M.checkAccessToken()
+    local accesstoken = ngx.var.cookie_waf_accesstoken
+
+    if not accesstoken then
+        return false
+    end
+
     local realIp = ngx.ctx.ip
     local ua = ngx.ctx.ua
     local key = md5(realIp .. ua .. config.secret)
 
-    local accesstoken = ngx.var.cookie_waf_accesstoken
+    local token = nil
+    if config.isRedisOn then
+        local prefix = "cc_req_accesstoken:"
+        token = redisCli.redisGet(prefix .. key)
+    else
+        local limit = ngx.shared.dict_accesstoken
+        token = limit:get(key)
+    end
 
-    if accesstoken then
-        local token = nil
-        if config.isRedisOn then
-            local prefix = "cc_req_accesstoken:"
-            token = redisCli.redisGet(prefix .. key)
-            if token and token == accesstoken then
-                return true
-            end
-        else
-            local limit = ngx.shared.dict_accesstoken
-            token = limit:get(key)
-        end
-
-        if token and token == accesstoken then
-            return true
-        end
+    if token and token == accesstoken then
+        return true
     end
 
     return false
