@@ -17,14 +17,20 @@ server {
 
     location /defense/ {
         content_by_lua_file $root_path/lua/defense.lua;
+        proxy_set_header  X-Real-IP  $remote_addr;
+        proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
     location /other/ {
         content_by_lua_file $root_path/lua/other.lua;
+        proxy_set_header  X-Real-IP  $remote_addr;
+        proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
     location /dashboard {
         content_by_lua_file $root_path/lua/dashboard.lua;
+        proxy_set_header  X-Real-IP  $remote_addr;
+        proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
     location /user/ {
@@ -32,6 +38,8 @@ server {
             local user = require "user"
             user.doRequest()
         }
+        proxy_set_header  X-Real-IP  $remote_addr;
+        proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
     location ~* \.(html)$ {
@@ -43,16 +51,22 @@ server {
         }
 
         root   $root_path;
-        proxy_set_header  Host  $host; 
-        proxy_set_header  X-Real-IP  $remote_addr; 
+        proxy_set_header  Host  $host;
+        proxy_set_header  X-Real-IP  $remote_addr;
         proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
     location /login {
         default_type 'text/html';
         alias $root_path/login.html;
-        proxy_set_header  Host  $host; 
-        proxy_set_header  X-Real-IP  $remote_addr; 
+        proxy_set_header  Host  $host;
+        proxy_set_header  X-Real-IP  $remote_addr;
+        proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /certificate/ {
+        content_by_lua_file $root_path/lua/certificate.lua;
+        proxy_set_header  X-Real-IP  $remote_addr;
         proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
@@ -68,8 +82,8 @@ server {
     
     location / {
         root   $root_path;
-        proxy_set_header  Host  $host; 
-        proxy_set_header  X-Real-IP  $remote_addr; 
+        proxy_set_header  Host  $host;
+        proxy_set_header  X-Real-IP  $remote_addr;
         proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 

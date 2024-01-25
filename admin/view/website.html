@@ -49,7 +49,7 @@
 						<div class="layui-col-md4">
 							<div class="layui-input-inline" style="width: 70%;">
 								<label class="layui-form-label" style="width: 30px;">SSL</label>
-								<input type="checkbox" name="ssl" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
+								<input type="checkbox" name="ssl" lay-skin="switch" lay-filter="config_switch_ssl" title="ON|OFF" />
 							</div>
 							<i class="layui-icon layui-icon-delete" style="cursor: pointer;vertical-align: middle;" lay-on="removeSite"></i>
 						</div>
@@ -61,6 +61,15 @@
 							</button> 最多可添加3个端口
 						</div>
 					</div>
+				</div>
+			</div>
+
+			<div class="layui-row layui-col-space10 cert" style="display: none;">
+				<div class="layui-col-md12">SSL证书</div>
+			</div>
+			<div class="layui-row layui-col-space10 cert" style="display: none;">
+				<div class="layui-col-md12">
+					<select id="certId" name="certId" lay-filter="rule_select" lay-verify="certId"></select>
 				</div>
 			</div>
 
@@ -93,7 +102,7 @@
 					</div>
 				</div>
 			</div>
-		</from>
+		</form>
 
 		<script type="text/html" id="user_toolbar">
 			<button class="pear-btn pear-btn-primary pear-btn-md" lay-event="add">
@@ -121,6 +130,29 @@
 					tag.render("serverNames", {
 						tagText: '<i class="layui-icon layui-icon-add-1"></i>添加域名'
 					});
+				}
+
+				function listCerts(certId) {
+					$.get('/certificate/listcerts',  {}, function(res) {
+						if (res && res.code == 200) {
+							var html = '';
+							if (res.data) {
+								$.each(res.data, function(i, item) {
+									html += '<option value="' + item.id + '">' + item.certName + '</option>';
+								});
+							}
+							$('#certId').html(html);
+
+							if (certId) {
+								$('#certId').val(certId);
+								$(".cert").show();
+							}
+
+							form.render('select', 'form_rule');
+						} else {
+							popup.failure(res.msg);
+						}
+					}, "json");
 				}
 
 				table.render({
@@ -193,6 +225,8 @@
 							$('#addSiteRow').before(newSite);
 						});
 
+						var certId = data.certId;
+
 						form.val('form_rule', data);
 						form.render(null, 'form_rule');
 						
@@ -203,11 +237,15 @@
 							shadeClose: true,
 							area: ['620px', 'auto'],
 							content: $('#form_rule'),
+							success: function() {
+								listCerts(certId);
+							},
 							end: function() {
 								$("#form_rule").trigger("reset");
 								$(".site-row:not(:first)").remove();
 								$('#serverNames').find('button:not(:last)').remove();
 								tagRender();
+								$(".cert").hide();
 							}
 						});
 
@@ -241,11 +279,15 @@
 							shadeClose: true,
 							area: ['620px', 'auto'],
 							content: $('#form_rule'),
+							success: function() {
+								listCerts();
+							},
 							end: function() {
 								$("#form_rule").trigger("reset");
 								$(".site-row:not(:first)").remove();
 								$('#serverNames').find('button:not(:last)').remove();
 								tagRender();
+								$(".cert").hide();
 							}
 						});
 					} else if (obj.event === 'refresh') {
@@ -286,6 +328,21 @@
 						if ($('#serverNames').find('button').length < 2) {
 							return "最少添加一个域名";
 						}
+					},
+					certId: function(value, elem) {
+						if ($(":checkbox[name='ssl']:checked").length > 0) {
+							if (value == "") {
+								return "请选择SSL证书";
+							}
+						}
+					}
+				});
+
+				form.on('switch(config_switch_ssl)', function(data) {
+					if ($(":checkbox[name='ssl']:checked").length > 0) {
+						$(".cert").show();
+					} else {
+						$(".cert").hide();
 					}
 				});
 
@@ -313,6 +370,10 @@
 						listenPorts.push(port);
 					});
 					field.listenPorts = listenPorts;
+
+					if ($(":checkbox[name='ssl']:checked").length == 0) {
+						delete field.certId;
+					}
 
 					$.post('/sites/save',  {rule: JSON.stringify(field)}, function(data) {
 						if (data && data.code == 200) {

@@ -65,6 +65,26 @@ ldconfig
 echo -e "\033[37m[libmaxminddb安装成功]\033[0m"
 
 
+cd /usr/local/src
+if [ ! -x "lua-5.1.5.tar.gz" ]; then
+    wget https://lua.org/ftp/lua-5.1.5.tar.gz
+fi
+tar -zxf lua-5.1.5.tar.gz
+cd ./lua-5.1.5
+make linux test
+echo -e "\033[37m[lua-5.1.5安装成功]\033[0m"
+
+
+cd /usr/local/src
+if [ ! -x "luaossl-rel-20220711.tar.gz" ]; then
+    wget https://github.com/wahern/luaossl/archive/refs/tags/rel-20220711.tar.gz
+fi
+tar -zxf luaossl-rel-20220711.tar.gz
+cd ./luaossl-rel-20220711
+make all5.1 && make install5.1
+echo -e "\033[37m[luaossl安装成功]\033[0m"
+
+
 # =================maxminddb数据库文件自动更新start=================
 cd /usr/local/src
 if [ ! -x "geoipupdate_6.0.0_linux_386.tar.gz" ]; then

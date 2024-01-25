@@ -113,4 +113,18 @@ function _M.writeStringToFile(filePath, str, append)
 	file:close()
 end
 
+function _M.removeFile(filePath)
+    if not filePath then
+        ngx.log(ngx.ERR, "No file found ", filePath)
+        return
+    end
+
+    local success, err = os.remove(filePath)
+    if success then
+        ngx.log(ngx.INFO, filePath .. " has been successfully removed.")
+    else
+        ngx.log(ngx.ERR, "failed to remove file " .. filePath .. " " .. err)
+    end
+end
+
 return _M

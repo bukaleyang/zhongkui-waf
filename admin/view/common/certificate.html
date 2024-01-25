@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+		<title>证书管理</title>
+		<link href="../../component/pear/css/pear.css" rel="stylesheet">
+		<style>
+			.layui-card-body .layui-form {margin-top: 0px;}
+		</style>
+	</head>
+
+	<body class="pear-container">
+		<div class="layui-row">
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">证书管理</div>
+					<div class="layui-card-body">
+						<div class="layui-row">
+							<div class="layui-col-md12">
+								<table id="table_rule" lay-filter="table_rule"></table>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="form_rule" id="form_rule">
+			<input type="hidden" name="id" />
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">公钥</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-form-text">
+						<textarea id="publicKey" name="publicKey" lay-verify="required" placeholder="请输入公钥" lay-filter="rule_textarea" class="layui-textarea"></textarea>
+					</div>
+				</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md5">
+					<button type="button" class="pear-btn pear-btn-primary layui-btn-fluid" id="upload_crt">
+						<i class="layui-icon layui-icon-upload-drag"></i>
+						上传证书文件（.crt或.pem）
+					</button>
+				</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">私钥</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-form-text">
+						<textarea id="privateKey" name="privateKey" lay-verify="required" placeholder="请输入私钥" lay-filter="rule_textarea" class="layui-textarea"></textarea>
+					</div>
+				</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md5">
+					<button type="button" class="pear-btn pear-btn-primary layui-btn-fluid" id="upload_key">
+						<i class="layui-icon layui-icon-upload-drag"></i>
+						上传私钥文件（.key）
+					</button>
+				</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div style="float: right;">
+						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="rule_save">保存</button>
+						<button type="button" class="pear-btn" lay-on="ruleCancel">取消</button>
+					</div>
+				</div>
+			</div>
+		</form>
+
+		<script type="text/html" id="user_toolbar">
+			<button class="pear-btn pear-btn-primary pear-btn-md" lay-event="add">
+				<i class="layui-icon layui-icon-add-1"></i>
+				添加证书
+			</button>
+		</script>
+		<script type="text/html" id="rule_bar">
+			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i></button>
+			<button class="pear-btn pear-btn-danger pear-btn-xs" lay-event="remove"><i class="layui-icon layui-icon-delete"></i></button>
+		</script>
+
+		<script src="../../component/layui/layui.js"></script>
+		<script src="../../component/pear/pear.js"></script>
+		<script>
+			layui.use(['form', 'table', 'util', 'jquery', 'popup', 'upload'], function () {
+				var table = layui.table;
+				var form = layui.form;
+				var util = layui.util;
+				var popup = layui.popup;
+				var upload = layui.upload;
+				var $ = layui.$;
+
+				table.render({
+					elem: '#table_rule',
+					url: '/certificate/list',
+					cols: [[ //标题栏
+						{ field: 'domainName', title: '域名' },
+						{ field: 'issuerName', title: '颁发机构' },
+						{ field: 'expirationDate', title: '有效期至' },
+						{ fixed: 'right', title: '操作', width: 110, minWidth: 110, toolbar: '#rule_bar' }
+					]],
+					toolbar: '#user_toolbar',
+					css: '.layui-form{margin-top:0px;}',
+					//skin: 'line', // 表格风格
+					//even: true,
+					page: true, // 是否显示分页
+					limits: [5, 10, 15, 20, 25, 30],
+					limit: 10, // 每页默认显示的数量
+				});
+
+				// 触发单元格工具事件
+				table.on('tool(table_rule)', function (obj) {
+					var data = obj.data; // 获得当前行数据
+
+					if (obj.event === 'edit') {
+						form.val('form_rule', data);
+						form.render(null, 'form_rule');
+
+						$.get('/certificate/get',  { id: data.id }, function(res) {
+							if (res && res.code == 200) {
+								$("#publicKey").val(res.data.publicKey);
+								$("#privateKey").val(res.data.privateKey);
+								return true;
+							} else {
+								popup.failure(res.msg);
+								return false;
+							}
+						}, "json");
+
+						layer.open({
+							type: 1,
+							title: '编辑证书',
+							shade: 0.6,
+							shadeClose: true,
+							area: ['620px', 'auto'],
+							content: $('#form_rule'),
+							end: function () {
+								$("#form_rule").trigger("reset");
+							}
+						});
+
+					} else if (obj.event === 'remove') {
+						layer.confirm('确定删除该证书吗？', {
+							icon: 3,
+							title: '提示'
+						},
+						function (index) {
+							$.post('/certificate/remove', { id: data.id }, function (resData) {
+								if (resData && resData.code == 200) {
+									obj.del();
+									table.reloadData('table_rule');
+									layer.close(index);
+									return true;
+								} else {
+									popup.failure(resData.msg);
+									return false;
+								}
+							}, "json");
+						});
+					}
+				});
+
+				table.on('toolbar(table_rule)', function (obj) {
+					if (obj.event === 'add') {
+						layer.open({
+							type: 1,
+							title: '添加证书',
+							shade: 0.6,
+							shadeClose: true,
+							area: ['620px', 'auto'],
+							content: $('#form_rule'),
+							end: function () {
+								$("#form_rule").trigger("reset");
+							}
+						});
+					} else if (obj.event === 'refresh') {
+						table.reload('table_rule');
+					}
+				});
+
+				util.on('lay-on', {
+					ruleCancel: function () {
+						layer.closeLast('page');
+					}
+				});
+
+				// 提交事件
+				form.on('submit(rule_save)', function (data) {
+					var field = data.field;
+
+					$.post('/certificate/save', { rule: JSON.stringify(field) }, function (res) {
+						if (res && res.code == 200) {
+							table.reloadData('table_rule');
+							layer.closeLast('page');
+							popup.success("已保存");
+							console.log(res.data);
+							return true;
+						} else {
+							popup.failure(res.msg);
+							return false;
+						}
+					}, "json");
+
+					return false; // 阻止默认 form 跳转
+				});
+
+				// 证书文件上传
+				var crtUpload = upload.render({
+					elem: '#upload_crt',
+					accept: 'file',
+					exts: 'crt|pem',
+					drag: true,
+					url: '/certificate/readfile',
+					text: {
+						"check-error": "证书文件应为.crt或.pem格式"
+					},
+					done: function (res) {
+						if(res && res.code == 200) {
+							console.log(res.data);
+							$("#publicKey").val(res.data);
+						} else {
+							popup.failure(res.msg);
+						}
+					},
+					error: function() {
+						popup.failure('上传失败，请重试');
+					}
+				});
+
+				// 私钥文件上传
+				var keyUpload = upload.render({
+					elem: '#upload_key',
+					accept: 'file',
+					exts: 'key',
+					drag: true,
+					url: '/certificate/readfile',
+					text: {
+						"check-error": "私钥文件应为.key格式"
+					},
+					done: function (res) {
+						if(res && res.code == 200) {
+							console.log(res.data);
+							$("#privateKey").val(res.data);
+						} else {
+							popup.failure(res.msg);
+						}
+					},
+					error: function() {
+						popup.failure('上传失败，请重试');
+					}
+				});
+
+			});
+		</script>
+	</body>
+</html>

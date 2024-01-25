@@ -12,6 +12,7 @@ local format = string.format
 local _M = {}
 
 local WEBSITES_PATH = config.rulePath .. 'website.json'
+local CERTIFICATE_PATH = config.rulePath .. "certificate.json"
 local SITES_CONF_PATH = config.ZHONGKUI_PATH .. '/conf/sites.conf'
 
 -- nginx server
@@ -33,14 +34,14 @@ server {
 
 -- ssl certificate
 local SSL_CERT_CONFIG = [[
-    # ssl_certificate      cert.pem;
-    # ssl_certificate_key  cert.key;
+    ssl_certificate      %s;
+    ssl_certificate_key  %s;
 
-    # ssl_session_cache    shared:SSL:1m;
-    # ssl_session_timeout  5m;
+    ssl_session_cache    shared:SSL:1m;
+    ssl_session_timeout  5m;
 
-    # ssl_ciphers  HIGH:!aNULL:!MD5;
-    # ssl_prefer_server_ciphers  on;
+    ssl_ciphers  HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers  on;
 ]]
 
 -- 生成站点配置文件
@@ -57,6 +58,7 @@ function _M.generateNginxConfigFile()
             local listenPorts = site.listenPorts
             local listenPortsStr = ''
             local sslCertConfigStr = ''
+            local isSSL = nil
 
             if listenPorts then
                 for _, p in pairs(listenPorts) do
@@ -64,9 +66,24 @@ function _M.generateNginxConfigFile()
                     local sslStr = ''
                     if p.ssl == 'on' then
                         sslStr = ' ssl'
-                        sslCertConfigStr = SSL_CERT_CONFIG
+                        isSSL = true
                     end
                     listenPortsStr = listenPortsStr .. '    listen ' .. port .. sslStr .. ';\n'
+                end
+            end
+
+            if isSSL then
+                local certId = site.certId
+                if certId then
+                    local resp = ruleUtils.getRule(CERTIFICATE_PATH, certId)
+                    if resp.code == 200 and resp.data then
+                        local cert = resp.data
+                        if cert then
+                            local certPath = cert.certPath
+                            local keyPath = cert.keyPath
+                            sslCertConfigStr = format(SSL_CERT_CONFIG, certPath, keyPath)
+                        end
+                    end
                 end
             end
 

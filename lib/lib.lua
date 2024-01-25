@@ -6,7 +6,9 @@ local action = require "action"
 local cc = require "cc"
 local stringutf8 = require "stringutf8"
 local fileUtils = require "file"
+local request = require "request"
 local ck = require "resty.cookie"
+local nkeys = require "table.nkeys"
 
 local blockIp = action.blockIp
 local doAction = action.doAction
@@ -258,6 +260,10 @@ end
 
 function _M.isACL()
     local rules = config.rules.acl
+    if rules == nil or nkeys(rules) == 0 then
+        return false
+    end
+
     for _, ruleTab in pairs(rules) do
         local conditions = ruleTab.conditions
         local match = true
@@ -312,12 +318,16 @@ function _M.isACL()
                 end
             end
         end
+
         if match then
             local ip = ngx.ctx.ip
             blockIp(ip, ruleTab)
             doAction(ruleTab, nil, ruleTab.rule)
+            return true
         end
     end
+
+    return false
 end
 
 -- Returns true if the whiteURL rule is matched, otherwise false
@@ -443,31 +453,12 @@ function _M.isEvilBody(body)
     return false
 end
 
-local function getRequestBody()
-    ngx.req.read_body()
-    local bodyData = ngx.req.get_body_data()
-    if not bodyData then
-        local bodyFile = ngx.req.get_body_file()
-        if bodyFile then
-            bodyData = fileUtils.readFileToString(bodyFile, true)
-        end
-    end
-    return bodyData
-end
-
 function _M.isEvilReqBody()
     if config.isRequestBodyOn then
        -- local method = ngx.req.get_method()
 
         local contentType = ngx.var.http_content_type
-        local boundary = nil
-
-        if contentType then
-            local bfrom, bto = matches(contentType, "\\s*boundary\\s*=\\s*(\\S+)", "isjo", nil, 1)
-            if bfrom then
-                boundary = sub(contentType, bfrom, bto)
-            end
-        end
+        local boundary = request.getBoundary()
 
         -- form-data
         if boundary then
@@ -477,7 +468,7 @@ function _M.isEvilReqBody()
             local body = ''
             local isFile = false
 
-            local bodyRaw = getRequestBody()
+            local bodyRaw = request.getRequestBody()
             local it, err = ngxgmatch(bodyRaw, ".+?(?:\n|$)", "isjo")
             if not it then
                 ngx.log(ngx.ERR, "error: ", err)
@@ -567,8 +558,7 @@ function _M.isEvilReqBody()
                 end
             end
         else
-            local bodyRaw = getRequestBody()
-
+            local bodyRaw = request.getRequestBody()
             if bodyRaw and bodyRaw ~= "" then
                 if _M.isEvilBody(bodyRaw) then
                     return true

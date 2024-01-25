@@ -6,6 +6,7 @@ local nkeys = require "table.nkeys"
 local tonumber = tonumber
 local insert = table.insert
 local remove = table.remove
+local pairs = pairs
 
 local _M = {}
 
@@ -49,6 +50,52 @@ function _M.listRules(filePath)
 
     if response.code ~= 0 then
         ngx.log(ngx.ERR, response.msg)
+    end
+
+    return response
+end
+
+-- 根据id查询规则
+function _M.getRule(filePath, id)
+    local response = {code = 200, data = {}, msg = ""}
+
+    if filePath then
+        local json = file.readFileToString(filePath)
+        if json then
+            local ruleTable = cjson.decode(json)
+            local rules = ruleTable.rules
+            local rule = nil
+
+            if not id then
+                local args, err = ngx.req.get_uri_args()
+                if not args or not args['id'] then
+                    ngx.req.read_body()
+                    args, err = ngx.req.get_post_args()
+                end
+
+                if args then
+                    id = args['id']
+                else
+                    response.code = 500
+                    response.msg = err
+                end
+            end
+
+            if id then
+                id = tonumber(id)
+                for _, r in pairs(rules) do
+                    if r.id == id then
+                        rule = r
+                        break
+                    end
+                end
+            end
+
+            response.data = rule
+        end
+    else
+        response.code = 500
+        response.msg = 'filePath error'
     end
 
     return response
