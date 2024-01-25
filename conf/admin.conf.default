@@ -79,6 +79,11 @@ server {
         deny all;
         return 403;
     }
+
+    location ^~ /ssl-certs/ {
+        deny all;
+        return 403;
+    }
     
     location / {
         root   $root_path;
