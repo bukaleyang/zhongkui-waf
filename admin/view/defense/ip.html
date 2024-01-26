@@ -246,6 +246,7 @@
 									content: $('#form_iplist'),
 									end: function() {
 										$("#form_iplist").trigger("reset");
+										$("#form_iplist").find("input[type='hidden']").val("");
 									}
 								});
 

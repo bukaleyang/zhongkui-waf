@@ -242,6 +242,7 @@
 							},
 							end: function() {
 								$("#form_rule").trigger("reset");
+								$("#form_rule").find("input[type='hidden']").val("");
 								$(".site-row:not(:first)").remove();
 								$('#serverNames').find('button:not(:last)').remove();
 								tagRender();
@@ -284,6 +285,7 @@
 							},
 							end: function() {
 								$("#form_rule").trigger("reset");
+								$("#form_rule").find("input[type='hidden']").val("");
 								$(".site-row:not(:first)").remove();
 								$('#serverNames').find('button:not(:last)').remove();
 								tagRender();

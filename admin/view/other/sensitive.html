@@ -209,6 +209,7 @@
 							content: $('#form_rule'),
 							end: function() {
 								$("#form_rule").trigger("reset");
+								$("#form_rule").find("input[type='hidden']").val("");
 							}
 						});
 
@@ -227,6 +228,7 @@
 							content: $('#form_rule'),
 							end: function() {
 								$("#form_rule").trigger("reset");
+								$("#form_rule").find("input[type='hidden']").val("");
 							}
 						});
 					}
