@@ -42,6 +42,7 @@
 如果你使用`Nginx`，则需要安装以下第三方模块：
 
 1. 安装`LuaJIT`和`lua-nginx-module`模块
+2. 下载[lua-resty-redis库](https://github.com/openresty/lua-resty-redis)到`path-to-zhongkui-waf/lib/resty`目录
 3. 安装[lua-cjson库](https://www.kyne.com.au/~mark/software/lua-cjson.php)
 
 #### zhongkui-waf
@@ -96,6 +97,19 @@ IP地理位置识别需要下载MaxMind的IP地址数据文件及安装该IP数�
 
     Windows系统用户要自行编译，生成`libmaxminddb.dll`文件，具体参考`maxmind/libmaxminddb`官方文档[using-cmake](https://github.com/maxmind/libmaxminddb#using-cmake)。
 
+#### luaossl库
+
+```bash
+wget -P /usr/local/src https://lua.org/ftp/lua-5.1.5.tar.gz
+tar -zxf lua-5.1.5.tar.gz
+cd ./lua-5.1.5
+make linux test
+
+wget -P /usr/local/src https://github.com/wahern/luaossl/archive/refs/tags/rel-20220711.tar.gz
+tar -zxf luaossl-rel-20220711.tar.gz
+cd ./luaossl-rel-20220711
+make all5.1 && make install5.1
+```
 
 安装完成后重启`OpenResty`，使用测试命令：
 
@@ -309,6 +323,8 @@ QQ群：903430639
 ### 捐赠
 
 如果你觉得这个项目还不错，点击[这里](https://afdian.net/a/bukale)为作者买杯咖啡吧！
+
+![donate_wechat](https://github.com/bukaleyang/zhongkui-waf/blob/master/images/donate_wechat.png)
 
 ### Copyright and License
 
