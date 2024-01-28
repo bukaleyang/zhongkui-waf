@@ -1,3 +1,6 @@
+-- Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+-- Copyright (c) 2023 bukale bukale2022@163.com
+
 local geoip = require "geoip"
 local config = require "config"
 local lib = require "lib"

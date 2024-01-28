@@ -322,7 +322,7 @@ QQ群：903430639
 
 ### 捐赠
 
-如果你觉得这个项目还不错，点击[这里](https://afdian.net/a/bukale)为作者买杯咖啡吧！
+如果你觉得这个项目还不错，点击[这里](https://afdian.net/a/bukale)或扫描下方二维码为作者买杯咖啡吧！
 
 ![donate_wechat](https://github.com/bukaleyang/zhongkui-waf/blob/master/images/donate_wechat.png)
 
@@ -330,7 +330,7 @@ QQ群：903430639
 
 ZhongKui-WAF is licensed under the Apache License, Version 2.
 
-Copyright 2023 bukale2022@163.com
+Copyright 2023 bukale bukale2022@163.com
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

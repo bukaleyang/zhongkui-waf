@@ -1,3 +1,6 @@
+-- Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+-- Copyright (c) 2023 bukale bukale2022@163.com
+
 local _M = {}
 
 function _M.decodeBase64(str)
