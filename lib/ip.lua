@@ -10,7 +10,6 @@ local pairs = pairs
 local ipairs = ipairs
 local type = type
 local tonumber = tonumber
-local lower = string.lower
 local find = string.find
 local match = string.match
 
@@ -20,29 +19,27 @@ local base = {23, 16, 8, 0}
 local maskConst = 0xffffffff
 
 function _M.getClientIP()
+    local var = ngx.var
     local ips = {
-        ngx.var.http_x_forwarded_for,
-        ngx.var.http_proxy_client_ip,
-        ngx.var.http_wl_proxy_client_ip,
-        ngx.var.http_http_client_ip,
-        ngx.var.http_http_x_forwarded_for,
-        ngx.var.remote_addr
+        var.http_x_forwarded_for,
+        var.http_proxy_client_ip,
+        var.http_wl_proxy_client_ip,
+        var.http_http_client_ip,
+        var.http_http_x_forwarded_for,
+        var.remote_addr
     }
 
-    local unknown = "unknown"
-
     for _, ip in pairs(ips) do
-        if ip then
+        if ip and ip ~= "" then
             if type(ip) == "table" then
                 ip = ip[1]
             end
-            if #ip ~= 0 and lower(ip) ~= unknown then
-                return ip
-            end
+
+            return ip
         end
     end
 
-    return unknown
+    return "unknown"
 end
 
 function _M.ipToNumber(ip)
