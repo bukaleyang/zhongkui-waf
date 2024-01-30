@@ -31,6 +31,8 @@ function _M.lookup(ip)
     local country = nil
     local province = nil
     local city = nil
+    local longitude = nil
+    local latitude = nil
 
     --support ipv6 e.g. 2001:4860:0:1001::3004:ef68
     local pass, res, err = pcall(geo.lookup, ip)
@@ -65,6 +67,12 @@ function _M.lookup(ip)
                 city = names[language] or ''
             end
 
+            local location = res['location']
+            if location then
+                longitude = location['longitude']
+                latitude = location['latitude']
+            end
+
             if disallowCountryTable then
                 local iso_code = res['country']['iso_code']
 
@@ -75,7 +83,7 @@ function _M.lookup(ip)
         end
     end
 
-    return { isAllowed = isAllowed, country = country or '', province = province or '', city = city or '' }
+    return { isAllowed = isAllowed, country = country or '', province = province or '', city = city or '', longitude = longitude or 0, latitude = latitude or 0 }
 end
 
 return _M

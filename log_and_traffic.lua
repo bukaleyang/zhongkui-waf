@@ -9,6 +9,7 @@ local loggerFactory = require "loggerFactory"
 
 local upper = string.upper
 local concat = table.concat
+local defaultIfBlank = stringutf8.defaultIfBlank
 
 local ATTACK_PREFIX = "attack_"
 local ATTACK_TYPE_PREFIX = "attack_type_"
@@ -18,19 +19,23 @@ local rulePath = config.get("rulePath")
 
 local function writeAttackLog()
     if config.isAttackLogOn then
-        local ruleTable = ngx.ctx.ruleTable
-        local data = ngx.ctx.hitData
-        local action = ngx.ctx.action
+        local ctx = ngx.ctx
+        local ruleTable = ctx.ruleTable
+        local data = ctx.hitData
+        local action = ctx.action
         local rule = ruleTable.rule
         local ruleType = ruleTable.ruleType
 
-        local realIp = ngx.ctx.ip
-        local country = ngx.ctx.geoip.country
-        local province = ngx.ctx.geoip.province
-        local city = ngx.ctx.geoip.city
+        local geoip = ctx.geoip
+        local realIp = ctx.ip
+        local country = geoip.country
+        local province = geoip.province
+        local city = geoip.city
+        local longitude = geoip.longitude
+        local latitude = geoip.latitude
         local method = ngx.req.get_method()
         local url = ngx.var.request_uri
-        local ua = ngx.ctx.ua
+        local ua = ctx.ua
         local host = ngx.var.server_name
         local protocol = ngx.var.server_protocol
         local attackTime = ngx.localtime()
@@ -42,6 +47,8 @@ local function writeAttackLog()
                 geoip_country = country,
                 geoip_province = province,
                 geoip_city = city,
+                geoip_longitude = longitude,
+                geoip_latitude = latitude,
                 attack_time = attackTime,
                 http_method = method,
                 server = host,
@@ -61,9 +68,9 @@ local function writeAttackLog()
             end
         else
             local address = country .. province .. city
-            address = stringutf8.defaultIfBlank(address, '-')
-            ua = stringutf8.defaultIfBlank(ua, '-')
-            data = stringutf8.defaultIfBlank(data, '-')
+            address = defaultIfBlank(address, '-')
+            ua = defaultIfBlank(ua, '-')
+            data = defaultIfBlank(data, '-')
 
             local logStr = concat({ruleType, realIp, address, "[" .. attackTime .. "]", '"' .. method, host, url, protocol .. '"', data, '"' .. ua .. '"', '"' .. rule .. '"', action},' ')
             local hostLogger = loggerFactory.getLogger(logPath, host, true)
