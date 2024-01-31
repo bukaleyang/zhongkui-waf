@@ -7,8 +7,20 @@ local ngxfind = ngx.re.find
 local ngxmatch = ngx.re.match
 local ngxgmatch = ngx.re.gmatch
 local sub = string.sub
+local randomseed = math.randomseed
+local random = math.random
+local ostime = os.time
+local osdate = os.date
 
 local _M = {}
+
+function _M.generateId()
+    local now = ostime()
+    randomseed(now)
+    local num = random(100000, 999999)
+
+    return osdate("%Y%m%d%H%M%S", now) .. num
+end
 
 function _M.getBoundary()
     local contentType = ngx.var.http_content_type

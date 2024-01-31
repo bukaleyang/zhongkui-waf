@@ -26,6 +26,7 @@ local function writeAttackLog()
         local rule = ruleTable.rule
         local ruleType = ruleTable.ruleType
 
+        local requestId = ctx.requestId
         local geoip = ctx.geoip
         local realIp = ctx.ip
         local country = geoip.country
@@ -42,6 +43,7 @@ local function writeAttackLog()
 
         if config.isJsonFormatLogOn then
             local logTable = {
+                request_id = requestId,
                 attack_type = ruleType,
                 remote_addr = realIp,
                 geoip_country = country,

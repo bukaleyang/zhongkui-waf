@@ -5,6 +5,10 @@ local geoip = require "geoip"
 local config = require "config"
 local lib = require "lib"
 local ipUtils = require "ip"
+local request = require "request"
+
+local generateId = request.generateId
+
 local geoip_default = {isAllowed = true, country = '', province = '', city = ''}
 
 local function init()
@@ -22,6 +26,8 @@ local function init()
     else
         ngx.ctx.geoip = geoip_default
     end
+
+    ngx.ctx.requestId = generateId()
 end
 
 if config.isWAFOn then

@@ -6,13 +6,18 @@ local redisCli = require "redisCli"
 local cc = require "cc"
 
 local md5 = ngx.md5
+local ngxsub = ngx.re.sub
 local upper = string.upper
+local ostime = os.time
+local osdate = os.date
 
 local _M = {}
 
 local dict_hits = ngx.shared.dict_config_rules_hits
 local RULES_HIT_PREFIX = "waf_rules_hits:"
 local RULES_HIT_EXPTIME = 60
+local REDIRECT_HTML = config.html
+local REGEX_OPTION = "jo"
 
 local function deny(status)
     if config.isProtectionMode then
@@ -30,7 +35,15 @@ local function redirect()
     if config.isProtectionMode then
         ngx.header.content_type = "text/html; charset=UTF-8"
         ngx.status = ngx.HTTP_FORBIDDEN
-        ngx.say(config.html)
+        local ctx = ngx.ctx
+        local html = REDIRECT_HTML
+
+        html = ngxsub(html, "\\$remote_addr", ctx.ip, REGEX_OPTION)
+        html = ngxsub(html, "\\$request_id", ctx.requestId, REGEX_OPTION)
+        html = ngxsub(html, "\\$blocked_time", osdate("%Y-%m-%d %H:%M:%S", ostime()), REGEX_OPTION)
+        html = ngxsub(html, "\\$user_agent", ctx.ua, REGEX_OPTION)
+
+        ngx.say(html)
         return ngx.exit(ngx.status)
     end
 end
