@@ -63,6 +63,10 @@ local configRegex = {
     fileExtBlackList = "^\\[\\S*\\]$",
     -- 上传文件内容检查
     fileContentCheck = CONFIG_REGEX_SWITCH,
+    -- sql注入检查
+    sqli = CONFIG_REGEX_SWITCH,
+    -- xss检查
+    xss = CONFIG_REGEX_SWITCH,
     -- cookie检查
     cookie = CONFIG_REGEX_SWITCH,
     -- bot管理
@@ -118,6 +122,8 @@ local function initConfig()
     _M.isCCDefenceOn = isOptionOn("cc_defence")
     _M.isRequestBodyOn = isOptionOn("requestBodyCheck")
     _M.isFileContentOn = isOptionOn("fileContentCheck")
+    _M.isSqliOn = isOptionOn("sqli")
+    _M.isXssOn = isOptionOn("xss")
     _M.isCookieOn = isOptionOn("cookie")
     _M.isRedisOn = isOptionOn("redis")
     _M.isSensitiveDataFilteringOn = isOptionOn("sensitive_data_filtering")
@@ -154,6 +160,8 @@ local function initConfig()
     rulesConfig.sensitive, rulesConfig.sensitiveWords = readRule(rulePath, "sensitive")
     rulesConfig["user-agent"] = readRule(rulePath, "user-agent")
 
+    rulesConfig.sqli = { ruleType = "sqli", rule = "sqli", action = "DENY" }
+    rulesConfig.xss = { ruleType = "xss", rule = "xss", action = "DENY" }
     rulesConfig.fileExt = { ruleType = "file-ext", rule = "file-ext", action = "REDIRECT" }
     rulesConfig.whiteIp = { ruleType = "whiteip", rule = "whiteip", action = "ALLOW" }
     rulesConfig.blackIp = { ruleType = "blackip", rule = "blackip", action = "DENY" }

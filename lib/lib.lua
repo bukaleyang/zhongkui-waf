@@ -11,6 +11,7 @@ local stringutf8 = require "stringutf8"
 local fileUtils = require "file"
 local request = require "request"
 local ck = require "resty.cookie"
+local libinjection = require "resty.libinjection"
 local nkeys = require "table.nkeys"
 
 local blockIp = action.blockIp
@@ -378,11 +379,13 @@ function _M.isEvilArgs()
             end
 
             if vals and type(vals) ~= "boolean" and vals ~= "" then
-                local m, ruleTable = matchRule(config.rules.args, decoder.unescapeUri(vals))
+                vals = decoder.unescapeUri(vals)
+                local m, ruleTable = matchRule(config.rules.args, vals)
                 if m then
                     doAction(ruleTable, nil, nil, nil)
                     return true
                 end
+                _M.isSqliOrXss(vals)
             end
         end
     end
@@ -542,6 +545,7 @@ function _M.isEvilReqBody()
                     end
                 end
             end
+            _M.isSqliOrXss(bodyRaw)
         elseif matches(contentType, "\\s*x-www-form-urlencoded") then
             ngx.req.read_body()
             local args, err = ngx.req.get_post_args()
@@ -557,6 +561,7 @@ function _M.isEvilReqBody()
                         if _M.isEvilBody(vals) then
                             return true
                         end
+                        _M.isSqliOrXss(vals)
                     end
                 end
             end
@@ -566,6 +571,7 @@ function _M.isEvilReqBody()
                 if _M.isEvilBody(bodyRaw) then
                     return true
                 end
+                _M.isSqliOrXss(bodyRaw)
             end
         end
 
@@ -586,6 +592,43 @@ function _M.isEvilCookies()
     end
 
     return false
+end
+
+function _M.isSqliOrXss(data)
+    if data then
+        if not config.isSqliOn and not config.isXssOn then
+            return
+        end
+
+        if type(data) ~= 'table' then
+            local t = {}
+            t[1] = tostring(data)
+            data = t
+        end
+
+        local sqli = config.rules.sqli
+        local xss = config.rules.xss
+
+        for _, v in pairs(data) do
+            if type(v) == 'string' then
+                if config.isSqliOn then
+                    local isSqli = libinjection.sqli(v)
+                    if isSqli then
+                        doAction(sqli)
+                        return true
+                    end
+                end
+
+                if config.isXssOn then
+                    local isXss = libinjection.xss(v)
+                    if isXss then
+                        doAction(xss)
+                        return true
+                    end
+                end
+            end
+        end
+    end
 end
 
 return _M

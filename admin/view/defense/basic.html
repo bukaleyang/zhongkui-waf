@@ -99,18 +99,34 @@
 				</div>
 				<div class="layui-col-md6">
 					<div class="layui-card" lay-filter="component-form-element">
-						<div class="layui-card-header">请求体和Cookie检查</div>
-						<div class="layui-card-body layui-row layui-col-space10">
-							<div class="layui-col-md6">
-								<label class="layui-form-label">请求体检查</label>
-								<div class="layui-input-block">
-									<input type="checkbox" name="requestBodyCheck" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
+						<div class="layui-card-header">其它设置</div>
+						<div class="layui-card-body">
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md6">
+									<label class="layui-form-label">请求体检查</label>
+									<div class="layui-input-block">
+										<input type="checkbox" name="requestBodyCheck" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
+									</div>
+								</div>
+								<div class="layui-col-md6">
+									<label class="layui-form-label">Cookie检查</label>
+									<div class="layui-input-block">
+										<input type="checkbox" name="cookie" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
+									</div>
 								</div>
 							</div>
-							<div class="layui-col-md6">
-								<label class="layui-form-label">Cookie检查</label>
-								<div class="layui-input-block">
-									<input type="checkbox" name="cookie" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md6">
+									<label class="layui-form-label">Sql注入检查</label>
+									<div class="layui-input-block">
+										<input type="checkbox" name="sqli" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
+									</div>
+								</div>
+								<div class="layui-col-md6">
+									<label class="layui-form-label">XSS检查</label>
+									<div class="layui-input-block">
+										<input type="checkbox" name="xss" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
+									</div>
 								</div>
 							</div>
 						</div>

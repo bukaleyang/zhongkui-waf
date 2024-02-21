@@ -66,6 +66,17 @@ echo -e "\033[37m[libmaxminddb安装成功]\033[0m"
 
 
 cd /usr/local/src
+if [ ! -x "libinjection-master.zip" ]; then
+    wget -O /usr/local/src/libinjection-master.zip https://github.com/client9/libinjection/archive/refs/heads/master.zip
+fi
+unzip libinjection-master.zip
+cd ./libinjection-master
+make all
+mv ./src/libinjection.so $OPENRESTY_PATH/lualib/libinjection.so
+echo -e "\033[37m[libinjection安装成功]\033[0m"
+
+
+cd /usr/local/src
 if [ ! -x "lua-5.1.5.tar.gz" ]; then
     wget https://lua.org/ftp/lua-5.1.5.tar.gz
 fi
