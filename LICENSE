@@ -209,9 +209,9 @@ and license terms. Your use of these subcomponents is subject to the terms and
 conditions of the following licenses:
 
 - lib/resty/maxminddb.lua:
-    A Lua library for reading MaxMind's Geolocation database format
-    Project URL: https://github.com/anjia0532/lua-resty-maxminddb
-    License: Apache License, Version 2.0
+   A Lua library for reading MaxMind's Geolocation database format
+   Project URL: https://github.com/anjia0532/lua-resty-maxminddb
+   License: Apache License, Version 2.0
 	
 	Copyright 2017-now anjia (anjia0532@gmail.com)
 
@@ -226,16 +226,21 @@ conditions of the following licenses:
 	limitations under the License.
 
 - lib/resty/cookie.lua:
-    Lua library for HTTP cookie manipulations for OpenResty/ngx_lua
-    Project URL: https://github.com/cloudflare/lua-resty-cookie
-    License: BSD
+   Lua library for HTTP cookie manipulations for OpenResty/ngx_lua
+   Project URL: https://github.com/cloudflare/lua-resty-cookie
+   License: BSD
 	
 	Copyright (C) 2013, by Jiale Zhi vipcalio@gmail.com, CloudFlare Inc.
 
 	Copyright (C) 2013, by Yichun Zhang agentzh@gmail.com, CloudFlare Inc.
 
+- lib/resty/libinjection.lua:
+   Project URL: https://github.com/p0pr0ck5/lua-ffi-libinjection
+   License: BSD-3-Clause
+   Copyright 2017 Robert Paprocki
+
 - /admin
-    Project URL: https://gitee.com/pear-admin/Pear-Admin-Layui
+   Project URL: https://gitee.com/pear-admin/Pear-Admin-Layui
 	MIT License
 
 	Copyright (c) 2020 就眠儀式
@@ -259,6 +264,11 @@ conditions of the following licenses:
 	SOFTWARE.
 
 - luaossl
-    Project URL: https://www.25thandclement.com/~william/projects/luaossl.html
+   Project URL: https://www.25thandclement.com/~william/projects/luaossl.html
 	Copyright (c) 2012-2016 William Ahern
 	Copyright (c) 2015-2017 Daurnimator
+
+- libinjection
+   Project URL: https://github.com/client9/libinjection
+   License: BSD-3-Clause
+   Copyright (c) 2012-2016, Nick Galbreath
