@@ -97,7 +97,7 @@ local configRegex = {
     redis = CONFIG_REGEX_SWITCH,
     redis_host = "^\"?\\S*\"?$",
     redis_port = CONFIG_REGEX_NUMBER,
-    redis_passwd = "^\"\"$|^\"?\\S+\"?$",
+    redis_password = "^\"\"$|^\"?\\S+\"?$",
     redis_ssl = "^(?:true|false)$",
     redis_pool_size = CONFIG_REGEX_NUMBER,
     -- Respectively sets the connect, send, and read timeout thresholds (in ms)

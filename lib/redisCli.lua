@@ -15,7 +15,7 @@ local _M = {}
 
 local host = config.get("redis_host")
 local port = tonumber(config.get("redis_port")) or 6379
-local passwd = config.get("redis_passwd")
+local password = config.get("redis_password")
 local poolSize = config.get("redis_pool_size")
 
 local redis_timeouts = config.get("redis_timeouts")
@@ -50,12 +50,12 @@ function _M.getRedisConn()
         return nil, err
     end
 
-    if passwd ~= nil and #passwd ~= 0 then
+    if password ~= nil and #password ~= 0 then
         local times = 0
         times, err = red:get_reused_times()
 
         if times == 0 then
-            local res, err2 = red:auth(passwd)
+            local res, err2 = red:auth(password)
             if not res then
                 ngx.log(ngx.ERR, "failed to authenticate: ", err2)
                 return nil, err2
