@@ -115,12 +115,12 @@ local function hit(ruleTable)
             if not count then
                 redisCli.redisSet(key, 1, RULES_HIT_EXPTIME)
             else
-                newHits, _ = redisCli.redisIncr(key)
+                newHits = redisCli.redisIncr(key)
             end
-            newTotalHits, _ = redisCli.redisIncr(key_total)
+            newTotalHits = redisCli.redisIncr(key_total)
         else
-            newHits, _ = dict_hits:incr(key, 1, 0, RULES_HIT_EXPTIME)
-            newTotalHits, _ = dict_hits:incr(key_total, 1, 0)
+            newHits = dict_hits:incr(key, 1, 0, RULES_HIT_EXPTIME)
+            newTotalHits = dict_hits:incr(key_total, 1, 0)
         end
 
         ruleTable.hits = newHits or 1

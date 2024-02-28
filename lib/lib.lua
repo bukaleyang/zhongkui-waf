@@ -280,12 +280,12 @@ function _M.isACL()
                 matchValue = ngx.var.request_uri
             elseif field == 'Cookie' then
                 if fieldName ~= nil and fieldName ~= '' then
-                    local cookies, _ = ck:new()
+                    local cookies = ck:new()
                     if not cookies then
                         match = false
                         break
                     else
-                        matchValue, _ = cookies:get(fieldName)
+                        matchValue = cookies:get(fieldName)
                     end
                 else
                     matchValue = ngx.var.http_cookie
