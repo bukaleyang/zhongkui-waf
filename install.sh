@@ -88,7 +88,7 @@ echo -e "\033[37m[lua-5.1.5安装成功]\033[0m"
 
 cd /usr/local/src
 if [ ! -x "luaossl-rel-20220711.tar.gz" ]; then
-    wget https://github.com/wahern/luaossl/archive/refs/tags/rel-20220711.tar.gz
+    wget -O /usr/local/src/luaossl-rel-20220711.tar.gz https://github.com/wahern/luaossl/archive/refs/tags/rel-20220711.tar.gz
 fi
 tar -zxf luaossl-rel-20220711.tar.gz
 cd ./luaossl-rel-20220711
