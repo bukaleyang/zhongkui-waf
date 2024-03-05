@@ -105,7 +105,7 @@ tar -zxf lua-5.1.5.tar.gz
 cd ./lua-5.1.5
 make linux test
 
-wget -P /usr/local/src https://github.com/wahern/luaossl/archive/refs/tags/rel-20220711.tar.gz
+wget -O /usr/local/src/luaossl-rel-20220711.tar.gz https://github.com/wahern/luaossl/archive/refs/tags/rel-20220711.tar.gz
 tar -zxf luaossl-rel-20220711.tar.gz
 cd ./luaossl-rel-20220711
 make all5.1 && make install5.1
