@@ -37,7 +37,7 @@ local function writeAttackLog()
         local method = ngx.req.get_method()
         local url = ngx.var.request_uri
         local ua = ctx.ua
-        local host = ngx.var.server_name
+        local host = defaultIfBlank(ngx.var.server_name, 'unknown')
         local protocol = ngx.var.server_protocol
         local attackTime = ngx.localtime()
 
