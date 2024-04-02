@@ -82,7 +82,7 @@ if [ ! -x "lua-5.1.5.tar.gz" ]; then
 fi
 tar -zxf lua-5.1.5.tar.gz
 cd ./lua-5.1.5
-make linux test
+make linux test && make install
 echo -e "\033[37m[lua-5.1.5安装成功]\033[0m"
 
 
