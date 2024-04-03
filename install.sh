@@ -36,7 +36,7 @@ cd openresty-1.21.4.2
 --without-mail_smtp_module
 
 make && make install
-echo -e "\033[37m[openresty安装成功]\033[0m"
+echo -e "\033[34m[openresty安装成功]\033[0m"
 
 
 cd /usr/local/src
@@ -44,12 +44,13 @@ if [ ! -x "zhongkui-waf-master.zip" ]; then
     wget -O /usr/local/src/zhongkui-waf-master.zip https://github.com/bukaleyang/zhongkui-waf/archive/refs/heads/master.zip --no-check-certificate
 fi
 unzip zhongkui-waf-master.zip
-mv ./zhongkui-waf-master $ZHONGKUI_PATH
+mv ./zhongkui-waf-master $OPENRESTY_PATH/zhongkui-waf
 
 mkdir -p $OPENRESTY_PATH/nginx/logs/hack
 chmod -R 744 $OPENRESTY_PATH/nginx/logs/hack
+chown -R nobody:nobody $OPENRESTY_PATH/zhongkui-waf
 
-echo -e "\033[37m[zhongkui-waf安装成功]\033[0m"
+echo -e "\033[34m[zhongkui-waf安装成功]\033[0m"
 
 
 cd /usr/local/src
@@ -62,7 +63,7 @@ cd ./libmaxminddb-1.7.1
 make && make install
 echo /usr/local/lib >> /etc/ld.so.conf.d/local.conf
 ldconfig
-echo -e "\033[37m[libmaxminddb安装成功]\033[0m"
+echo -e "\033[34m[libmaxminddb安装成功]\033[0m"
 
 
 cd /usr/local/src
@@ -73,17 +74,7 @@ unzip libinjection-master.zip
 cd ./libinjection-master
 make all
 mv ./src/libinjection.so $OPENRESTY_PATH/lualib/libinjection.so
-echo -e "\033[37m[libinjection安装成功]\033[0m"
-
-
-cd /usr/local/src
-if [ ! -x "lua-5.1.5.tar.gz" ]; then
-    wget https://lua.org/ftp/lua-5.1.5.tar.gz
-fi
-tar -zxf lua-5.1.5.tar.gz
-cd ./lua-5.1.5
-make linux test && make install
-echo -e "\033[37m[lua-5.1.5安装成功]\033[0m"
+echo -e "\033[34m[libinjection安装成功]\033[0m"
 
 
 cd /usr/local/src
@@ -92,8 +83,8 @@ if [ ! -x "luaossl-rel-20220711.tar.gz" ]; then
 fi
 tar -zxf luaossl-rel-20220711.tar.gz
 cd ./luaossl-rel-20220711
-make all5.1 && make install5.1
-echo -e "\033[37m[luaossl安装成功]\033[0m"
+make all5.1 includedir=$OPENRESTY_PATH/luajit/include/luajit-2.1 && make install5.1
+echo -e "\033[34m[luaossl安装成功]\033[0m"
 
 
 # =================maxminddb数据库文件自动更新start=================
@@ -115,10 +106,10 @@ EditionIDs GeoLite2-City
 DatabaseDirectory $GEOIP_DATABASE_PATH
 " >> /usr/local/etc/GeoIP.conf
 
-    echo -e "\033[37m[GeoIP.conf安装成功]\033[0m"
+    echo -e "\033[34m[GeoIP.conf安装成功]\033[0m"
 
     echo "32 8 * * 1,3 /usr/local/bin/geoipupdate" | crontab -
-    echo -e "\033[37m[geoipupdate安装成功]\033[0m"
+    echo -e "\033[34m[geoipupdate安装成功]\033[0m"
 
     mkdir -p $GEOIP_DATABASE_PATH
     /usr/local/bin/geoipupdate
