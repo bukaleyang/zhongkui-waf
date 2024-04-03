@@ -100,15 +100,10 @@ IP地理位置识别需要下载MaxMind的IP地址数据文件及安装该IP数�
 #### luaossl库
 
 ```bash
-wget -P /usr/local/src https://lua.org/ftp/lua-5.1.5.tar.gz
-tar -zxf lua-5.1.5.tar.gz
-cd ./lua-5.1.5
-make linux test
-
 wget -O /usr/local/src/luaossl-rel-20220711.tar.gz https://github.com/wahern/luaossl/archive/refs/tags/rel-20220711.tar.gz
 tar -zxf luaossl-rel-20220711.tar.gz
 cd ./luaossl-rel-20220711
-make all5.1 && make install5.1
+make all5.1 includedir=/usr/local/openresty/luajit/include/luajit-2.1 && make install5.1
 ```
 
 安装完成后重启`OpenResty`，使用测试命令：
@@ -309,7 +304,7 @@ Disallow: /zhongkuiwaf/honey/trap
 请确保`OpenResty`对`zhongkui-waf`目录有读、写权限，否则`WAF`会无法修改配置文件和生成日志文件。你可以使用类似如下命令来授权：
 
 ```bash
-chown ./zhongkui-waf nobody 或者 chmod 744 ./zhongkui-waf
+chown -R nobody:nobody ./zhongkui-waf
 ```
 
 目前只支持查看当天的流量情况。
