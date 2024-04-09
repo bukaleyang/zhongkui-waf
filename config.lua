@@ -6,6 +6,7 @@ local fileUtils = require "file"
 local ipUtils = require "ip"
 local stringutf8 = require "stringutf8"
 local nkeys = require "table.nkeys"
+local ffi = require "ffi"
 
 local readRule = fileUtils.readRule
 local readFileToString = fileUtils.readFileToString
@@ -37,6 +38,7 @@ local CONFIG_REGEX_PATH = "^\"?[\\s\\S]+\"?$"
 local CONFIG_REGEX_NUMBER = "^[1-9]\\d*$"
 local CONFIG_REGEX_ARRAY_IP = "^\\[[\\d\\./,\"\\s]*\\]$"
 local CONFIG_REGEX_ACTION = "^\"?(?:allow|deny|redirect|coding|redirect_js|redirect_302)\"?$"
+local CONFIG_REGEX_HOST = "^\"?\\S*\"?$"
 
 -- 配置项验证正则集合
 local configRegex = {
@@ -90,12 +92,12 @@ local configRegex = {
     -- 验证请求来自于真实浏览器后，浏览器cookie携带的访问令牌有效时间，单位是秒
     cc_accesstoken_timeout = CONFIG_REGEX_NUMBER,
     -- 密钥，用于请求签名等
-    secret = "^\\S+$",
+    secret = "^\"\\S+\"$",
     -- 敏感数据脱敏
     sensitive_data_filtering = CONFIG_REGEX_SWITCH,
     -- Redis支持，打开后请求频率统计及ip黑名单将从Redis中存取
     redis = CONFIG_REGEX_SWITCH,
-    redis_host = "^\"?\\S*\"?$",
+    redis_host = CONFIG_REGEX_HOST,
     redis_port = CONFIG_REGEX_NUMBER,
     redis_password = "^\"\"$|^\"?\\S+\"?$",
     redis_ssl = "^(?:true|false)$",
@@ -318,10 +320,18 @@ local function getNginxCommandPath()
     return path
 end
 
+-- 是否Linux系统
+local function isLinux()
+    return ffi.os == "Linux"
+end
+
 -- 重新加载nginx配置
 function _M.reloadNginx()
     -- Nginx重新加载配置文件的系统命令
     local command = getNginxCommandPath() .. "nginx -s reload"
+    if isLinux() then
+        command = "sudo " .. command
+    end
     local success = os.execute(command)
 
     if success then
