@@ -103,7 +103,16 @@ local configRegex = {
     redis_ssl = "^(?:true|false)$",
     redis_pool_size = CONFIG_REGEX_NUMBER,
     -- Respectively sets the connect, send, and read timeout thresholds (in ms)
-    redis_timeouts = "^\"?[1-9]\\d*,[1-9]\\d*,[1-9]\\d*\"?$"
+    redis_timeouts = "^\"?[1-9]\\d*,[1-9]\\d*,[1-9]\\d*\"?$",
+    -- MySQL
+    mysql = CONFIG_REGEX_SWITCH,
+    mysql_host = CONFIG_REGEX_HOST,
+    mysql_port = CONFIG_REGEX_NUMBER,
+    mysql_user = "^\"\"$|^\"\\S+\"$",
+    mysql_password = "^\"\"$|^\"?\\S+\"?$",
+    mysql_database = "^\"\"$|^\"\\S+\"$",
+    mysql_pool_size = "^\"\"$|^[1-9]\\d*$",
+    mysql_timeout = CONFIG_REGEX_NUMBER
 }
 
 -- Returns true if the config option is "on",otherwise false
@@ -128,6 +137,7 @@ local function initConfig()
     _M.isXssOn = isOptionOn("xss")
     _M.isCookieOn = isOptionOn("cookie")
     _M.isRedisOn = isOptionOn("redis")
+    _M.isMysqlOn = isOptionOn("mysql")
     _M.isSensitiveDataFilteringOn = isOptionOn("sensitive_data_filtering")
     _M.isBotOn = isOptionOn("bot")
     _M.isBotTrapOn = isOptionOn("bot_trap")

@@ -90,3 +90,13 @@ redis_ssl = false
 redis_pool_size = 10
 # Respectively sets the connect, send, and read timeout thresholds (in ms)
 redis_timeouts = "1000,1000,1000"
+
+# MySQL支持，打开后攻击日志等将存入MySQL
+mysql = "off"
+mysql_host = "127.0.0.1"
+mysql_port = 3306
+mysql_database = "zhongkui_waf"
+mysql_user = ""
+mysql_password = ""
+mysql_pool_size = 10
+mysql_timeout = 5000

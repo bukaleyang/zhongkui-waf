@@ -21,6 +21,7 @@ local REGEX_OPTION = "jo"
 
 local function deny(status)
     if config.isProtectionMode then
+        ngx.ctx.blocked = true
         local statusCode = ngx.HTTP_FORBIDDEN
         if status then
             statusCode = status
@@ -33,6 +34,7 @@ end
 
 local function redirect()
     if config.isProtectionMode then
+        ngx.ctx.blocked = true
         ngx.header.content_type = "text/html; charset=UTF-8"
         ngx.status = ngx.HTTP_FORBIDDEN
         local ctx = ngx.ctx

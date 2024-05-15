@@ -12,7 +12,6 @@ local ipairs = ipairs
 
 local dbFile = config.get('geoip_db_file')
 local disallowCountryList = config.get('geoip_disallow_country') or {}
-local language = config.get("geoip_language") ~= '' and config.get("geoip_language") or 'en'
 local disallowCountryTable = nil
 
 function _M.lookup(ip)
@@ -42,29 +41,41 @@ function _M.lookup(ip)
         if not res then
             ngx.log(ngx.ERR, 'failed to lookup by ip,reason:', err)
         else
-            local countryRes = res['country']
-            if countryRes then
-                local names = countryRes['names']
-                if names then
-                    country = names[language] or ''
+            country = res['country']
+            if country then
+                local names = country['names']
+                if not names then
+                    country['names'] = {}
                 end
+            else
+                country = {names = {}}
             end
+
+            local iso_code = country.iso_code
 
             local subdivisions = res['subdivisions']
             if subdivisions then
-                local subdivisions1 = subdivisions[1]
-                if subdivisions1 then
-                    local names = subdivisions1['names']
-                    if names then
-                        province = names[language] or ''
+                province = subdivisions[1]
+                if province then
+                    local names = province['names']
+                    if not names then
+                        province['names'] = {}
                     end
+                else
+                    province = {names = {}}
                 end
+            else
+                province = {names = {}}
             end
 
-            local cityRes = res['city']
-            if cityRes then
-                local names = cityRes['names']
-                city = names[language] or ''
+            city = res['city']
+            if city then
+                local names = city['names']
+                if not names then
+                    city['names'] = {}
+                end
+            else
+                city = {names = {}}
             end
 
             local location = res['location']
@@ -74,16 +85,33 @@ function _M.lookup(ip)
             end
 
             if disallowCountryTable then
-                local iso_code = res['country']['iso_code']
-
                 if disallowCountryTable[iso_code] then
                     isAllowed = false
                 end
             end
+
+            if iso_code == 'TW' or iso_code == 'HK' or iso_code == 'MO' then
+                local cnName = country.names['zh-CN']
+                local enName = country.names['en']
+
+                province.iso_code = iso_code
+                province.names['zh-CN'] = cnName
+                province.names['en'] = enName
+
+                if iso_code ~= 'TW' then
+                    city.iso_code = ''
+                    city.names['zh-CN'] = cnName
+                    city.names['en'] = enName
+                end
+                country.iso_code = 'CN'
+                country.names['zh-CN'] = '中国'
+                country.names['en'] = 'China'
+            end
+
         end
     end
 
-    return { isAllowed = isAllowed, country = country or '', province = province or '', city = city or '', longitude = longitude or 0, latitude = latitude or 0 }
+    return { isAllowed = isAllowed, country = country or {}, province = province or {}, city = city or {}, longitude = longitude or 0, latitude = latitude or 0 }
 end
 
 return _M

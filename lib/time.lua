@@ -1,16 +1,22 @@
 -- Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
 -- Copyright (c) 2023 bukale bukale2022@163.com
 
+local ngxmatch = ngx.re.match
 local sub = string.sub
 local tonumber = tonumber
 
 local _M = {}
 
-function _M.getExpireTime()
+function _M.calculateSecondsToNextMidnight()
     local localtime = ngx.localtime()
-    local hour = sub(localtime, 12, 13)
-    local expireTime = (24 - tonumber(hour)) * 3600
-    return expireTime
+
+    local m, err = ngxmatch(localtime, "(\\d+):(\\d+):(\\d+)", "jo")
+    if not m then
+        ngx.log(ngx.ERR, "failed to calculate ttl ", err)
+        return nil
+    end
+
+    return 86400 - tonumber(m[1]) * 3600 - tonumber(m[2]) * 60 - tonumber(m[3])
 end
 
 function _M.getDateHour()

@@ -11,12 +11,14 @@ local randomseed = math.randomseed
 local random = math.random
 local ostime = os.time
 local osdate = os.date
+local osclock = os.clock
 
 local _M = {}
 
+-- 生成一个随机的id
 function _M.generateId()
     local now = ostime()
-    randomseed(now)
+    randomseed(now + (ngx.worker.id() + 1) * osclock() + random())
     local num = random(100000, 999999)
 
     return osdate("%Y%m%d%H%M%S", now) .. num
@@ -40,13 +42,17 @@ function _M.getBoundary()
 end
 
 function _M.getRequestBody()
-    ngx.req.read_body()
-    local bodyData = ngx.req.get_body_data()
+    local bodyData = ngx.ctx.request_body
     if not bodyData then
-        local bodyFile = ngx.req.get_body_file()
-        if bodyFile then
-            bodyData = fileUtils.readFileToString(bodyFile, true)
+        ngx.req.read_body()
+        bodyData = ngx.req.get_body_data()
+        if not bodyData then
+            local bodyFile = ngx.req.get_body_file()
+            if bodyFile then
+                bodyData = fileUtils.readFileToString(bodyFile, true)
+            end
         end
+        ngx.ctx.request_body = bodyData
     end
 
     return bodyData

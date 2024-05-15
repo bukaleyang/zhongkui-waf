@@ -40,6 +40,10 @@ function _M.doRequest()
         local configTable = config.getConfigTable()
 
         if configTable then
+            -- 清空用户名和密码，避免返回给前端
+            configTable.mysql_user = nil
+            configTable.mysql_password = nil
+            configTable.redis_password = nil
             response.data = cjson.encode(configTable)
         end
     elseif uri == "/defense/basic/update" then

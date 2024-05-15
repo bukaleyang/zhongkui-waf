@@ -135,6 +135,10 @@ function _M.len(str)
 end
 
 function _M.defaultIfBlank(str, defaultStr)
+    if defaultStr == nil then
+        defaultStr = ""
+    end
+
     if str == nil or match(str, "^%s*$") then
         return defaultStr
     end

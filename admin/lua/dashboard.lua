@@ -1,16 +1,17 @@
 -- Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
 -- Copyright (c) 2023 bukale bukale2022@163.com
 
+local config = require "config"
 local cjson = require "cjson"
 local user = require "user"
 local time = require "time"
+local sql = require "sql"
+local utils = require "utils"
+local constants = require "constants"
 
 local ipairs = ipairs
 local concat = table.concat
 local ngxfind = ngx.re.find
-
-local ATTACK_PREFIX = "attack_"
-local ATTACK_TYPE_PREFIX = "attack_type_"
 
 local _M = {}
 
@@ -20,7 +21,7 @@ local function getRequestTraffic()
     local dataStr = '[["hour", "traffic","attack_traffic"],'
     for _, hour in ipairs(hours) do
         local count = dict:get(hour) or 0
-        local attackCount = dict:get(ATTACK_PREFIX .. hour) or 0
+        local attackCount = dict:get(constants.KEY_ATTACK_PREFIX .. hour) or 0
         dataStr = concat({ dataStr, '["', hour, '", ', count, ',', attackCount, '],' })
     end
 
@@ -35,7 +36,7 @@ local function getAttackTypeTraffic()
 
     if keys then
         local today = ngx.today()
-        local prefix = ATTACK_TYPE_PREFIX .. today
+        local prefix = constants.KEY_ATTACK_TYPE_PREFIX .. today
 
         for _, key in ipairs(keys) do
             local from = ngxfind(key, prefix)
@@ -75,6 +76,47 @@ function _M.doRequest()
         local data = {}
         data.trafficData = trafficDataStr
         data.attackTypeData = attackTypeDataStr
+
+        local wafStatus = {}
+        local world = {}
+        local china = {}
+
+        if config.isMysqlOn then
+            local res, err = sql.getTodayWafStatus()
+            if res then
+                wafStatus = res[1]
+            else
+                ngx.log(ngx.ERR, err)
+            end
+
+            res, err = sql.get30DaysWorldTrafficStats()
+            if res then
+                world = res
+            else
+                ngx.log(ngx.ERR, err)
+            end
+
+            res, err = sql.get30DaysChinaTrafficStats()
+            if res then
+                china = res
+            else
+                ngx.log(ngx.ERR, err)
+            end
+        else
+            local dict = ngx.shared.dict_req_count
+
+            local http4xx = utils.dictGet(dict, constants.KEY_HTTP_4XX)
+            local http5xx = utils.dictGet(dict, constants.KEY_HTTP_5XX)
+            local request_times = utils.dictGet(dict, constants.KEY_REQUEST_TIMES)
+            local attack_times = utils.dictGet(dict, constants.KEY_ATTACK_TIMES)
+            local block_times = utils.dictGet(dict, constants.KEY_BLOCK_TIMES)
+
+            wafStatus = {http4xx = http4xx, http5xx = http5xx, request_times = request_times,
+                        attack_times = attack_times, block_times = block_times}
+        end
+
+        data.sourceRegion = {world = world, china = china}
+        data.wafStatus = wafStatus
         response.data = data
     end
 

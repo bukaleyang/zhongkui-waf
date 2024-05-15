@@ -89,7 +89,8 @@ layui.define(["jquery","layer"], function (exports) {
 			style += '.pear-admin.banner-layout .layui-header{ box-shadow: 2px 0 6px rgb(0 21 41 / 35%) }'
 			style += '.pear-admin .layui-header .layui-layout-control .layui-this *,.pear-admin.banner-layout .layui-header .layui-layout-control .layui-this *{ background-color: rgba(0,0,0,.1)!important;}'
 		}
-    style += '.menu-search-list li:hover,.menu-search-list li.this{background-color:'+ color +'}'
+    	style += '.menu-search-list li:hover,.menu-search-list li.this{background-color:'+ color +'}'
+		style += '.layui-form-radioed>.lay-skin-tag {color: #ffffff !important;background-color:' + color + '!important}';
 		var colorPane = $("#pear-admin-color");
 		if(colorPane.length>0){
 			colorPane.html(style);

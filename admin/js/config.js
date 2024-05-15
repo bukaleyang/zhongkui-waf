@@ -79,8 +79,9 @@ layui.use(['form','element','util','jquery','popup','tag'], function() {
 
     form.on('submit(config_save)', function(data) {
         var field = data.field;
+        var elem = data.elem;
 
-        var formObj = $('[lay-filter="form_config"]');
+        var formObj = $(elem).parents('[lay-filter="form_config"]');
 
         formObj.find(':checkbox[lay-filter="config_switch"]').each(function(i, el) {
             var name = $(el).attr('name');

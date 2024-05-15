@@ -5,9 +5,10 @@ local cjson = require "cjson"
 local config = require "config"
 local redisCli = require "redisCli"
 local isArray = require "table.isarray"
+local sql = require "sql"
+local utils = require "utils"
 
 local redisGet = redisCli.redisGet
-local every = ngx.timer.every
 local md5 = ngx.md5
 local pairs = pairs
 local tonumber = tonumber
@@ -16,7 +17,6 @@ local dict_config = ngx.shared.dict_config
 local dict_hits = ngx.shared.dict_config_rules_hits
 
 local prefix = "waf_rules_hits:"
-local delay = config.rulesSortPeriod
 
 local function sort(ruleType, t)
     for _, rt in pairs(t) do
@@ -82,19 +82,26 @@ local getRulesTimerHandler = function(premature)
     config.rules = rulesConfig
 end
 
-if config.isWAFOn and config.isRulesSortOn then
+if config.isWAFOn then
     local workerId = ngx.worker.id()
-    if workerId == 0 then
-        local ok, err = every(delay, sortTimerHandler)
-        if not ok then
-            ngx.log(ngx.ERR, "failed to create the timer: ", err)
-            return
+
+    if config.isRulesSortOn then
+        local delay = config.rulesSortPeriod
+
+        if workerId == 0 then
+            utils.startTimerEvery(delay, sortTimerHandler)
+        end
+
+        utils.startTimerEvery(delay, getRulesTimerHandler)
+    end
+
+    if config.isMysqlOn then
+        if workerId == 0 then
+            utils.startTimer(0, sql.checkTable)
+            utils.startTimerEvery(2, sql.writeAttackLogToMysql)
+            utils.startTimerEvery(2, sql.updateWafStatus)
+            utils.startTimerEvery(2, sql.updateTrafficStats)
         end
     end
 
-    local ok, err = every(delay, getRulesTimerHandler)
-    if not ok then
-        ngx.log(ngx.ERR, "failed to create the timer: ", err)
-        return
-    end
 end
