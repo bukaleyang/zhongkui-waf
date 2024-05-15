@@ -61,12 +61,14 @@ include /usr/local/openresty/zhongkui-waf/conf/sites.conf;
 
 ```nginx
 lua_shared_dict dict_cclimit 10m;
-lua_shared_dict dict_accesstoken 10m;
+lua_shared_dict dict_accesstoken 5m;
 lua_shared_dict dict_blackip 10m;
 lua_shared_dict dict_locks 100k;
-lua_shared_dict dict_config 2m;
-lua_shared_dict dict_config_rules_hits 1m;
-lua_shared_dict dict_req_count 10m;
+lua_shared_dict dict_config 100k;
+lua_shared_dict dict_config_rules_hits 100k;
+lua_shared_dict dict_req_count 5m;
+lua_shared_dict dict_req_count_citys 10m;
+lua_shared_dict dict_sql_queue 10m;
 
 lua_package_path "/usr/local/openresty/zhongkui-waf/?.lua;/usr/local/openresty/zhongkui-waf/lib/?.lua;/usr/local/openresty/zhongkui-waf/admin/lua/?.lua;;";
 init_by_lua_file  /usr/local/openresty/zhongkui-waf/init.lua;
@@ -301,13 +303,7 @@ Disallow: /zhongkuiwaf/honey/trap
 
 安装配置完成后，浏览器访问`http://localhost:1226`，账号`admin`，默认密码为`zhongkui`。
 
-请确保`OpenResty`对`zhongkui-waf`目录有读、写权限，否则`WAF`会无法修改配置文件和生成日志文件。你可以使用类似如下命令来授权：
-
-```bash
-chown -R nobody:nobody ./zhongkui-waf
-```
-
-目前只支持查看当天的流量情况。
+请确保`OpenResty`对`zhongkui-waf`目录有读、写权限，否则`WAF`会无法修改配置文件和生成日志文件。最佳实践是：新建一个`nginx`用户，并将这个`nginx`用户添加到sudo，允许其执行`nginx`命令，然后将`zhongkui-waf`目录所属用户改为`nginx`用户，最后修改`nginx`配置文件，以`nginx`用户启动`nginx`。
 
 ### 交流群
 
