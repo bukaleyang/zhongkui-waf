@@ -10,6 +10,7 @@ local sql = require "sql"
 local utils = require "utils"
 local constants = require "constants"
 
+local pairs = pairs
 local upper = string.upper
 local format = string.format
 local concat = table.concat
@@ -94,14 +95,23 @@ local function writeAttackLog()
     if config.isMysqlOn then
         local sqlStr = '(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %.7f, %.7f, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
 
-        if requestBody then
-            requestBody = quote_sql_str(requestBody)
+        local reqHeader = ngx.req.raw_header() or ''
+        if #reqHeader > 0 or requestBody then
+            requestBody = quote_sql_str(reqHeader .. (requestBody or ''))
         else
             requestBody = 'NULL'
         end
 
-        if responseBody then
-            responseBody = quote_sql_str(responseBody)
+        local headers = ngx.resp.get_headers()
+        if headers or responseBody then
+            local header = ''
+            for key, value in pairs(headers) do
+                header = header .. key .. ': ' .. value .. '\n'
+            end
+            if #header > 0 then
+                header = header .. '\n'
+            end
+            responseBody = quote_sql_str(header .. (responseBody or ''))
         else
             responseBody = 'NULL'
         end
