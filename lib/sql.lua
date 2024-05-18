@@ -43,7 +43,7 @@ local SQL_CREATE_TABLE_WAF_STATUS = [[
 ]]
 
 local SQL_INSERT_WAF_STATUS = [[
-    INSERT INTO waf_status (http4xx, http5xx, request_times, attack_times, block_times, request_date) 
+    INSERT INTO waf_status (http4xx, http5xx, request_times, attack_times, block_times, request_date)
     VALUES(%u, %u, %u, %u, %u, %s) ON DUPLICATE KEY UPDATE http4xx = http4xx + VALUES(http4xx),
     http5xx = http5xx + VALUES(http5xx),request_times = request_times + VALUES(request_times),
     attack_times = attack_times + VALUES(attack_times),block_times = block_times + VALUES(block_times), update_time = NOW();
@@ -78,24 +78,28 @@ local SQL_CREATE_TABLE_TRAFFIC_STATS = [[
 ]]
 
 local SQL_INSERT_TRAFFIC_STATS = [[
-    INSERT INTO traffic_stats (ip_country_code, ip_country_cn, ip_country_en, ip_province_code, ip_province_cn, ip_province_en, ip_city_code, ip_city_cn, ip_city_en, request_times, attack_times, block_times, request_date) 
+    INSERT INTO traffic_stats (ip_country_code, ip_country_cn, ip_country_en, ip_province_code, ip_province_cn, ip_province_en, ip_city_code, ip_city_cn, ip_city_en, request_times, attack_times, block_times, request_date)
     VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %u, %u, %u, %s) ON DUPLICATE KEY UPDATE request_times = request_times + VALUES(request_times),
     attack_times = attack_times + VALUES(attack_times),block_times = block_times + VALUES(block_times), update_time = NOW();
 ]]
 
-local SQL_GET_30DAYS_WORLD_TRAFFIC_STATS = [[SELECT ip_country_code AS 'iso_code',ip_country_cn AS 'name_cn', ip_country_en AS 'name_en',
-            SUM(request_times) AS request_times,SUM(attack_times) AS attack_times,SUM(block_times) AS block_times
-            FROM traffic_stats WHERE DATE(request_date) >= CURDATE() - INTERVAL 30 DAY GROUP BY ip_country_code, ip_country_cn, ip_country_en;]]
+local SQL_GET_30DAYS_WORLD_TRAFFIC_STATS = [[
+    SELECT ip_country_code AS 'iso_code',ip_country_cn AS 'name_cn', ip_country_en AS 'name_en',
+        SUM(request_times) AS request_times,SUM(attack_times) AS attack_times,SUM(block_times) AS block_times
+    FROM traffic_stats WHERE DATE(request_date) >= CURDATE() - INTERVAL 30 DAY GROUP BY ip_country_code, ip_country_cn, ip_country_en;
+]]
 
-local SQL_GET_30DAYS_CHINA_TRAFFIC_STATS = [[SELECT ip_province_code AS 'iso_code',ip_province_cn AS 'name_cn', ip_province_en AS 'name_en',
-            SUM(request_times) AS request_times,SUM(attack_times) AS attack_times,SUM(block_times) AS block_times
-            FROM traffic_stats WHERE ip_country_code='CN' AND DATE(request_date) >= CURDATE() - INTERVAL 30 DAY GROUP BY ip_province_code, ip_province_cn, ip_province_en;]]
+local SQL_GET_30DAYS_CHINA_TRAFFIC_STATS = [[
+    SELECT ip_province_code AS 'iso_code',ip_province_cn AS 'name_cn', ip_province_en AS 'name_en',
+        SUM(request_times) AS request_times,SUM(attack_times) AS attack_times,SUM(block_times) AS block_times
+    FROM traffic_stats WHERE ip_country_code='CN' AND DATE(request_date) >= CURDATE() - INTERVAL 30 DAY GROUP BY ip_province_code, ip_province_cn, ip_province_en;
+]]
 
 local SQL_CREATE_TABLE_ATTACK_LOG = [[
     CREATE TABLE `attack_log` (
         `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         `request_id` CHAR(20) NOT NULL COMMENT '请求id',
-      
+
         `ip` varchar(32) NOT NULL COMMENT 'ip地址',
         `ip_country_code` CHAR(2) NULL COMMENT 'ip所属国家代码',
         `ip_country_cn` VARCHAR(255) NULL COMMENT 'ip所属国家_中文',
@@ -108,77 +112,98 @@ local SQL_CREATE_TABLE_ATTACK_LOG = [[
         `ip_city_en` VARCHAR(255) NULL COMMENT 'ip所属城市_英文',
         `ip_longitude` DECIMAL(10, 7) NULL COMMENT 'ip地理位置经度',
         `ip_latitude` DECIMAL(10, 7) NULL COMMENT 'ip地理位置纬度',
-          
+
         `http_method` VARCHAR(20) NULL COMMENT '请求http方法',
         `server_name` VARCHAR(100) NULL COMMENT '请求域名',
         `user_agent` VARCHAR(200) NULL COMMENT '请求客户端ua',
         `referer` VARCHAR(500) NULL COMMENT 'referer',
-    
+
         `request_protocol` VARCHAR(50) NULL COMMENT '请求协议',
         `request_uri` VARCHAR(100) NULL COMMENT '请求uri',
         `request_body` MEDIUMTEXT NULL COMMENT '请求体',
         `http_status` SMALLINT UNSIGNED NOT NULL COMMENT 'http响应状态码',
         `response_body` MEDIUMTEXT NULL COMMENT '响应体',
         `request_time` datetime NOT NULL,
-          
+
         `attack_type` VARCHAR(200) NULL COMMENT '攻击类型',
         `hit_rule` VARCHAR(200) NULL COMMENT '命中规则',
         `action` VARCHAR(100) NULL COMMENT '处置动作',
-        
+
         `update_time` datetime NULL,
         `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (`id`)
-      ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
 ]]
 
 local SQL_INSERT_ATTACK_LOG = [[
     INSERT INTO attack_log (
         request_id, ip, ip_country_code, ip_country_cn, ip_country_en, ip_province_code, ip_province_cn, ip_province_en, ip_city_code, ip_city_cn, ip_city_en,
-        ip_longitude, ip_latitude, http_method, server_name, user_agent, referer, request_protocol, request_uri,  
-        request_body, http_status, response_body, request_time, attack_type, hit_rule, action) 
+        ip_longitude, ip_latitude, http_method, server_name, user_agent, referer, request_protocol, request_uri,
+        request_body, http_status, response_body, request_time, attack_type, hit_rule, action)
     VALUES
 ]]
 
+local SQL_CREATE_TABLE_IP_BLOCK_LOG = [[
+    CREATE TABLE `ip_block_log` (
+        `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `request_id` CHAR(20) NULL COMMENT '请求id',
+
+        `ip` varchar(32) NOT NULL COMMENT 'ip地址',
+        `ip_country_code` CHAR(2) NULL COMMENT 'ip所属国家代码',
+        `ip_country_cn` VARCHAR(255) NULL COMMENT 'ip所属国家_中文',
+        `ip_country_en` VARCHAR(255) NULL COMMENT 'ip所属国家_英文',
+        `ip_province_code` VARCHAR(50) NULL COMMENT 'ip所属省份代码',
+        `ip_province_cn` VARCHAR(255) NULL COMMENT 'ip所属省份_中文',
+        `ip_province_en` VARCHAR(255) NULL COMMENT 'ip所属省份_英文',
+        `ip_city_code` VARCHAR(50) NULL COMMENT 'ip所属城市代码',
+        `ip_city_cn` VARCHAR(255) NULL COMMENT 'ip所属城市_中文',
+        `ip_city_en` VARCHAR(255) NULL COMMENT 'ip所属城市_英文',
+        `ip_longitude` DECIMAL(10, 7) NULL COMMENT 'ip地理位置经度',
+        `ip_latitude` DECIMAL(10, 7) NULL COMMENT 'ip地理位置纬度',
+
+        `block_reason` VARCHAR(200) NULL COMMENT '封禁原因',
+        `start_time` datetime NOT NULL COMMENT '封禁开始时间',
+        `block_duration` INT NULL COMMENT '封禁时长',
+        `end_time` datetime NULL COMMENT '封禁结束时间',
+        `unblock_time` datetime  NULL COMMENT '解封时间',
+
+        `update_time` datetime NULL,
+        `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
+]]
+
+local SQL_INSERT_IP_BLOCK_LOG = [[
+    INSERT INTO ip_block_log (
+        request_id, ip, ip_country_code, ip_country_cn, ip_country_en, ip_province_code, ip_province_cn, ip_province_en, ip_city_code, ip_city_cn, ip_city_en,
+        ip_longitude, ip_latitude, block_reason, start_time, block_duration, end_time, unblock_time)
+    VALUES
+]]
 
 function _M.checkTable(premature)
     if premature then
         return
     end
 
-    local res, err = mysql.query(format(SQL_CHECK_TABLE, database, 'waf_status'))
-    if res and res[1] and res[1].c == '0' then
-        res, err = mysql.query(SQL_CREATE_TABLE_WAF_STATUS)
-        if not res then
-            ngx.log(ngx.ERR, 'failed to create table waf_status ', err)
+    local tables = {
+        {name = 'waf_status', sql = SQL_CREATE_TABLE_WAF_STATUS},
+        {name = 'traffic_stats', sql = SQL_CREATE_TABLE_TRAFFIC_STATS},
+        {name = 'attack_log', sql = SQL_CREATE_TABLE_ATTACK_LOG},
+        {name = 'ip_block_log', sql = SQL_CREATE_TABLE_IP_BLOCK_LOG},
+    }
+
+    for _, t in pairs(tables) do
+        local name = t.name
+        local sql = t.sql
+
+        local res, err = mysql.query(format(SQL_CHECK_TABLE, database, name))
+        if res and res[1] and res[1].c == '0' then
+            res, err = mysql.query(sql)
+            if not res then
+                ngx.log(ngx.ERR, 'failed to create table ' .. name .. ' ', err)
+            end
         end
     end
-
-    res = mysql.query(format(SQL_CHECK_TABLE, database, 'traffic_stats'))
-    if res and res[1] and res[1].c == '0' then
-        res, err = mysql.query(SQL_CREATE_TABLE_TRAFFIC_STATS)
-        if not res then
-            ngx.log(ngx.ERR, 'failed to create table traffic_stats ', err)
-        end
-    end
-
-    res = mysql.query(format(SQL_CHECK_TABLE, database, 'attack_log'))
-
-    if res and res[1] and res[1].c == '0' then
-        res, err = mysql.query(SQL_CREATE_TABLE_ATTACK_LOG)
-        if not res then
-            ngx.log(ngx.ERR, 'failed to create table attack_log ', err)
-        end
-    end
-end
-
-local function flushUnlock()
-    local dict_lock = ngx.shared.dict_locks
-    local succ, err = dict_lock:set(KEY_ATTACK_LOG, false)
-    if not succ then
-        ngx.log(ngx.ERR, "failed to unlock " .. KEY_ATTACK_LOG .. ": ", err)
-    end
-
-    return succ
 end
 
 function _M.updateTrafficStats()
@@ -205,10 +230,18 @@ function _M.updateTrafficStats()
                 local cityCN = m[8] or ''
                 local cityEN = m[9] or ''
 
-                insert(keyTable, {prefix = prefix,
-                                countryCode = countryCode, countryCN = countryCN, countryEN = countryEN,
-                                provinceCode = provinceCode, provinceCN = provinceCN, provinceEN = provinceEN,
-                                cityCode = cityCode, cityCN = cityCN, cityEN = cityEN})
+                insert(keyTable, {
+                    prefix = prefix,
+                    countryCode = countryCode,
+                    countryCN = countryCN,
+                    countryEN = countryEN,
+                    provinceCode = provinceCode,
+                    provinceCN = provinceCN,
+                    provinceEN = provinceEN,
+                    cityCode = cityCode,
+                    cityCN = cityCN,
+                    cityEN = cityEN
+                })
             end
         end
 
@@ -225,10 +258,10 @@ function _M.updateTrafficStats()
                 utils.dictSet(dict, prefix .. constants.KEY_BLOCK_TIMES, 0, constants.TTL_KEY_COUNT_CITYS)
 
                 local sql = format(SQL_INSERT_TRAFFIC_STATS,
-                            quote_sql_str(t.countryCode), quote_sql_str(t.countryCN), quote_sql_str(t.countryEN),
-                            quote_sql_str(t.provinceCode), quote_sql_str(t.provinceCN), quote_sql_str(t.provinceEN),
-                            quote_sql_str(t.cityCode), quote_sql_str(t.cityCN), quote_sql_str(t.cityEN),
-                            request_times, attack_times, block_times, quote_sql_str(ngx.today()))
+                    quote_sql_str(t.countryCode), quote_sql_str(t.countryCN), quote_sql_str(t.countryEN),
+                    quote_sql_str(t.provinceCode), quote_sql_str(t.provinceCN), quote_sql_str(t.provinceEN),
+                    quote_sql_str(t.cityCode), quote_sql_str(t.cityCN), quote_sql_str(t.cityEN),
+                    request_times, attack_times, block_times, quote_sql_str(ngx.today()))
 
                 mysql.query(sql)
             end
@@ -255,7 +288,8 @@ function _M.updateWafStatus()
     utils.dictSet(dict, constants.KEY_ATTACK_TIMES, 0)
     utils.dictSet(dict, constants.KEY_BLOCK_TIMES, 0)
 
-    local sql = format(SQL_INSERT_WAF_STATUS, http4xx, http5xx, request_times, attack_times, block_times, quote_sql_str(ngx.today()))
+    local sql = format(SQL_INSERT_WAF_STATUS, http4xx, http5xx, request_times, attack_times, block_times,
+        quote_sql_str(ngx.today()))
 
     mysql.query(sql)
 end
@@ -310,16 +344,12 @@ function _M.writeAttackLogToMysql(premature)
             index = index + 1
         end
     end
-
-    flushUnlock()
 end
-
 
 function _M.writeAttackLogToQueue(sql)
     local dict_sql_queue = ngx.shared.dict_sql_queue
 
     dict_sql_queue:rpush(KEY_ATTACK_LOG, sql)
 end
-
 
 return _M

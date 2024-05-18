@@ -27,6 +27,7 @@ function initActionSelect(id, exclude, success) {
 }
 
 function getActionText(actionType) {
+    actionType = actionType.toLowerCase();
     for (let key in action) {
         if (actionType === key) {
             return action[key];

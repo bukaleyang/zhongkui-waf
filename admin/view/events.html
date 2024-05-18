@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+		<title>攻击事件</title>
+		<link href="../component/pear/css/pear.css" rel="stylesheet">
+		<style>
+			.layui-card-body .layui-form {margin-top: 0px;}
+			.pre-text {  
+				white-space: pre-wrap; /* CSS3, 现代浏览器 */  
+				white-space: -moz-pre-wrap; /* Mozilla, Firefox 2 and earlier */  
+				white-space: -o-pre-wrap; /* Opera 7 */  
+				word-wrap: break-word; /* Internet Explorer 5.5+, Safari, Chrome, Firefox, Opera 15+ */
+				overflow-y: auto;
+			}
+		</style>
+	</head>
+	<body class="pear-container">
+		<div class="layui-row">
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">攻击事件</div>
+					<div class="layui-card-body">
+						<div class="layui-row">
+							<div class="layui-col-md12">
+								<table id="table_rule" lay-filter="table_rule"></table>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<form class="layui-form layui-bg-gray" style="padding: 10px 15px;display: none;" lay-filter="form_detail" id="form_detail">
+			<input type="hidden" name="id" />
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-body">
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md2">攻击类型</div>
+								<div class="layui-col-md5 data" id="data_attack_type"></div>
+								<div class="layui-col-md5" style="text-align: right;"><span class="layui-badge layui-font-16 layui-padding-1" id="data_action"></span></div>
+							</div>
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md2">URL</div>
+								<div class="layui-col-md10 data" id="data_request_uri"></div>
+							</div>
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md2">攻击IP</div>
+								<div class="layui-col-md10 data" id="data_ip"></div>
+							</div>
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md2">攻击时间</div>
+								<div class="layui-col-md10 data" id="data_request_time"></div>
+							</div>
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md2">请求ID</div>
+								<div class="layui-col-md10 data" id="data_request_id"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="layui-row layui-col-space10" style="margin-top: 10px;">
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-body">
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md12">
+									<div class="layui-tab layui-tab-brief" lay-filter="filter-tab">
+										<ul class="layui-tab-title">
+											<li class="layui-this" lay-id="tab1">请求报文</li>
+											<li>响应报文</li>
+										</ul>
+										<div class="layui-tab-content" style="height: 240px;">
+											<div class="layui-tab-item layui-show pre-text data" id="data_request_body" style="height: 240px;"></div>
+											<div class="layui-tab-item pre-text data" id="data_response_body" style="height: 240px;"></div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div style="float: right;">
+						<button type="button" class="pear-btn" lay-on="close">关闭</button>
+					</div>
+				</div>
+			</div>
+		</form>
+
+		<script type="text/html" id="user_toolbar">
+			<form class="layui-form layui-row layui-col-space8">
+				<div class="layui-col-md2">
+					<input type="text" name="ip" value="" placeholder="攻击IP地址" class="layui-input" lay-affix="clear" />
+				</div>
+				<div class="layui-col-md2">
+					<input type="text" name="serverName" placeholder="域名" lay-affix="clear" class="layui-input" />
+				</div>
+				<div class="layui-col-md2">
+					<select name="action" id="action">
+						<option value="">全部</option>
+					</select>
+				</div>
+				<div class="layui-btn-container layui-col-md2">
+					<button class="layui-btn" lay-submit lay-filter="table-search">查询</button>
+					<button type="reset" class="layui-btn layui-btn-primary">重置</button>
+				</div>
+			</form>
+		</script>
+		<script type="text/html" id="rule_bar">
+			<i class="layui-icon layui-icon-tips" lay-event="detail"></i>
+		</script>
+
+		<script src="../component/layui/layui.js"></script>
+		<script src="../component/pear/pear.js"></script>
+		<script src="../js/action.js"></script>
+		<script>
+			layui.use(['form','table','util','jquery','popup','tag'], function() {
+				var table = layui.table;
+				var form = layui.form;
+				var util = layui.util;
+				var popup = layui.popup;
+				var element = layui.element
+				var $ = layui.$;
+
+
+				function listCerts(certId) {
+					$.get('/certificate/listcerts',  {}, function(res) {
+						if (res && res.code == 200) {
+							var html = '';
+							if (res.data) {
+								$.each(res.data, function(i, item) {
+									html += '<option value="' + item.id + '">' + item.certName + '</option>';
+								});
+							}
+							$('#certId').html(html);
+
+							if (certId) {
+								$('#certId').val(certId);
+								$(".cert").show();
+							}
+
+							form.render('select', 'form_detail');
+						} else {
+							popup.failure(res.msg);
+						}
+					}, "json");
+				}
+
+				table.render({
+					elem: '#table_rule',
+					url: '/events/list',
+					cols: [[ //标题栏
+						{field: 'server_name', title: '域名'},
+						{field: 'request_uri', title: '请求地址'},
+						{field: 'ip', title: '攻击IP', templet: function(d) {
+							if (d.ip_country_cn == 'CN') {
+								return '<div>' + d.ip + '(' + d.ip_province_cn + '-' + d.ip_city_cn + ')' + '</div>';
+							} else {
+								return '<div>' + d.ip + '(' + d.ip_country_cn + ')' + '</div>';
+							}
+						}},
+						{field: 'attack_type', title: '攻击类型', width: 120},
+						{field: 'hit_rule', title: '命中规则'},
+						{field: 'action', title: '处置动作', width: 100, templet: function(d) {
+							return '<div>' + getActionText(d.action) + '</div>';
+						}},
+						{field: 'request_time', title: '攻击时间', width: 160, minWidth: 150},
+						{fixed: 'right', title:'操作', width: 60, minWidth: 60, toolbar: '#rule_bar'}
+					]],
+					toolbar: '#user_toolbar',
+					css:'.layui-form{margin-top:0px;}',
+					//skin: 'line', // 表格风格
+					//even: true,
+					page: true, // 是否显示分页
+					limits: [10, 15, 20, 25, 30, 50, 100],
+					limit: 10, // 每页默认显示的数量
+				});
+
+				// 触发单元格工具事件
+				table.on('tool(table_rule)', function(obj) {
+					var rowData = obj.data; // 获得当前行数据
+
+					if(obj.event === 'detail') {
+						$.get('/events/get', {id: rowData.id}, function(res) {
+							if (res && res.code == 200) {
+								var data = res.data;
+								var html = '';
+								if (data) {
+									$.each(data, function(key, val) {
+										$('#data_' + key).text(val);
+									});
+
+									var ip = '';
+									if (data.ip_country_code == 'CN') {
+										ip = data.ip + ' (' + data.ip_province_cn + '-' + data.ip_city_cn + ')';
+									} else {
+										ip = data.ip + ' (' + data.ip_country_cn + ')';
+									}
+
+									var ac = data.action.toLowerCase();
+									if (ac == 'deny') {
+										$('#data_action').addClass('layui-badge');
+									} else if (ac == 'allow') {
+										$('#data_action').addClass('layui-badge layui-bg-green');
+									} else {
+										$('#data_action').addClass('layui-badge layui-bg-orange');
+									}
+									$('#data_action').text(getActionText(ac));
+									
+									$('#data_ip').text(ip);
+								}
+								
+								//form.render('select', 'form_detail');
+							} else {
+								popup.failure(res.msg);
+							}
+						}, "json");
+
+
+						//form.val('form_detail', data);
+						form.render(null, 'form_detail');
+						
+						layer.open({
+							type: 1,
+							title: '攻击详情',
+							shade: 0.6,
+							shadeClose: true,
+							area: ['700px', '650px'],
+							content: $('#form_detail'),
+							success: function() {
+								//listCerts(certId);
+							},
+							end: function() {
+								$("#form_detail").trigger("reset");
+								$("#form_detail").find("input[type='hidden']").val("");
+								$("#form_detail").find(".data").text("");
+								element.tabChange("filter-tab", "tab1");
+								$('#data_action').removeClass('layui-bg-green layui-bg-orange');
+							}
+						});
+					}
+				});
+
+				table.on('toolbar(table_rule)', function(obj) {
+					if (obj.event === 'search') {
+
+					} else if (obj.event === 'refresh') {
+						table.reload('table_rule');
+					}
+				});
+
+				form.on('submit(table-search)', function(data) {
+					var field = data.field; // 获得表单字段
+					// 执行搜索重载
+					table.reloadData('table_rule', {
+						page: {
+							curr: 1 // 重新从第 1 页开始
+						},
+						where: field // 搜索的字段
+					});
+					return false; // 阻止默认 form 跳转
+				});
+
+				util.on('lay-on', {
+					close: function() {
+						layer.closeLast('page');
+					},
+					addSite: function() {
+						var newSite = $(".site-row:first").clone();
+
+						var count = $('.site-row').length;
+						if (count < 3) {
+							newSite.find(":text[name='port']").val("");
+							newSite.find(":checkbox[name='ssl']").prop("checked", false);
+							$('#addSiteRow').before(newSite);
+							form.render(null, 'form_detail');
+						} else {
+							popup.failure("最多添加3个监听端口");
+						}
+					}
+				});
+
+				// 自定义验证规则
+				form.verify({
+					serverNames: function(value, elem) {
+						if ($('#serverNames').find('button').length < 2) {
+							return "最少添加一个域名";
+						}
+					},
+					certId: function(value, elem) {
+						if ($(":checkbox[name='ssl']:checked").length > 0) {
+							if (value == "") {
+								return "请选择SSL证书";
+							}
+						}
+					}
+				});
+
+				$(function(){
+					initActionSelect('action', 'coding', function() {
+						form.render($('#action'));
+					});
+					// 阻止回车触发表单提交
+					$(document).on('keydown', function (e) {
+						if (e.keyCode === 13) {
+							e.preventDefault();
+							return false;
+						}
+					});
+				});
+			});
+		</script>
+	</body>
+</html>
