@@ -6,12 +6,10 @@ local user = require "user"
 local pager = require "lib.pager"
 local mysql = require "mysqlCli"
 
-
 local tonumber = tonumber
 local quote_sql_str = ngx.quote_sql_str
 
 local _M = {}
-
 
 local SQL_COUNT_IP_BLOCK_LOG = 'SELECT COUNT(*) AS total FROM attack_log '
 
@@ -58,8 +56,6 @@ local function listLogs()
         local res, err = mysql.query(SQL_COUNT_IP_BLOCK_LOG .. where)
 
         if res and res[1] then
-            ngx.log(ngx.ERR, cjson.encode(res))
-
             local total = tonumber(res[1].total)
             if total > 0 then
                 res, err = mysql.query(SQL_SELECT_IP_BLOCK_LOG .. where .. ' ORDER BY id DESC LIMIT ' .. offset .. ',' .. limit)
@@ -98,12 +94,9 @@ local function getLog()
     local args, err = ngx.req.get_uri_args()
     if args and args['id'] then
         local id = tonumber(args['id'])
-
         local where = ' WHERE id=' .. id
 
         local res, err = mysql.query(SQL_SELECT_IP_BLOCK_LOG_DETAIL .. where)
-        ngx.log(ngx.ERR, cjson.encode(res))
-
         if res then
             response.data = res[1]
         else
