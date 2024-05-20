@@ -14,6 +14,12 @@ local dbFile = config.get('geoip_db_file')
 local disallowCountryList = config.get('geoip_disallow_country') or {}
 local disallowCountryTable = nil
 
+local unknown = {}
+local unknownNames = {en = 'unknown'}
+unknownNames['zh-CN'] = 'unknown'
+unknown['iso_code'] = 'unknown'
+unknown.names = unknownNames
+
 function _M.lookup(ip)
     if not geo.initted() then
         geo.init(dbFile)
@@ -36,7 +42,7 @@ function _M.lookup(ip)
     --support ipv6 e.g. 2001:4860:0:1001::3004:ef68
     local pass, res, err = pcall(geo.lookup, ip)
     if not pass then
-        ngx.log(ngx.ERR, 'failed to lookup by ip,reason:', res)
+        ngx.log(ngx.ERR, 'failed to lookup by ip,reason:', err)
     else
         if not res then
             ngx.log(ngx.ERR, 'failed to lookup by ip,reason:', err)
@@ -45,10 +51,11 @@ function _M.lookup(ip)
             if country then
                 local names = country['names']
                 if not names then
-                    country['names'] = {}
+                    country['names'] = unknownNames
                 end
             else
-                country = {names = {}}
+                country = unknown
+                country['iso_code'] = ''
             end
 
             local iso_code = country.iso_code
@@ -59,23 +66,23 @@ function _M.lookup(ip)
                 if province then
                     local names = province['names']
                     if not names then
-                        province['names'] = {}
+                        province['names'] = unknownNames
                     end
                 else
-                    province = {names = {}}
+                    province = unknown
                 end
             else
-                province = {names = {}}
+                province = unknown
             end
 
             city = res['city']
             if city then
                 local names = city['names']
                 if not names then
-                    city['names'] = {}
+                    city['names'] = unknownNames
                 end
             else
-                city = {names = {}}
+                city = unknown
             end
 
             local location = res['location']
@@ -111,7 +118,7 @@ function _M.lookup(ip)
         end
     end
 
-    return { isAllowed = isAllowed, country = country or {}, province = province or {}, city = city or {}, longitude = longitude or 0, latitude = latitude or 0 }
+    return { isAllowed = isAllowed, country = country or {names = unknownNames}, province = province or unknown, city = city or unknown, longitude = longitude or 0, latitude = latitude or 0 }
 end
 
 return _M

@@ -39,9 +39,9 @@ local function writeAttackLog()
     local province = geoip.province
     local city = geoip.city
 
-    local countryName = country.names[language] or ''
-    local provinceName = province.names[language] or ''
-    local cityName = city.names[language] or ''
+    local countryName = country.names[language] or 'unknown'
+    local provinceName = province.names[language] or 'unknown'
+    local cityName = city.names[language] or 'unknown'
     local longitude = geoip.longitude
     local latitude = geoip.latitude
     local method = ngx.req.get_method()
