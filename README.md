@@ -1,4 +1,4 @@
-## Zhongkui-WAF
+## ZhongKui-WAF
 
 钟馗是中国传统文化中的一个神话人物，被誉为“捉鬼大师”，专门驱逐邪恶之物。`Zhongkui-WAF`的命名灵感来源于这一神话人物，寓意着该软件能够像钟馗一样，有效地保护Web应用免受各种恶意攻击和威胁。
 
@@ -43,7 +43,7 @@
 
 1. 安装`LuaJIT`和`lua-nginx-module`模块
 2. 下载[lua-resty-redis库](https://github.com/openresty/lua-resty-redis)到`path-to-zhongkui-waf/lib/resty`目录
-3. 安装[lua-cjson库](https://www.kyne.com.au/~mark/software/lua-cjson.php)
+3. 安装[lua-cjson库](https://kyne.au/%7Emark/software/lua-cjson.php)
 
 #### zhongkui-waf
 
@@ -143,12 +143,6 @@ ip黑名单列表可以配置在`/conf/zhongkui.conf`文件中，也可以配置
 + `description`：是对该规则的描述，起到方便管理的作用。
 
 配置项`secret`是`Zhongkui-WAF`的私钥，用于浏览器验证请求签名等，应妥善保管，安装后建议修改下，格式为任意字符组合，建议长度长一点。
-
-配置项`logPath`是`WAF`日志文件输出目录，需要注意的是，一定要确保`OpenResty`对日志目录有写入权限，否则`WAF`会无法产生日志文件。你可以使用类似如下命令来授权：
-
-```bash
-chown ./hack nobody 或者 chmod 744 ./hack
-```
 
 #### CC攻击防御
 
@@ -303,7 +297,29 @@ Disallow: /zhongkuiwaf/honey/trap
 
 安装配置完成后，浏览器访问`http://localhost:1226`，账号`admin`，默认密码为`zhongkui`。
 
-请确保`OpenResty`对`zhongkui-waf`目录有读、写权限，否则`WAF`会无法修改配置文件和生成日志文件。最佳实践是：新建一个`nginx`用户，并将这个`nginx`用户添加到sudo，允许其执行`nginx`命令，然后将`zhongkui-waf`目录所属用户改为`nginx`用户，最后修改`nginx`配置文件，以`nginx`用户启动`nginx`。
+`v1.2`版本开始，一些数据统计依赖`Mysql`数据库，因此需要配置`Mysql`数据库并自行创建database(`zhongkui_waf`)，waf启动后，表结构会自动创建。
+
+### 常见问题
+
+一个常见问题是：用安装脚本安装后无法产生日志，在管理界面修改配置项，无法保存或可以保存但必须手动执行`nginx -s reload`才能生效，这些都是因为`nginx`默认是用`nobody`用户启动的，而`nobody`用户没有对日志目录和钟馗目录下的文件读写权限。
+
+请确保`Openresty`对`zhongkui-waf`目录和`OpenResty`日志目录（`\logs\hack`），有读、写权限，否则`WAF`会无法修改配置文件和生成日志文件。最佳实践是：新建一个`nginx`用户，并将这个`nginx`用户添加到sudoers，允许其执行`nginx`命令，然后将`zhongkui-waf`目录所属用户改为`nginx`用户，最后修改`nginx`配置文件，以`nginx`用户启动`nginx`。
+
+```shell
+# 添加nginx用户
+sudo useradd nginx
+# 使用sudo visudo命令将下面这行规则添加进去，将nginx用户添加到sudoers，仅允许其执行nginx命令
+# nginx ALL=NOPASSWD: /usr/local/openresty/nginx/sbin/nginx
+# 修改zhongkui-waf和日志目录归属用户
+sudo chown -R nginx:nginx /usr/local/openresty/zhongkui-waf
+sudo chown -R nginx:nginx /usr/local/openresty/nginx/logs/hack
+```
+
+修改`nginx.conf`：
+
+```nginx
+user nginx;
+```
 
 ### 交流群
 
