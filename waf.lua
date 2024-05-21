@@ -9,8 +9,6 @@ local request = require "request"
 
 local generateId = request.generateId
 
-local geoip_default = {isAllowed = true, country = '', province = '', city = ''}
-
 local function init()
     local ip = ipUtils.getClientIP()
     ngx.ctx.ip = ip
@@ -21,11 +19,7 @@ local function init()
     end
     ngx.ctx.ua = ua
 
-    if config.isGeoIPOn then
-        ngx.ctx.geoip = geoip.lookup(ip)
-    else
-        ngx.ctx.geoip = geoip_default
-    end
+    ngx.ctx.geoip = geoip.lookup(ip)
 
     ngx.ctx.requestId = generateId()
 end
