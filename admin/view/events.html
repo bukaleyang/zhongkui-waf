@@ -24,7 +24,7 @@
 					<div class="layui-card-body">
 						<div class="layui-row">
 							<div class="layui-col-md12">
-								<table id="table_rule" lay-filter="table_rule"></table>
+								<table id="table_log" lay-filter="table_log"></table>
 							</div>
 						</div>
 					</div>
@@ -109,13 +109,13 @@
 						<option value="">全部</option>
 					</select>
 				</div>
-				<div class="layui-btn-container layui-col-md2">
-					<button class="layui-btn" lay-submit lay-filter="table-search">查询</button>
-					<button type="reset" class="layui-btn layui-btn-primary">重置</button>
+				<div class="pear-btn-container layui-col-md2">
+					<button class="pear-btn pear-btn-primary pear-btn-md" lay-submit lay-filter="table-search">查询</button>
+					<button type="reset" class="pear-btn  pear-btn-md">重置</button>
 				</div>
 			</form>
 		</script>
-		<script type="text/html" id="rule_bar">
+		<script type="text/html" id="table_bar">
 			<i class="layui-icon layui-icon-tips" lay-event="detail"></i>
 		</script>
 
@@ -131,32 +131,8 @@
 				var element = layui.element
 				var $ = layui.$;
 
-
-				function listCerts(certId) {
-					$.get('/certificate/listcerts',  {}, function(res) {
-						if (res && res.code == 200) {
-							var html = '';
-							if (res.data) {
-								$.each(res.data, function(i, item) {
-									html += '<option value="' + item.id + '">' + item.certName + '</option>';
-								});
-							}
-							$('#certId').html(html);
-
-							if (certId) {
-								$('#certId').val(certId);
-								$(".cert").show();
-							}
-
-							form.render('select', 'form_detail');
-						} else {
-							popup.failure(res.msg);
-						}
-					}, "json");
-				}
-
 				table.render({
-					elem: '#table_rule',
+					elem: '#table_log',
 					url: '/events/list',
 					cols: [[ //标题栏
 						{field: 'server_name', title: '域名'},
@@ -174,7 +150,7 @@
 							return '<div>' + getActionText(d.action) + '</div>';
 						}},
 						{field: 'request_time', title: '攻击时间', width: 160, minWidth: 150},
-						{fixed: 'right', title:'操作', width: 60, minWidth: 60, toolbar: '#rule_bar'}
+						{fixed: 'right', title:'操作', width: 60, minWidth: 60, toolbar: '#table_bar'}
 					]],
 					toolbar: '#user_toolbar',
 					css:'.layui-form{margin-top:0px;}',
@@ -186,7 +162,7 @@
 				});
 
 				// 触发单元格工具事件
-				table.on('tool(table_rule)', function(obj) {
+				table.on('tool(table_log)', function(obj) {
 					var rowData = obj.data; // 获得当前行数据
 
 					if(obj.event === 'detail') {
@@ -218,15 +194,11 @@
 									
 									$('#data_ip').text(ip);
 								}
-								
-								//form.render('select', 'form_detail');
 							} else {
 								popup.failure(res.msg);
 							}
 						}, "json");
 
-
-						//form.val('form_detail', data);
 						form.render(null, 'form_detail');
 						
 						layer.open({
@@ -236,9 +208,6 @@
 							shadeClose: true,
 							area: ['700px', '650px'],
 							content: $('#form_detail'),
-							success: function() {
-								//listCerts(certId);
-							},
 							end: function() {
 								$("#form_detail").trigger("reset");
 								$("#form_detail").find("input[type='hidden']").val("");
@@ -250,18 +219,10 @@
 					}
 				});
 
-				table.on('toolbar(table_rule)', function(obj) {
-					if (obj.event === 'search') {
-
-					} else if (obj.event === 'refresh') {
-						table.reload('table_rule');
-					}
-				});
-
 				form.on('submit(table-search)', function(data) {
 					var field = data.field; // 获得表单字段
 					// 执行搜索重载
-					table.reloadData('table_rule', {
+					table.reloadData('table_log', {
 						page: {
 							curr: 1 // 重新从第 1 页开始
 						},
@@ -273,35 +234,6 @@
 				util.on('lay-on', {
 					close: function() {
 						layer.closeLast('page');
-					},
-					addSite: function() {
-						var newSite = $(".site-row:first").clone();
-
-						var count = $('.site-row').length;
-						if (count < 3) {
-							newSite.find(":text[name='port']").val("");
-							newSite.find(":checkbox[name='ssl']").prop("checked", false);
-							$('#addSiteRow').before(newSite);
-							form.render(null, 'form_detail');
-						} else {
-							popup.failure("最多添加3个监听端口");
-						}
-					}
-				});
-
-				// 自定义验证规则
-				form.verify({
-					serverNames: function(value, elem) {
-						if ($('#serverNames').find('button').length < 2) {
-							return "最少添加一个域名";
-						}
-					},
-					certId: function(value, elem) {
-						if ($(":checkbox[name='ssl']:checked").length > 0) {
-							if (value == "") {
-								return "请选择SSL证书";
-							}
-						}
 					}
 				});
 

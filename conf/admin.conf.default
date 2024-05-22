@@ -76,6 +76,12 @@ server {
         proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
+    location /ipblocking/ {
+        content_by_lua_file $root_path/lua/ipblocking.lua;
+        proxy_set_header  X-Real-IP  $remote_addr;
+        proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
     location = /admin/data/user.json {
         deny all;
         return 403;

@@ -130,19 +130,46 @@ local function writeAttackLog()
             quote_sql_str(method), quote_sql_str(host), quote_sql_str(ua), referer, quote_sql_str(protocol), quote_sql_str(url), requestBody,
             quote_sql_str(ngx.status), responseBody, quote_sql_str(attackTime), quote_sql_str(ruleType), quote_sql_str(rule), quote_sql_str(action))
 
-        sql.writeAttackLogToQueue(sqlStr)
+        sql.writeSqlToQueue(constants.KEY_ATTACK_LOG, sqlStr)
     end
 end
 
 local function writeIPBlockLog()
-    local ruleTable = ngx.ctx.ruleTable
-    local ip = ngx.ctx.ip
+    local ctx = ngx.ctx
+    local ruleTable = ctx.ruleTable
+    local ruleType = ruleTable.ruleType
+    local ipBlockTimeout = ruleTable.ipBlockTimeout
+    local ip = ctx.ip
+    local action = ctx.action
     local hostLogger = loggerFactory.getLogger(logPath .. "ipBlock.log", 'ipBlock', false)
-    hostLogger:log(concat({ngx.localtime(), ip, ruleTable.ruleType, ruleTable.ipBlockTimeout .. 's'}, ' ') .. "\n")
+    hostLogger:log(concat({ngx.localtime(), ip, ruleType, ipBlockTimeout .. 's'}, ' ') .. "\n")
 
-    if ruleTable.ipBlockTimeout == 0 then
+    if ipBlockTimeout == 0 then
         local ipBlackLogger = loggerFactory.getLogger(rulePath .. "ipBlackList", 'ipBlack', false)
         ipBlackLogger:log(ip .. "\n")
+    end
+
+    if config.isMysqlOn then
+        local requestId = ctx.requestId
+        local geoip = ctx.geoip
+        local country = geoip.country
+        local province = geoip.province
+        local city = geoip.city
+        local longitude = geoip.longitude
+        local latitude = geoip.latitude
+        local startTime = ngx.localtime()
+        local endTime = 'DATE_ADD(\'' .. startTime .. '\', INTERVAL ' .. ipBlockTimeout .. ' SECOND)'
+
+        local sqlStr = '(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %.7f, %.7f, %s, %s, %u, %s, %s)'
+
+        sqlStr = format(sqlStr, quote_sql_str(requestId), quote_sql_str(ip),
+            quote_sql_str(country.iso_code or ''), quote_sql_str(country.names['zh-CN'] or ''), quote_sql_str(country.names['en'] or ''),
+            quote_sql_str(province.iso_code or ''), quote_sql_str(province.names['zh-CN'] or ''), quote_sql_str(province.names['en'] or ''),
+            quote_sql_str(city.iso_code or ''), quote_sql_str(city.names['zh-CN'] or ''), quote_sql_str(city.names['en'] or ''),
+            longitude, latitude,
+            quote_sql_str(ruleType), quote_sql_str(startTime), ipBlockTimeout, endTime, quote_sql_str(action))
+
+        sql.writeSqlToQueue(constants.KEY_IP_BLOCK_LOG, sqlStr)
     end
 end
 

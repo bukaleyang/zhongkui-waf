@@ -15,20 +15,27 @@
 	},
 	{
 		"id": 3,
+		"title": "IP封禁日志",
+		"icon": "layui-icon layui-icon-disabled",
+		"type": 1,
+		"href": "view/ipblocking.html"
+	},
+	{
+		"id": 4,
 		"title": "防护站点",
 		"icon": "layui-icon layui-icon-website",
 		"type": 1,
 		"href": "view/website.html"
 	},
 	{
-		"id": 4,
+		"id": 5,
 		"title": "防御配置",
 		"icon": "layui-icon layui-icon-auz",
 		"type": 0,
 		"href": "",
 		"children": [
 			{
-				"id": 41,
+				"id": 51,
 				"title": "基本配置",
 				"icon": "layui-icon layui-icon-console",
 				"type": 1,
@@ -36,7 +43,7 @@
 				"href": "view/defense/basic.html"
 			},
 			{
-				"id": 42,
+				"id": 52,
 				"title": "IP黑白名单",
 				"icon": "layui-icon layui-icon-list",
 				"type": 1,
@@ -44,7 +51,7 @@
 				"href": "view/defense/ip.html"
 			},
 			{
-				"id": 43,
+				"id": 53,
 				"title": "Bot管理",
 				"icon": "layui-icon layui-icon-console",
 				"type": 1,
@@ -52,7 +59,7 @@
 				"href": "view/defense/bot.html"
 			},
 			{
-				"id": 44,
+				"id": 54,
 				"title": "CC防护",
 				"icon": "layui-icon layui-icon-console",
 				"type": 1,
@@ -60,7 +67,7 @@
 				"href": "view/defense/cc.html"
 			},
 			{
-				"id": 45,
+				"id": 55,
 				"title": "访问控制(ACL)",
 				"icon": "layui-icon layui-icon-console",
 				"type": 1,
@@ -70,14 +77,14 @@
 		]
 	},
 	{
-		"id": 5,
+		"id": 6,
 		"title": "通用配置",
 		"icon": "layui-icon layui-icon-set-fill",
 		"type": 0,
 		"href": "",
 		"children": [
 			{
-				"id": 51,
+				"id": 61,
 				"title": "数据存储",
 				"icon": "layui-icon layui-icon-console",
 				"type": 1,
@@ -85,7 +92,7 @@
 				"href": "view/common/storage.html"
 			},
 			{
-				"id": 52,
+				"id": 62,
 				"title": "证书管理",
 				"icon": "layui-icon layui-icon-file",
 				"type": 1,
@@ -95,14 +102,14 @@
 		]
 	},
 	{
-		"id": 6,
+		"id": 7,
 		"title": "其它配置",
 		"icon": "layui-icon layui-icon-util",
 		"type": 0,
 		"href": "",
 		"children": [
 			{
-				"id": 61,
+				"id": 71,
 				"title": "敏感数据过滤",
 				"icon": "layui-icon layui-icon-console",
 				"type": 1,
@@ -110,7 +117,7 @@
 				"href": "view/other/sensitive.html"
 			},
 			{
-				"id": 62,
+				"id": 72,
 				"title": "密码修改",
 				"icon": "layui-icon layui-icon-console",
 				"type": 1,

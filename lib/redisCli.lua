@@ -157,6 +157,21 @@ function _M.redisIncr(key, expireTime)
     return res, err
 end
 
+function _M.redisDel(key)
+    local red, err = _M.getRedisConn()
+    local res = nil
+    if red then
+        res, err = red:del(key)
+        if not res then
+            ngx.log(ngx.ERR, "failed to delete key: " .. key, err)
+        end
+
+        _M.closeRedisConn(red)
+    end
+
+    return res, err
+end
+
 --[[
 function _M.redisBFAdd(value)
     local red, err = _M.getRedisConn()

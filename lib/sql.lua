@@ -20,6 +20,7 @@ local _M = {}
 
 local database = config.get("mysql_database")
 local KEY_ATTACK_LOG = 'attack_log'
+local KEY_IP_BLOCK_LOG = 'ip_block_log'
 
 local BATCH_SIZE = 300
 
@@ -165,6 +166,8 @@ local SQL_CREATE_TABLE_IP_BLOCK_LOG = [[
         `start_time` datetime NOT NULL COMMENT '封禁开始时间',
         `block_duration` INT NULL COMMENT '封禁时长',
         `end_time` datetime NULL COMMENT '封禁结束时间',
+        `block_times` INT NULL COMMENT '封禁请求次数',
+        `action` VARCHAR(100) NULL COMMENT '处置动作',
         `unblock_time` datetime  NULL COMMENT '解封时间',
 
         `update_time` datetime NULL,
@@ -176,7 +179,7 @@ local SQL_CREATE_TABLE_IP_BLOCK_LOG = [[
 local SQL_INSERT_IP_BLOCK_LOG = [[
     INSERT INTO ip_block_log (
         request_id, ip, ip_country_code, ip_country_cn, ip_country_en, ip_province_code, ip_province_cn, ip_province_en, ip_city_code, ip_city_cn, ip_city_en,
-        ip_longitude, ip_latitude, block_reason, start_time, block_duration, end_time, unblock_time)
+        ip_longitude, ip_latitude, block_reason, start_time, block_duration, end_time, action)
     VALUES
 ]]
 
@@ -288,8 +291,7 @@ function _M.updateWafStatus()
     utils.dictSet(dict, constants.KEY_ATTACK_TIMES, 0)
     utils.dictSet(dict, constants.KEY_BLOCK_TIMES, 0)
 
-    local sql = format(SQL_INSERT_WAF_STATUS, http4xx, http5xx, request_times, attack_times, block_times,
-        quote_sql_str(ngx.today()))
+    local sql = format(SQL_INSERT_WAF_STATUS, http4xx, http5xx, request_times, attack_times, block_times, quote_sql_str(ngx.today()))
 
     mysql.query(sql)
 end
@@ -306,16 +308,23 @@ function _M.get30DaysChinaTrafficStats()
     return mysql.query(SQL_GET_30DAYS_CHINA_TRAFFIC_STATS)
 end
 
-function _M.writeAttackLogToMysql(premature)
-    if premature then
+function _M.writeSqlQueueToMysql(premature, key)
+    if premature or not key then
         return
     end
 
     local dict_sql_queue = ngx.shared.dict_sql_queue
 
-    local len = dict_sql_queue:llen(KEY_ATTACK_LOG) or 0
+    local len = dict_sql_queue:llen(key) or 0
     if len == 0 then
         return
+    end
+
+    local sqlStr = ''
+    if key == constants.KEY_ATTACK_LOG then
+        sqlStr = SQL_INSERT_ATTACK_LOG
+    elseif key == constants.KEY_IP_BLOCK_LOG then
+        sqlStr = SQL_INSERT_IP_BLOCK_LOG
     end
 
     local insertTimeTotal = floor(len / BATCH_SIZE) + 1
@@ -324,17 +333,17 @@ function _M.writeAttackLogToMysql(premature)
     local buffer = newtab(BATCH_SIZE, 0)
 
     local index = 1
-    local value = dict_sql_queue:lpop(KEY_ATTACK_LOG)
+    local value = dict_sql_queue:lpop(key)
 
     while (insertTime <= insertTimeTotal and value) do
         buffer[index] = value
-        value = dict_sql_queue:lpop(KEY_ATTACK_LOG)
+        value = dict_sql_queue:lpop(key)
 
         if index == BATCH_SIZE or value == nil then
             local sql_values = concat(buffer, ',')
 
             if sql_values then
-                mysql.query(SQL_INSERT_ATTACK_LOG .. sql_values)
+                mysql.query(sqlStr .. sql_values)
                 insertTime = insertTime + 1
             end
 
@@ -346,10 +355,9 @@ function _M.writeAttackLogToMysql(premature)
     end
 end
 
-function _M.writeAttackLogToQueue(sql)
+function _M.writeSqlToQueue(key, sql)
     local dict_sql_queue = ngx.shared.dict_sql_queue
-
-    dict_sql_queue:rpush(KEY_ATTACK_LOG, sql)
+    dict_sql_queue:rpush(key, sql)
 end
 
 return _M

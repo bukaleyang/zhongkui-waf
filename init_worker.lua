@@ -7,6 +7,7 @@ local redisCli = require "redisCli"
 local isArray = require "table.isarray"
 local sql = require "sql"
 local utils = require "utils"
+local constants = require "constants"
 
 local redisGet = redisCli.redisGet
 local md5 = ngx.md5
@@ -98,7 +99,8 @@ if config.isWAFOn then
     if config.isMysqlOn then
         if workerId == 0 then
             utils.startTimer(0, sql.checkTable)
-            utils.startTimerEvery(2, sql.writeAttackLogToMysql)
+            utils.startTimerEvery(2, sql.writeSqlQueueToMysql, constants.KEY_ATTACK_LOG)
+            utils.startTimerEvery(2, sql.writeSqlQueueToMysql, constants.KEY_IP_BLOCK_LOG)
             utils.startTimerEvery(2, sql.updateWafStatus)
             utils.startTimerEvery(2, sql.updateTrafficStats)
         end

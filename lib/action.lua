@@ -4,6 +4,7 @@
 local config = require "config"
 local redisCli = require "redisCli"
 local cc = require "cc"
+local constants = require "constants"
 
 local md5 = ngx.md5
 local ngxsub = ngx.re.sub
@@ -56,31 +57,9 @@ function _M.blockIp(ip, ruleTab)
         local ok, err = nil, nil
 
         if config.isRedisOn then
-            local key = "black_ip:" .. ip
+            local key = constants.KEY_BLACKIP_PREFIX .. ip
 
-            local red, err1 = redisCli.getRedisConn()
-            if not red then
-                return nil, err1
-            end
-
-            local exists = red:exists(key)
-            if exists == 0 then
-                ok, err = red:set(key, 1)
-                if ok then
-                    ngx.ctx.ipBlocked = true
-                else
-                    ngx.log(ngx.ERR, "failed to set redis key " .. key, err)
-                end
-            end
-
-            if ruleTab.ipBlockTimeout > 0 then
-                ok, err = red:expire(key, ruleTab.ipBlockTimeout)
-                if not ok then
-                    ngx.log(ngx.ERR, "failed to expire redis key " .. key, err)
-                end
-            end
-
-            redisCli.closeRedisConn(red)
+            ok, err = redisCli.redisSet(key, 1, ruleTab.ipBlockTimeout)
         else
             local blackip = ngx.shared.dict_blackip
             local exists = blackip:get(ip)
@@ -101,6 +80,24 @@ function _M.blockIp(ip, ruleTab)
 
         return ok
     end
+end
+
+function _M.unblockIp(ip)
+    local ok, err = nil, nil
+
+    if config.isRedisOn then
+        local key = constants.KEY_BLACKIP_PREFIX .. ip
+        ok, err = redisCli.redisDel(key)
+    else
+        local blackip = ngx.shared.dict_blackip
+
+        ok, err = blackip:delete(ip)
+        if not ok then
+            ngx.log(ngx.ERR, "failed to delete key " .. ip, err)
+        end
+    end
+
+    return ok
 end
 
 local function hit(ruleTable)

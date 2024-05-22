@@ -6,8 +6,8 @@ local every = ngx.timer.every
 
 local _M = {}
 
-function _M.startTimer(delay, callback)
-    local ok, err = timerat(delay, callback)
+function _M.startTimer(delay, callback, ...)
+    local ok, err = timerat(delay, callback, ...)
     if not ok then
         ngx.log(ngx.ERR, "failed to create timer: ", err)
         return
@@ -16,8 +16,8 @@ function _M.startTimer(delay, callback)
     return ok, err
 end
 
-function _M.startTimerEvery(delay, callback)
-    local ok, err = every(delay, callback)
+function _M.startTimerEvery(delay, callback, ...)
+    local ok, err = every(delay, callback, ...)
     if not ok then
         ngx.log(ngx.ERR, "failed to create the timer: ", err)
         return
