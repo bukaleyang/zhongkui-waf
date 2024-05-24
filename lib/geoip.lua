@@ -3,6 +3,7 @@
 
 local geo = require "resty.maxminddb"
 local config = require "config"
+local ipUtils = require "ip"
 
 local _M = {}
 
@@ -14,17 +15,24 @@ local dbFile = config.get('geoip_db_file')
 local disallowCountryList = config.get('geoip_disallow_country') or {}
 local disallowCountryTable = nil
 
-local unknown = {}
-local unknownNames = {en = 'unknown'}
-unknownNames['zh-CN'] = 'unknown'
-unknown['iso_code'] = ''
+local unknown = {['iso_code'] = ''}
+local unknownNames = {en = 'unknown', ['zh-CN'] = '未知'}
 unknown.names = unknownNames
 
 local default = {isAllowed = true, country = unknown, province = unknown, city = unknown, longitude = 0, latitude = 0}
 
+local intranet = {isAllowed = true, longitude = 0, latitude = 0,
+                country = {names = {['iso_code'] = '', en = 'intranet', ['zh-CN'] = '内网'}},
+                province = {names = {['iso_code'] = '', en = 'intranet', ['zh-CN'] = '内网'}},
+                city = {names = {['iso_code'] = '', en = 'intranet', ['zh-CN'] = '内网'}}}
+
 function _M.lookup(ip)
     if not config.isGeoIPOn then
         return default
+    end
+
+    if ipUtils.isPrivateIP(ip) then
+        return intranet
     end
 
     if not geo.initted() then

@@ -12,6 +12,7 @@ local type = type
 local tonumber = tonumber
 local find = string.find
 local match = string.match
+local ngxmatch = ngx.re.match
 
 local insert = table.insert
 
@@ -40,6 +41,31 @@ function _M.getClientIP()
     end
 
     return "unknown"
+end
+
+-- 是否内网IP
+function _M.isPrivateIP(ip)
+    if not ip then
+        return false
+    end
+
+    if ip == '127.0.0.1' then
+        return true
+    end
+
+    local m, err = ngxmatch(ip, '(\\d{1,3})\\.(\\d{1,3})\\.(?:\\d{1,3})\\.(?:\\d{1,3})', 'isjo')
+    if m then
+        local a, b = tonumber(m[1]), tonumber(m[2])
+        if a == 10 then
+            return true
+        elseif a == 172 and b >= 16 and b <= 31 then
+            return true
+        elseif a == 192 and b == 168 then
+            return true
+        end
+    end
+
+    return false
 end
 
 function _M.ipToNumber(ip)
