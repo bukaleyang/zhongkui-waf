@@ -56,9 +56,9 @@ layui.use(['form','element','util','jquery','popup','tag'], function() {
                                 $("[name='methodWhiteList'][value='" + val + "']").prop('checked', true);
                             });
                         }
-                    } else if (value == "on" || value == true) {
+                    } else if (value == "on" || value === true) {
                         $("[name='" + key + "']").prop('checked', true);
-                    } else if (value == "off" || value == false) {
+                    } else if (value == "off" || value === false) {
                         $("[name='" + key + "']").prop('checked', false);
                     } else {
                         $("[name='" + key + "']").val(value);
