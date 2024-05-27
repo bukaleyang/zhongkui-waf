@@ -60,21 +60,18 @@ function _M.blockIp(ip, ruleTab)
             local key = constants.KEY_BLACKIP_PREFIX .. ip
 
             ok, err = redisCli.redisSet(key, 1, ruleTab.ipBlockTimeout)
+            if ok then
+                ngx.ctx.ipBlocked = true
+            else
+                ngx.log(ngx.ERR, "failed to block ip " .. ip, err)
+            end
         else
             local blackip = ngx.shared.dict_blackip
-            local exists = blackip:get(ip)
-            if not exists then
-                ok, err = blackip:set(ip, 1, ruleTab.ipBlockTimeout)
-                if ok then
-                    ngx.ctx.ipBlocked = true
-                else
-                    ngx.log(ngx.ERR, "failed to set key " .. ip, err)
-                end
-            elseif ruleTab.ipBlockTimeout > 0 then
-                ok, err = blackip:expire(ip, ruleTab.ipBlockTimeout)
-                if not ok then
-                    ngx.log(ngx.ERR, "failed to expire key " .. ip, err)
-                end
+            ok, err = blackip:set(ip, 1, ruleTab.ipBlockTimeout)
+            if ok then
+                ngx.ctx.ipBlocked = true
+            else
+                ngx.log(ngx.ERR, "failed to block ip " .. ip, err)
             end
         end
 
@@ -142,7 +139,8 @@ function _M.doAction(ruleTable, data, ruleType, status)
     ngx.ctx.isAttack = true
 
     if action == "ALLOW" then
-
+        ngx.status = ngx.HTTP_OK
+        return ngx.exit(ngx.status)
     elseif action == "DENY" then
         deny(status)
     elseif action == "REDIRECT" then

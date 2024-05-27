@@ -84,7 +84,7 @@
 						{field: 'unblock_time', title: '状态', templet: function(d) {
 							if (d.unblock_time != null) {
 								return '<div>已解封</div>';
-							} else if (new Date() > new Date(d.end_time)) {
+							} else if (d.block_duration != 0 && new Date() > new Date(d.end_time)) {
 								return '<div>已结束</div>';
 							} else {
 								return '<div>封禁中</div>';

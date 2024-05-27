@@ -17,8 +17,7 @@ local concat = table.concat
 local defaultIfBlank = stringutf8.defaultIfBlank
 local quote_sql_str = ngx.quote_sql_str
 
-local logPath = config.get("logPath")
-local rulePath = config.get("rulePath")
+local logPath = config.logPath
 local language = config.get("geoip_language") ~= '' and config.get("geoip_language") or 'en'
 
 local function writeAttackLog()
@@ -145,7 +144,7 @@ local function writeIPBlockLog()
     hostLogger:log(concat({ngx.localtime(), ip, ruleType, ipBlockTimeout .. 's'}, ' ') .. "\n")
 
     if ipBlockTimeout == 0 then
-        local ipBlackLogger = loggerFactory.getLogger(rulePath .. "ipBlackList", 'ipBlack', false)
+        local ipBlackLogger = loggerFactory.getLogger(config.rulePath .. "ipBlackList", 'ipBlack', false)
         ipBlackLogger:log(ip .. "\n")
     end
 
@@ -158,7 +157,10 @@ local function writeIPBlockLog()
         local longitude = geoip.longitude
         local latitude = geoip.latitude
         local startTime = ngx.localtime()
-        local endTime = 'DATE_ADD(\'' .. startTime .. '\', INTERVAL ' .. ipBlockTimeout .. ' SECOND)'
+        local endTime = 'NULL'
+        if ipBlockTimeout > 0 then
+            endTime = 'DATE_ADD(\'' .. startTime .. '\', INTERVAL ' .. ipBlockTimeout .. ' SECOND)'
+        end
 
         local sqlStr = '(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %.7f, %.7f, %s, %s, %u, %s, %s)'
 

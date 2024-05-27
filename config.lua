@@ -192,9 +192,10 @@ local function initConfig()
     if logPath and #logPath > 0 then
         local last = sub(logPath, -1)
         if last ~= "/" and last ~= "\\" then
-            config.logPath = logPath .. "/"
+            logPath = logPath .. "/"
         end
     end
+    _M.logPath = logPath
 end
 
 function _M.get(option)
