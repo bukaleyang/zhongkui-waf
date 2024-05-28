@@ -13,6 +13,7 @@ local tonumber = tonumber
 local find = string.find
 local match = string.match
 local ngxmatch = ngx.re.match
+local ngxfind = ngx.re.find
 
 local insert = table.insert
 
@@ -31,12 +32,20 @@ function _M.getClientIP()
     }
 
     for _, ip in pairs(ips) do
-        if ip and ip ~= "" then
-            if type(ip) == "table" then
-                ip = ip[1]
-            end
+        if ip and #ip > 0 then
+            if ngxfind(ip, ',', 'jo') then
+                local m, err = ngxmatch(ip, '\\s*([\\da-fA-F\\:\\.]+)(?:,\\s*)?', 'isjo')
+                if m then
+                    ip = m[1]
+                    return ip
+                end
 
-            return ip
+                if err then
+                    ngx.log(ngx.ERR, "get client ip error: ", err)
+                end
+            else
+                return ip
+            end
         end
     end
 
