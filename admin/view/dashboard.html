@@ -165,6 +165,7 @@
 
 		<script src="../component/layui/layui.js"></script>
 		<script src="../component/pear/pear.js"></script>
+		<script src="../js/attackType.js"></script>
 
 		<script>
 			layui.use(['form','util','jquery','popup','echarts','laytpl'], function() {
@@ -374,7 +375,7 @@
 				trafficChart.setOption(trafficOption);
 
 				var attackTypeChart = echarts.init(document.getElementById('attackType'));
-				trafficTypeOption = {
+				attactTypeOption = {
 					legend: {
 						icon: 'rect',
 						type: 'scroll',
@@ -383,15 +384,14 @@
 						top: 40,
 						bottom: 20,
 						formatter: function (name) {
-							name = name.substring(name.lastIndexOf('_') + 1, name.length)
-							return name
+							return getAttackTypeText(name.substring(23, name.length));
 						}
 					},
 					tooltip: {
 						trigger: 'item',
 						formatter: function (params) {
-							var name = params.name
-							name = name.substring(name.lastIndexOf('_') + 1, name.length)
+							var name = params.name;
+							name = getAttackTypeText(name.substring(23, name.length));
 							return name + ': ' + params.value + ' ' + params.percent + '%'
 						}
 					},
@@ -419,8 +419,8 @@
 							},
 							label: {
 								formatter: function (params) {
-									var name = params.name
-									name = name.substring(name.lastIndexOf('_') + 1, name.length)
+									var name = params.name;
+									name = getAttackTypeText(name.substring(23, name.length));
 									return name + ': ' + params.percent + '%'
 								}
 							},
@@ -429,7 +429,7 @@
 					]
 				};
 
-				attackTypeChart.setOption(trafficTypeOption);
+				attackTypeChart.setOption(attactTypeOption);
 
 				$.get('/dashboard', function (res) {
 					if (res && res.code == 200) {

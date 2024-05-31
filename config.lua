@@ -160,31 +160,31 @@ local function initConfig()
     _M.ipBlackList_subnet, _M.ipBlackList = ipUtils.filterIPList(readFileToTable(rulePath .. "ipBlackList"))
     _M.ipWhiteList_subnet, _M.ipWhiteList = ipUtils.filterIPList(readFileToTable(rulePath .. "ipWhiteList"))
 
-    local rulesConfig = {}
-    rulesConfig.blackUrl = readRule(rulePath, "blackUrl")
-    rulesConfig.args = readRule(rulePath, "args")
-    rulesConfig.whiteUrl = readRule(rulePath, "whiteUrl")
-    rulesConfig.post = readRule(rulePath, "post")
-    rulesConfig.cookie = readRule(rulePath, "cookie")
-    rulesConfig.headers = readRule(rulePath, "headers")
-    rulesConfig.cc = readRule(rulePath, "cc")
-    rulesConfig.acl = readRule(rulePath, "acl")
-    rulesConfig.sensitive, rulesConfig.sensitiveWords = readRule(rulePath, "sensitive")
-    rulesConfig["user-agent"] = readRule(rulePath, "user-agent")
+    local securityModules = {}
+    securityModules.blackUrl = readRule(rulePath, "blackUrl")
+    securityModules.args = readRule(rulePath, "args")
+    securityModules.whiteUrl = readRule(rulePath, "whiteUrl")
+    securityModules.post = readRule(rulePath, "post")
+    securityModules.cookie = readRule(rulePath, "cookie")
+    securityModules.headers = readRule(rulePath, "headers")
+    securityModules.cc = readRule(rulePath, "cc")
+    securityModules.acl = readRule(rulePath, "acl")
+    securityModules.sensitive = readRule(rulePath, "sensitive")
+    securityModules["user-agent"] = readRule(rulePath, "user-agent")
 
-    rulesConfig.sqli = { ruleType = "sqli", rule = "sqli", action = "DENY" }
-    rulesConfig.xss = { ruleType = "xss", rule = "xss", action = "DENY" }
-    rulesConfig.fileExt = { ruleType = "file-ext", rule = "file-ext", action = "REDIRECT" }
-    rulesConfig.whiteIp = { ruleType = "whiteip", rule = "whiteip", action = "ALLOW" }
-    rulesConfig.blackIp = { ruleType = "blackip", rule = "blackip", action = "DENY" }
-    rulesConfig.unsafeMethod = { ruleType = "unsafe-method", rule = "unsafe http method", action = "DENY" }
-    rulesConfig.botTrap = { ruleType = "bot-trap", rule = "bot-trap", autoIpBlock = _M.get("bot_trap_ip_block"), ipBlockTimeout = _M.botTrapIpBlockTimeout, action = _M.get("bot_trap_action") }
+    securityModules.sqli = { moduleName = "SQL注入检测", rules = {{ attackType = "sqli", rule = "sqli", action = "DENY", severityLevel="high" }}}
+    securityModules.xss = { moduleName = "XSS检测",  rules = {{ attackType = "xss", rule = "xss", action = "DENY", severityLevel="low" }}}
+    securityModules.fileExt = { moduleName = "文件上传检测", rules = {{ attackType = "file_ext", rule = "file_ext", action = "REDIRECT", severityLevel="low" }}}
+    securityModules.whiteIp = { moduleName = "IP白名单检测", rules = {{ attackType = "whiteip", rule = "whiteip", action = "ALLOW", severityLevel="low" }}}
+    securityModules.blackIp = { moduleName = "IP黑名单检测", rules = {{ attackType = "blackip", rule = "blackip", action = "DENY", severityLevel="high" }}}
+    securityModules.unsafeMethod = { moduleName = "HTTP方法检测",  rules = {{ attackType = "unsafe_method", rule = "unsafe http method", action = "DENY", severityLevel="low" }}}
+    securityModules.botTrap = { moduleName = "BOt识别",  rules = {{ attackType = "bot_trap", rule = "bot_trap", autoIpBlock = _M.get("bot_trap_ip_block"), ipBlockTimeout = _M.botTrapIpBlockTimeout, action = _M.get("bot_trap_action"), severityLevel="low" }}}
 
-    local jsonStr = cjson.encode(rulesConfig)
+    local jsonStr = cjson.encode(securityModules)
     local dict_config = ngx.shared.dict_config
-    dict_config:set("rules", jsonStr)
+    dict_config:set("securityModules", jsonStr)
 
-    _M.rules = rulesConfig
+    _M.securityModules = securityModules
 
     _M.html = readFileToString(_M.ZHONGKUI_PATH .. "/redirect.html")
 

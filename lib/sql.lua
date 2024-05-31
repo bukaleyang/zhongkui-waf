@@ -19,8 +19,6 @@ local quote_sql_str = ngx.quote_sql_str
 local _M = {}
 
 local database = config.get("mysql_database")
-local KEY_ATTACK_LOG = 'attack_log'
-local KEY_IP_BLOCK_LOG = 'ip_block_log'
 
 local BATCH_SIZE = 300
 
@@ -101,7 +99,7 @@ local SQL_CREATE_TABLE_ATTACK_LOG = [[
         `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         `request_id` CHAR(20) NOT NULL COMMENT '请求id',
 
-        `ip` varchar(32) NOT NULL COMMENT 'ip地址',
+        `ip` varchar(39) NOT NULL COMMENT 'ip地址',
         `ip_country_code` CHAR(2) NULL COMMENT 'ip所属国家代码',
         `ip_country_cn` VARCHAR(255) NULL COMMENT 'ip所属国家_中文',
         `ip_country_en` VARCHAR(255) NULL COMMENT 'ip所属国家_英文',
@@ -116,18 +114,20 @@ local SQL_CREATE_TABLE_ATTACK_LOG = [[
 
         `http_method` VARCHAR(20) NULL COMMENT '请求http方法',
         `server_name` VARCHAR(100) NULL COMMENT '请求域名',
-        `user_agent` VARCHAR(200) NULL COMMENT '请求客户端ua',
+        `user_agent` VARCHAR(255) NULL COMMENT '请求客户端ua',
         `referer` VARCHAR(500) NULL COMMENT 'referer',
 
         `request_protocol` VARCHAR(50) NULL COMMENT '请求协议',
-        `request_uri` VARCHAR(100) NULL COMMENT '请求uri',
+        `request_uri` VARCHAR(500) NULL COMMENT '请求uri',
         `request_body` MEDIUMTEXT NULL COMMENT '请求体',
         `http_status` SMALLINT UNSIGNED NOT NULL COMMENT 'http响应状态码',
         `response_body` MEDIUMTEXT NULL COMMENT '响应体',
         `request_time` datetime NOT NULL,
 
         `attack_type` VARCHAR(200) NULL COMMENT '攻击类型',
-        `hit_rule` VARCHAR(200) NULL COMMENT '命中规则',
+        `severity_level` VARCHAR(20) NULL COMMENT '危险级别',
+        `security_module` VARCHAR(255) NULL COMMENT '安全模块',
+        `hit_rule` VARCHAR(500) NULL COMMENT '命中规则',
         `action` VARCHAR(100) NULL COMMENT '处置动作',
 
         `update_time` datetime NULL,
@@ -140,7 +140,7 @@ local SQL_INSERT_ATTACK_LOG = [[
     INSERT INTO attack_log (
         request_id, ip, ip_country_code, ip_country_cn, ip_country_en, ip_province_code, ip_province_cn, ip_province_en, ip_city_code, ip_city_cn, ip_city_en,
         ip_longitude, ip_latitude, http_method, server_name, user_agent, referer, request_protocol, request_uri,
-        request_body, http_status, response_body, request_time, attack_type, hit_rule, action)
+        request_body, http_status, response_body, request_time, attack_type, severity_level, security_module, hit_rule, action)
     VALUES
 ]]
 
@@ -149,7 +149,7 @@ local SQL_CREATE_TABLE_IP_BLOCK_LOG = [[
         `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         `request_id` CHAR(20) NULL COMMENT '请求id',
 
-        `ip` varchar(32) NOT NULL COMMENT 'ip地址',
+        `ip` varchar(39) NOT NULL COMMENT 'ip地址',
         `ip_country_code` CHAR(2) NULL COMMENT 'ip所属国家代码',
         `ip_country_cn` VARCHAR(255) NULL COMMENT 'ip所属国家_中文',
         `ip_country_en` VARCHAR(255) NULL COMMENT 'ip所属国家_英文',

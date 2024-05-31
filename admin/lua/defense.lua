@@ -76,6 +76,8 @@ function _M.doRequest()
             newRule.threshold = tonumber(newRule.threshold)
             newRule.ipBlockTimeout = tonumber(newRule.ipBlockTimeout)
             newRule.autoIpBlock = newRule.autoIpBlock or 'off'
+            newRule.attackType = 'cc-' .. newRule.countType
+            newRule.severityLevel = 'medium'
 
             response = ruleUtils.saveOrUpdateRule(CC_PATH, newRule)
             reload = true
@@ -242,6 +244,8 @@ function _M.doRequest()
             newRule.id = tonumber(newRule.id)
             newRule.ipBlockTimeout = tonumber(newRule.ipBlockTimeout)
             newRule.autoIpBlock = newRule.autoIpBlock or 'off'
+            newRule.attackType = 'acl'
+            newRule.severityLevel = 'medium'
 
             -- 将匹配逻辑操作符转换为对应正则表达式
             local conditions = newRule.conditions
@@ -293,6 +297,8 @@ function _M.doRequest()
             newRule.id = tonumber(newRule.id)
             newRule.ipBlockTimeout = tonumber(newRule.ipBlockTimeout)
             newRule.autoIpBlock = newRule.autoIpBlock or 'off'
+            newRule.attackType = 'bot'
+            newRule.severityLevel = 'low'
 
             local rule = newRule.rule
             if rule then

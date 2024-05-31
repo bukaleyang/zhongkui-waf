@@ -8,11 +8,11 @@ local ipUtils = require "ip"
 local action = require "action"
 local cc = require "cc"
 local stringutf8 = require "stringutf8"
-local fileUtils = require "file"
 local request = require "request"
 local ck = require "resty.cookie"
 local libinjection = require "resty.libinjection"
 local nkeys = require "table.nkeys"
+local constants = require "constants"
 
 local blockIp = action.blockIp
 local doAction = action.doAction
@@ -66,7 +66,7 @@ end
 local function loadIPBlackList()
     if config.ipBlackList then
         if config.isRedisOn then
-            redisCli.redisBathSet(config.ipBlackList, 0, "black_ip:")
+            redisCli.redisBathSet(config.ipBlackList, 0, constants.KEY_BLACKIP_PREFIX)
         else
             local blackip = ngx.shared.dict_blackip
 
@@ -85,9 +85,11 @@ function _M.isWhiteIp()
             return false
         end
 
+        local module = config.securityModules.whiteIp
+
         for _, v in pairs(config.ipWhiteList) do
             if ip == v then
-                doAction(config.rules.whiteIp)
+                doAction(module.moduleName, module.rules[1])
                 return true
             end
         end
@@ -95,7 +97,7 @@ function _M.isWhiteIp()
         for _, v in pairs(config.ipWhiteList_subnet) do
             if type(v) == 'table' then
                 if ipUtils.isSameSubnet(v, ip) then
-                    doAction(config.rules.whiteIp)
+                    doAction(module.moduleName, module.rules[1])
                     return true
                 end
             end
@@ -124,7 +126,7 @@ function _M.isBlackIp()
             exists = true
         else
             if config.isRedisOn then
-                exists = redisCli.redisGet("black_ip:" .. ip)
+                exists = redisCli.redisGet(constants.KEY_BLACKIP_PREFIX .. ip)
             else
                 local blackip = ngx.shared.dict_blackip
                 exists = blackip:get(ip)
@@ -143,7 +145,8 @@ function _M.isBlackIp()
         end
 
         if exists then
-            doAction(config.rules.blackIp)
+            local module = config.securityModules.blackIp
+            doAction(module.moduleName, module.rules[1])
         end
 
         return exists
@@ -161,7 +164,8 @@ function _M.isUnsafeHttpMethod()
         end
     end
 
-    doAction(config.rules.unsafeMethod, nil, nil, nil)
+    local module = config.securityModules.unsafeMethod
+    doAction(module.moduleName, module.rules[1])
     return true
 end
 
@@ -178,19 +182,21 @@ function _M.isBot()
             local uri = ngx.var.uri
 
             if uri == config.botTrapUri or ruri == config.botTrapUri then
-                local ruleTab = config.rules.botTrap
+                local module = config.securityModules.botTrap
+                local ruleTab = module.rules[1]
                 blockIp(ip, ruleTab)
-                doAction(ruleTab)
+                doAction(module.moduleName, ruleTab)
                 return true
             end
         end
 
         local ua = ngx.ctx.ua
 
-        local m, ruleTable = matchRule(config.rules["user-agent"], ua)
+        local module = config.securityModules["user-agent"]
+        local m, ruleTable = matchRule(module.rules, ua)
         if m then
             blockIp(ip, ruleTable)
-            doAction(ruleTable)
+            doAction(module.moduleName, ruleTable)
             return true
         end
     end
@@ -205,7 +211,8 @@ function _M.isCC()
 
         local ip = ngx.ctx.ip
 
-        local rules = config.rules.cc
+        local module = config.securityModules.cc
+        local rules = module.rules
         for _, ruleTab in pairs(rules) do
             local countType = lower(ruleTab.countType)
             local pattern = ruleTab.pattern
@@ -237,7 +244,7 @@ function _M.isCC()
                         if count >= (config.ccMaxFailTimes + ruleTab.threshold) then
                             blockIp(ip, ruleTab)
                         end
-                        doAction(ruleTab, nil, ruleTab.rule, 503)
+                        doAction(module.moduleName, ruleTab, nil, ruleTab.rule, 503)
 
                         return true
                     end
@@ -250,7 +257,7 @@ function _M.isCC()
                         if count >= (config.ccMaxFailTimes + ruleTab.threshold) then
                             blockIp(ip, ruleTab)
                         end
-                        doAction(ruleTab, nil, ruleTab.rule, 503)
+                        doAction(module.moduleName, ruleTab, nil, ruleTab.rule, 503)
 
                         return true
                     end
@@ -263,7 +270,8 @@ function _M.isCC()
 end
 
 function _M.isACL()
-    local rules = config.rules.acl
+    local module = config.securityModules.acl
+    local rules = module.rules
     if rules == nil or nkeys(rules) == 0 then
         return false
     end
@@ -326,7 +334,7 @@ function _M.isACL()
         if match then
             local ip = ngx.ctx.ip
             blockIp(ip, ruleTab)
-            doAction(ruleTab, nil, ruleTab.rule)
+            doAction(module.moduleName, ruleTab)
             return true
         end
     end
@@ -341,9 +349,10 @@ function _M.isWhiteURL()
         if url == nil or url == "" then
             return false
         end
-        local m, ruleTable = matchRule(config.rules.whiteUrl, url)
+        local module = config.securityModules.whiteUrl
+        local m, ruleTable = matchRule(module.rules, url)
         if m then
-            doAction(ruleTable, nil, nil, nil)
+            doAction(module.moduleName, ruleTable)
             return true
         end
         return false
@@ -360,9 +369,10 @@ function _M.isBlackURL()
             return false
         end
 
-        local m, ruleTable = matchRule(config.rules.blackUrl, url)
+        local module = config.securityModules.blackUrl
+        local m, ruleTable = matchRule(module.rules, url)
         if m then
-            doAction(ruleTable, nil, nil, nil)
+            doAction(module.moduleName, ruleTable)
             return true
         end
     end
@@ -380,9 +390,10 @@ function _M.isEvilArgs()
 
             if vals and type(vals) ~= "boolean" and vals ~= "" then
                 vals = decoder.unescapeUri(vals)
-                local m, ruleTable = matchRule(config.rules.args, vals)
+                local module = config.securityModules.args
+                local m, ruleTable = matchRule(module.rules, vals)
                 if m then
-                    doAction(ruleTable, nil, nil, nil)
+                    doAction(module.moduleName, ruleTable)
                     return true
                 end
                 _M.isSqliOrXss(vals)
@@ -393,20 +404,21 @@ function _M.isEvilArgs()
 end
 
 function _M.isEvilHeaders()
+    local module = config.securityModules.headers
     local referer = ngx.var.http_referer
     if referer and referer ~= "" then
-        local m, ruleTable = matchRule(config.rules.headers, referer)
+        local m, ruleTable = matchRule(module.rules, referer)
         if m then
-            doAction(ruleTable, referer, "headers-referer", nil)
+            doAction(module.moduleName, ruleTable, referer)
             return true
         end
     end
 
     local ua = ngx.ctx.ua
     if ua and ua ~= "" then
-        local m, ruleTable = matchRule(config.rules.headers, ua)
+        local m, ruleTable = matchRule(module.rules, ua)
         if m then
-            doAction(ruleTable, nil, "headers-ua", nil)
+            doAction(module.moduleName, ruleTable)
             return true
         end
     end
@@ -425,7 +437,8 @@ function _M.isBlackFileExt(ext, line)
             if not config.isJsonFormatLogOn then
                 line = "[" ..  line .. "]"
             end
-            doAction(config.rules.fileExt, line, nil, nil)
+            local module = config.securityModules.fileExt
+            doAction(module.moduleName, module.rules[1], line)
             return true
         end
     end
@@ -434,12 +447,10 @@ function _M.isBlackFileExt(ext, line)
 end
 
 function _M.isEvilFile(body)
-    local m, ruleTable = matchRule(config.rules.post, body)
+    local module = config.securityModules.post
+    local m, ruleTable = matchRule(module.rules, body)
     if m then
-        if not config.isJsonFormatLogOn then
-            body = ""
-        end
-        doAction(ruleTable, body, "post-file", nil)
+        doAction(module.moduleName, ruleTable)
         return true
     end
 
@@ -447,12 +458,10 @@ function _M.isEvilFile(body)
 end
 
 function _M.isEvilBody(body)
-    local m, ruleTable = matchRule(config.rules.post, body)
+    local module = config.securityModules.post
+    local m, ruleTable = matchRule(module.rules, body)
     if m then
-        if not config.isJsonFormatLogOn then
-            body = ""
-        end
-        doAction(ruleTable, body, "request-body", nil)
+        doAction(module.moduleName, ruleTable)
         return true
     end
 
@@ -584,9 +593,10 @@ end
 function _M.isEvilCookies()
     local cookie = ngx.var.http_cookie
     if config.isCookieOn and cookie then
-        local m, ruleTable = matchRule(config.rules.cookie, cookie)
+        local module = config.securityModules.cookie
+        local m, ruleTable = matchRule(module.rules, cookie)
         if m then
-            doAction(ruleTable, nil, nil, nil)
+            doAction(module.moduleName, ruleTable)
             return true
         end
     end
@@ -606,15 +616,17 @@ function _M.isSqliOrXss(data)
             data = t
         end
 
-        local sqli = config.rules.sqli
-        local xss = config.rules.xss
+        local sqliModule = config.securityModules.sqli
+        local xssModule = config.securityModules.xss
+        local sqliRule = sqliModule.rules[1]
+        local xssRule = xssModule.rules[1]
 
         for _, v in pairs(data) do
             if type(v) == 'string' then
                 if config.isSqliOn then
                     local isSqli = libinjection.sqli(v)
                     if isSqli then
-                        doAction(sqli)
+                        doAction(sqliModule.moduleName, sqliRule)
                         return true
                     end
                 end
@@ -622,7 +634,7 @@ function _M.isSqliOrXss(data)
                 if config.isXssOn then
                     local isXss = libinjection.xss(v)
                     if isXss then
-                        doAction(xss)
+                        doAction(xssModule.moduleName, xssRule)
                         return true
                     end
                 end

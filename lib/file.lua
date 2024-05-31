@@ -16,6 +16,8 @@ function _M.readRule(filePath, fileName)
         return
     end
 
+    local moduleName = nil
+    local modules = {}
     local rulesTable = {}
     local otherTable = {}
     local text = file:read('*a')
@@ -26,11 +28,11 @@ function _M.readRule(filePath, fileName)
         local result = cjson.decode(text)
 
         if result then
+            moduleName = result.moduleName
             for key, value in pairs(result) do
                 if key == "rules" then
                     for _, r in pairs(value) do
                         if toLower(r.state) == 'on' then
-                            r.ruleType = fileName
                             r.hits = 0
                             r.totalHits = 0
                             insert(rulesTable, r)
@@ -43,7 +45,10 @@ function _M.readRule(filePath, fileName)
         end
     end
 
-	return rulesTable, otherTable
+    modules.moduleName = moduleName or ''
+    modules.rules = rulesTable
+
+	return modules, otherTable
 end
 
 function _M.readFileToTable(filePath)

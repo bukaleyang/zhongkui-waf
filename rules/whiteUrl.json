@@ -1,5 +1,7 @@
 {
+    "nextId": 2,
+    "moduleName": "URL白名单检测",
     "rules":[
-        {"state":"off","action":"allow","rule":"^/123/$"}
+        {"id":1,"state":"off","action":"allow","rule":""}
     ]
 }

@@ -4,6 +4,7 @@
 local config = require "config"
 local ahocorasick = require "ahocorasick"
 local stringutf8 = require "stringutf8"
+local file = require "file"
 local nkeys = require "table.nkeys"
 
 local ipairs = ipairs
@@ -30,19 +31,18 @@ local _M = {}
 local STR_PREPROCESSING_REGEX = "[.,!?;:\"'()<>\\[\\]{}\\-_/\\|@#\\$%&\\*\\+=\\s]*"
 local CODING_RANGE_REGEX = "(-*\\d+),(-*\\d+)"
 local CODING_RANGE_DOLLAR_REGEX = "\\$(\\d+)"
+local SENSITIVE_WORDS_PATH = config.rulePath .. 'sensitiveWords'
 
-local rules = config.rules.sensitive
-local sensitiveWords = config.rules.sensitiveWords
+local rules = config.securityModules.sensitive.rules
+
 local needFilterSensitiveWords = false
 local ac = ahocorasick:new()
 
 local function initSensitiveWordsAC()
-    if sensitiveWords then
-        local wordsList = sensitiveWords["words"]
-        if wordsList and nkeys(wordsList) > 0 then
-            ac:add(wordsList)
-            needFilterSensitiveWords = true
-        end
+    local wordsList = file.readFileToTable(SENSITIVE_WORDS_PATH) or {}
+    if wordsList and nkeys(wordsList) > 0 then
+        ac:add(wordsList)
+        needFilterSensitiveWords = true
     end
 end
 

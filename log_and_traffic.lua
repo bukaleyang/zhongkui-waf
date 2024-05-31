@@ -13,6 +13,7 @@ local constants = require "constants"
 local pairs = pairs
 local upper = string.upper
 local format = string.format
+local sub = string.sub
 local concat = table.concat
 local defaultIfBlank = stringutf8.defaultIfBlank
 local quote_sql_str = ngx.quote_sql_str
@@ -26,7 +27,9 @@ local function writeAttackLog()
     local data = ctx.hitData
     local action = ctx.action
     local rule = ruleTable.rule
-    local ruleType = ruleTable.ruleType
+    local attackType = ruleTable.attackType
+    local severityLevel = ruleTable.severityLevel
+    local securityModule = ctx.moduleName
 
     local requestId = ctx.requestId
     local geoip = ctx.geoip
@@ -55,7 +58,7 @@ local function writeAttackLog()
         if config.isJsonFormatLogOn then
             local logTable = {
                 request_id = requestId,
-                attack_type = ruleType,
+                attack_type = attackType,
                 ip = realIp,
                 ip_country = countryName,
                 ip_province = provinceName,
@@ -85,14 +88,14 @@ local function writeAttackLog()
             ua = defaultIfBlank(ua, '-')
             data = defaultIfBlank(data, '-')
 
-            local logStr = concat({ruleType, realIp, address, "[" .. attackTime .. "]", '"' .. method, host, url, protocol .. '"', data, '"' .. ua .. '"', '"' .. rule .. '"', action},' ')
+            local logStr = concat({attackType, realIp, address, "[" .. attackTime .. "]", '"' .. method, host, url, protocol .. '"', data, '"' .. ua .. '"', '"' .. rule .. '"', action},' ')
             local hostLogger = loggerFactory.getLogger(logPath, host, true)
             hostLogger:log(logStr .. '\n')
         end
     end
 
     if config.isMysqlOn then
-        local sqlStr = '(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %.7f, %.7f, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
+        local sqlStr = '(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %.7f, %.7f, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
 
         local reqHeader = ngx.req.raw_header() or ''
         if #reqHeader > 0 or requestBody then
@@ -127,7 +130,7 @@ local function writeAttackLog()
             quote_sql_str(city.iso_code or ''), quote_sql_str(city.names['zh-CN'] or ''), quote_sql_str(city.names['en'] or ''),
             longitude, latitude,
             quote_sql_str(method), quote_sql_str(host), quote_sql_str(ua), referer, quote_sql_str(protocol), quote_sql_str(url), requestBody,
-            quote_sql_str(ngx.status), responseBody, quote_sql_str(attackTime), quote_sql_str(ruleType), quote_sql_str(rule), quote_sql_str(action))
+            quote_sql_str(ngx.status), responseBody, quote_sql_str(attackTime), quote_sql_str(attackType), quote_sql_str(severityLevel), quote_sql_str(securityModule), quote_sql_str(sub(rule, 1, 500)), quote_sql_str(action))
 
         sql.writeSqlToQueue(constants.KEY_ATTACK_LOG, sqlStr)
     end
@@ -136,12 +139,12 @@ end
 local function writeIPBlockLog()
     local ctx = ngx.ctx
     local ruleTable = ctx.ruleTable
-    local ruleType = ruleTable.ruleType
+    local attackType = ruleTable.attackType
     local ipBlockTimeout = ruleTable.ipBlockTimeout
     local ip = ctx.ip
     local action = ctx.action
     local hostLogger = loggerFactory.getLogger(logPath .. "ipBlock.log", 'ipBlock', false)
-    hostLogger:log(concat({ngx.localtime(), ip, ruleType, ipBlockTimeout .. 's'}, ' ') .. "\n")
+    hostLogger:log(concat({ngx.localtime(), ip, attackType, ipBlockTimeout .. 's'}, ' ') .. "\n")
 
     if ipBlockTimeout == 0 then
         local ipBlackLogger = loggerFactory.getLogger(config.rulePath .. "ipBlackList", 'ipBlack', false)
@@ -169,7 +172,7 @@ local function writeIPBlockLog()
             quote_sql_str(province.iso_code or ''), quote_sql_str(province.names['zh-CN'] or ''), quote_sql_str(province.names['en'] or ''),
             quote_sql_str(city.iso_code or ''), quote_sql_str(city.names['zh-CN'] or ''), quote_sql_str(city.names['en'] or ''),
             longitude, latitude,
-            quote_sql_str(ruleType), quote_sql_str(startTime), ipBlockTimeout, endTime, quote_sql_str(action))
+            quote_sql_str(attackType), quote_sql_str(startTime), ipBlockTimeout, endTime, quote_sql_str(action))
 
         sql.writeSqlToQueue(constants.KEY_IP_BLOCK_LOG, sqlStr)
     end
@@ -257,17 +260,17 @@ end
 ]]
 local function countAttackRequestTraffic()
     local ruleTable = ngx.ctx.ruleTable
-    local ruleType = upper(ruleTable.ruleType)
+    local attackType = upper(ruleTable.attackType)
     local dict = ngx.shared.dict_req_count
 
-    if ruleType ~= 'WHITEIP' then
+    if attackType ~= 'WHITEIP' then
         local hour = time.getDateHour()
         utils.dictIncr(dict, constants.KEY_ATTACK_PREFIX .. hour, getTTL)
     end
 
     local today = ngx.today() .. '_'
 
-    utils.dictIncr(dict, constants.KEY_ATTACK_TYPE_PREFIX .. today .. ruleType, getTTL)
+    utils.dictIncr(dict, constants.KEY_ATTACK_TYPE_PREFIX .. today .. attackType, getTTL)
 end
 
 

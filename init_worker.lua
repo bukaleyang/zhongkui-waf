@@ -58,19 +58,19 @@ local sortTimerHandler = function(premature)
         return
     end
 
-    local jsonStr = dict_config:get("rules")
-    local rulesConfig = cjson.decode(jsonStr)
+    local jsonStr = dict_config:get("securityModules")
+    local securityModules = cjson.decode(jsonStr)
 
-    for k, _ in pairs(rulesConfig) do
-        local rulesTable = rulesConfig[k]
+    for k, _ in pairs(securityModules) do
+        local rulesTable = securityModules[k].rules
 
         if isArray(rulesTable) then
             rulesTable = sort(k, rulesTable)
         end
     end
 
-    local newJsonStr = cjson.encode(rulesConfig)
-    dict_config:set("rules", newJsonStr)
+    local newJsonStr = cjson.encode(securityModules)
+    dict_config:set("securityModules", newJsonStr)
 end
 
 local getRulesTimerHandler = function(premature)
@@ -78,9 +78,9 @@ local getRulesTimerHandler = function(premature)
         return
     end
 
-    local jsonStr = dict_config:get("rules")
-    local rulesConfig = cjson.decode(jsonStr)
-    config.rules = rulesConfig
+    local jsonStr = dict_config:get("securityModules")
+    local securityModules = cjson.decode(jsonStr)
+    config.securityModules = securityModules
 end
 
 if config.isWAFOn then

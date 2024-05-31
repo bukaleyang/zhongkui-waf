@@ -100,9 +100,9 @@ end
 local function hit(ruleTable)
     if config.isRulesSortOn then
         local ruleMd5Str = md5(ruleTable.rule)
-        local ruleType = ruleTable.ruleType
-        local key = RULES_HIT_PREFIX .. ruleType .. '_' .. ruleMd5Str
-        local key_total = RULES_HIT_PREFIX .. ruleType .. '_total_' .. ruleMd5Str
+        local attackType = ruleTable.attackType
+        local key = RULES_HIT_PREFIX .. attackType .. '_' .. ruleMd5Str
+        local key_total = RULES_HIT_PREFIX .. attackType .. '_total_' .. ruleMd5Str
         local newHits = nil
         local newTotalHits = nil
 
@@ -124,15 +124,16 @@ local function hit(ruleTable)
     end
 end
 
-function _M.doAction(ruleTable, data, ruleType, status)
+function _M.doAction(moduleName, ruleTable, data, attackType, status)
     local action = upper(ruleTable.action)
-    if ruleType == nil then
-        ruleType = ruleTable.ruleType
+    if attackType == nil then
+        attackType = ruleTable.attackType
     else
-        ruleTable.ruleType = ruleType
+        ruleTable.attackType = attackType
     end
 
     hit(ruleTable)
+    ngx.ctx.moduleName = moduleName
     ngx.ctx.ruleTable = ruleTable
     ngx.ctx.action = action
     ngx.ctx.hitData = data

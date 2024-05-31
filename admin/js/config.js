@@ -69,7 +69,7 @@ layui.use(['form','element','util','jquery','popup','tag'], function() {
             }
         }, "json");
         // 阻止回车触发表单提交
-        $(document).on('keydown', function (e) {
+        $('input').on('keydown', function (e) {
             if (e.keyCode === 13) {
                 e.preventDefault();
                 return false;

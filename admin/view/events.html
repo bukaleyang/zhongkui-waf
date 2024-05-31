@@ -7,10 +7,10 @@
 		<link href="../component/pear/css/pear.css" rel="stylesheet">
 		<style>
 			.layui-card-body .layui-form {margin-top: 0px;}
-			.pre-text {  
-				white-space: pre-wrap; /* CSS3, 现代浏览器 */  
-				white-space: -moz-pre-wrap; /* Mozilla, Firefox 2 and earlier */  
-				white-space: -o-pre-wrap; /* Opera 7 */  
+			.pre-text {
+				white-space: pre-wrap; /* CSS3, 现代浏览器 */
+				white-space: -moz-pre-wrap; /* Mozilla, Firefox 2 and earlier */
+				white-space: -o-pre-wrap; /* Opera 7 */
 				word-wrap: break-word; /* Internet Explorer 5.5+, Safari, Chrome, Firefox, Opera 15+ */
 				overflow-y: auto;
 			}
@@ -40,7 +40,7 @@
 						<div class="layui-card-body">
 							<div class="layui-row layui-col-space10">
 								<div class="layui-col-md2">攻击类型</div>
-								<div class="layui-col-md5 data" id="data_attack_type"></div>
+								<div class="layui-col-md5"><span id="data_attack_type" class="layui-badge"></span></div>
 								<div class="layui-col-md5" style="text-align: right;"><span class="layui-badge layui-font-16 layui-padding-1" id="data_action"></span></div>
 							</div>
 							<div class="layui-row layui-col-space10">
@@ -48,12 +48,20 @@
 								<div class="layui-col-md10 data" id="data_request_uri"></div>
 							</div>
 							<div class="layui-row layui-col-space10">
-								<div class="layui-col-md2">攻击IP</div>
+								<div class="layui-col-md2">攻击者IP</div>
 								<div class="layui-col-md10 data" id="data_ip"></div>
 							</div>
 							<div class="layui-row layui-col-space10">
 								<div class="layui-col-md2">攻击时间</div>
 								<div class="layui-col-md10 data" id="data_request_time"></div>
+							</div>
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md2">防护模块</div>
+								<div class="layui-col-md10 pre-text data" id="data_security_module"></div>
+							</div>
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md2">命中规则</div>
+								<div class="layui-col-md10 pre-text data" id="data_hit_rule"></div>
 							</div>
 							<div class="layui-row layui-col-space10">
 								<div class="layui-col-md2">请求ID</div>
@@ -75,9 +83,9 @@
 											<li class="layui-this" lay-id="tab1">请求报文</li>
 											<li>响应报文</li>
 										</ul>
-										<div class="layui-tab-content" style="height: 240px;">
-											<div class="layui-tab-item layui-show pre-text data" id="data_request_body" style="height: 240px;"></div>
-											<div class="layui-tab-item pre-text data" id="data_response_body" style="height: 240px;"></div>
+										<div class="layui-tab-content" style="height: 250px;">
+											<div class="layui-tab-item layui-show pre-text data" id="data_request_body" style="height: 250px;"></div>
+											<div class="layui-tab-item pre-text data" id="data_response_body" style="height: 250px;"></div>
 										</div>
 									</div>
 								</div>
@@ -99,29 +107,35 @@
 		<script type="text/html" id="user_toolbar">
 			<form class="layui-form layui-row layui-col-space8">
 				<div class="layui-col-md2">
-					<input type="text" name="ip" value="" placeholder="攻击IP地址" class="layui-input" lay-affix="clear" />
+					<input type="text" name="ip" value="" placeholder="攻击者IP地址" class="layui-input" lay-affix="clear" />
 				</div>
 				<div class="layui-col-md2">
 					<input type="text" name="serverName" placeholder="域名" lay-affix="clear" class="layui-input" />
 				</div>
 				<div class="layui-col-md2">
+					<select name="attackType" id="attackType">
+						<option value="">攻击类型</option>
+					</select>
+				</div>
+				<div class="layui-col-md2">
 					<select name="action" id="action">
-						<option value="">全部</option>
+						<option value="">处置动作</option>
 					</select>
 				</div>
 				<div class="pear-btn-container layui-col-md2">
 					<button class="pear-btn pear-btn-primary pear-btn-md" lay-submit lay-filter="table-search">查询</button>
-					<button type="reset" class="pear-btn  pear-btn-md">重置</button>
+					<button type="reset" class="pear-btn pear-btn-md">重置</button>
 				</div>
 			</form>
 		</script>
 		<script type="text/html" id="table_bar">
-			<i class="layui-icon layui-icon-tips" lay-event="detail"></i>
+			<i class="layui-icon layui-icon-tips" style="cursor: pointer;" title="详情" lay-event="detail"></i>
 		</script>
 
 		<script src="../component/layui/layui.js"></script>
 		<script src="../component/pear/pear.js"></script>
 		<script src="../js/action.js"></script>
+		<script src="../js/attackType.js"></script>
 		<script>
 			layui.use(['form','table','util','jquery','popup','tag'], function() {
 				var table = layui.table;
@@ -137,7 +151,7 @@
 					cols: [[ //标题栏
 						{field: 'server_name', title: '域名'},
 						{field: 'request_uri', title: '请求地址'},
-						{field: 'ip', title: '攻击IP', templet: function(d) {
+						{field: 'ip', title: '攻击者IP', templet: function(d) {
 							if (d.ip_country_code == 'CN') {
 								if (d.ip_province_cn == d.ip_city_cn) {
 									return '<div>' + d.ip + '(' + d.ip_country_cn + '-' + d.ip_city_cn + ')' + '</div>';
@@ -148,8 +162,30 @@
 								return '<div>' + d.ip + '(' + d.ip_country_cn + ')' + '</div>';
 							}
 						}},
-						{field: 'attack_type', title: '攻击类型', width: 120},
-						{field: 'hit_rule', title: '命中规则'},
+						{field: 'attack_type', title: '攻击类型', width: 150, templet: function(d) {
+							return '<div>' + getAttackTypeText(d.attack_type) + '</div>';
+						}},
+						{field: 'severity_level', title: '危险级别', width: 120, templet: function(d) {
+							let levelStr = '';
+							switch (d.severity_level) {
+								case 'low':
+									levelStr = '<span class="layui-badge layui-bg-blue">低危</span>';
+									break;
+								case 'medium':
+									levelStr = '<span class="layui-badge" style="background-color:#ffcc00;">中危</span>';
+									break;
+								case 'high':
+									levelStr = '<span class="layui-badge layui-bg-orange">高危</span>';
+									break;
+								case 'critical':
+									levelStr = '<span class="layui-badge layui-bg-red">严重</span>';
+									break;
+								default:
+									levelStr = '<span class="layui-badge layui-bg-blue">低危</span>';
+							}
+
+							return '<div>' + levelStr + '</div>';
+						}},
 						{field: 'action', title: '处置动作', width: 100, templet: function(d) {
 							return '<div>' + getActionText(d.action) + '</div>';
 						}},
@@ -176,6 +212,11 @@
 								var html = '';
 								if (data) {
 									$.each(data, function(key, val) {
+										if (key == 'request_body' && val == null) {
+											val = '无请求报文';
+										} else if (key == 'response_body' && val == null) {
+											val = '无响应报文';
+										}
 										$('#data_' + key).text(val);
 									});
 
@@ -195,7 +236,31 @@
 										$('#data_action').addClass('layui-badge layui-bg-orange');
 									}
 									$('#data_action').text(getActionText(ac));
-									
+
+									$('#data_attack_type').text(getAttackTypeText(data.attack_type));
+									switch (data.severity_level) {
+										case 'low':
+											$('#data_attack_type').addClass('layui-badge layui-bg-blue');
+											break;
+										case 'medium':
+											$('#data_attack_type').addClass('layui-badge').css('background-color','#ffcc00');
+											break;
+										case 'high':
+											$('#data_attack_type').addClass('layui-badge layui-bg-orange');
+											break;
+										case 'critical':
+											$('#data_attack_type').addClass('layui-badge layui-bg-red');
+											break;
+										default:
+											$('#data_attack_type').addClass('layui-badge layui-bg-blue');
+									}
+
+									if (data.security_module) {
+										$('#data_security_module').text(data.security_module).parent().show();
+									} else {
+										$('#data_security_module').text('').parent().hide();
+									}
+
 									$('#data_ip').text(ip);
 								}
 							} else {
@@ -210,7 +275,7 @@
 							title: '攻击详情',
 							shade: 0.6,
 							shadeClose: true,
-							area: ['700px', '650px'],
+							area: ['750px', 'auto'],
 							content: $('#form_detail'),
 							end: function() {
 								$("#form_detail").trigger("reset");
@@ -218,6 +283,7 @@
 								$("#form_detail").find(".data").text("");
 								element.tabChange("filter-tab", "tab1");
 								$('#data_action').removeClass('layui-bg-green layui-bg-orange');
+								$('#data_attack_type').removeClass();
 							}
 						});
 					}
@@ -244,6 +310,9 @@
 				$(function(){
 					initActionSelect('action', 'coding', function() {
 						form.render($('#action'));
+					});
+					initAttackTypeSelect('attackType', function() {
+						form.render($('#attackType'));
 					});
 					// 阻止回车触发表单提交
 					$(document).on('keydown', function (e) {
