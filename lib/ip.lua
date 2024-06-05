@@ -4,6 +4,8 @@
 local _M = {}
 
 local bit = require "bit"
+local stringutf8 = require "stringutf8"
+
 local lshift = bit.lshift
 local band = bit.band
 local pairs = pairs
@@ -12,8 +14,9 @@ local type = type
 local tonumber = tonumber
 local find = string.find
 local match = string.match
+local sub = string.sub
+local trim = stringutf8.trim
 local ngxmatch = ngx.re.match
-local ngxfind = ngx.re.find
 
 local insert = table.insert
 
@@ -33,19 +36,12 @@ function _M.getClientIP()
 
     for _, ip in pairs(ips) do
         if ip and #ip > 0 then
-            if ngxfind(ip, ',', 'jo') then
-                local m, err = ngxmatch(ip, '\\s*([\\da-fA-F\\:\\.]+)(?:,\\s*)?', 'isjo')
-                if m then
-                    ip = m[1]
-                    return ip
-                end
-
-                if err then
-                    ngx.log(ngx.ERR, "get client ip error: ", err)
-                end
-            else
-                return ip
+            local idx = find(ip, ",")
+            if idx and idx > 0 then
+                ip = sub(ip, 1, idx - 1)
             end
+
+            return trim(ip)
         end
     end
 
