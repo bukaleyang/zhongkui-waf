@@ -140,7 +140,7 @@ function _M.doAction(moduleName, ruleTable, data, attackType, status)
     ngx.ctx.isAttack = true
 
     if action == "ALLOW" then
-        ngx.status = ngx.HTTP_OK
+        ngx.status = ngx.OK
         return ngx.exit(ngx.status)
     elseif action == "DENY" then
         deny(status)
