@@ -34,6 +34,8 @@ if config.isWAFOn then
 
     elseif lib.isUnsafeHttpMethod() then
 
+    elseif lib.isACL() then
+
     elseif lib.isBot() then
 
     elseif lib.isCC() then
@@ -46,11 +48,9 @@ if config.isWAFOn then
 
     elseif lib.isEvilHeaders() then
 
-    elseif lib.isEvilReqBody() then
-
     elseif lib.isEvilCookies() then
 
-    elseif lib.isACL() then
+    elseif lib.isEvilReqBody() then
 
     end
 

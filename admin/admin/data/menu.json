@@ -86,7 +86,7 @@
 			{
 				"id": 61,
 				"title": "数据存储",
-				"icon": "layui-icon layui-icon-console",
+				"icon": "layui-icon layui-icon-template-1",
 				"type": 1,
 				"openType": "_iframe",
 				"href": "view/common/storage.html"
@@ -98,6 +98,14 @@
 				"type": 1,
 				"openType": "_iframe",
 				"href": "view/common/certificate.html"
+			},
+			{
+				"id": 63,
+				"title": "IP组",
+				"icon": "layui-icon layui-icon-list",
+				"type": 1,
+				"openType": "_iframe",
+				"href": "view/common/ipgroup.html"
 			}
 		]
 	},

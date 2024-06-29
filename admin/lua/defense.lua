@@ -268,6 +268,15 @@ function _M.doRequest()
                         pattern = '^' .. content .. '$'
                     elseif operator == 'regex' then
                         pattern = content
+                    elseif operator == 'in' then
+                        pattern = ''
+                    elseif operator == 'notin' then
+                        pattern = ''
+                    end
+                    if operator ~= 'in' and operator ~= 'notin' then
+                        c.ipGroupId = nil
+                    else
+                        c.ipGroupId = tonumber(c.ipGroupId)
                     end
                     c.pattern = pattern
                 end

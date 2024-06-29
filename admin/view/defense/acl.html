@@ -63,19 +63,14 @@
 							<input type="text" name="name" lay-filter="rule_field_name" autocomplete="off" class="layui-input" />
 						</div>
 						<div class="layui-col-md3">
-							<select name="operator" lay-verify="required" lay-filter="rule_operator">
-								<option value="prefix">前缀匹配</option>
-								<option value="suffix">后缀匹配</option>
-								<option value="contains">包含</option>
-								<option value="not">不包含</option>
-								<option value="notexist" disabled>不存在</option>
-								<option value="equal">等于</option>
-								<option value="regex">正则表达式</option>
-							</select>
+							<select name="operator" lay-verify="required" lay-filter="rule_operator"></select>
 						</div>
 						<div class="layui-col-md5">
 							<div class="layui-input-inline" style="width: 90%;">
 								<input type="text" name="content" lay-verify="content" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+							</div>
+							<div class="layui-input-inline" style="width: 90%; display: none;">
+								<select name="ipGroupId" lay-verify="ipGroupId"></select>
 							</div>
 							<i class="layui-icon layui-icon-delete" style="cursor: pointer;vertical-align: middle;" lay-on="removeCondition"></i>
 						</div>
@@ -117,7 +112,7 @@
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
 					<div class="layui-form-text">
-						<textarea name="description" placeholder="请输入备注" lay-filter="rule_textarea" class="layui-textarea"></textarea>
+						<textarea name="description" rows="3" style="min-height: 50px;" placeholder="请输入备注" lay-filter="rule_textarea" class="layui-textarea"></textarea>
 					</div>
 				</div>
 			</div>
@@ -149,6 +144,7 @@
 		<script src="../../component/layui/layui.js"></script>
 		<script src="../../component/pear/pear.js"></script>
 		<script src="../../js/action.js"></script>
+		<script src="../../js/validator.js"></script>
 		<script>
 			layui.use(['form','table','util','jquery','popup'], function() {
 				var table = layui.table;
@@ -188,6 +184,93 @@
 					limit: 10, // 每页默认显示的数量
 				});
 
+				function listIPGroups() {
+					$.get('/common/ipgroups/listnames', {}, function(res) {
+						if (res && res.code == 200) {
+							var html = '';
+							if (res.data) {
+								$.each(res.data, function(i, item) {
+									html += '<option value="' + item.id + '">' + item.groupName + '</option>';
+								});
+							}
+							$('#conditions select[name="ipGroupId"]:first').html(html);
+							form.render('select', 'form_rule');
+						} else {
+							popup.failure(res.msg);
+						}
+					}, "json");
+				}
+
+				$(function() {
+					listIPGroups();
+					changeField($(".condition-row:first"));
+				});
+
+				function changeField(conditionRow) {
+					var operators = [
+						{"value": "prefix", "text": "前缀匹配"},
+						{"value": "suffix", "text": "后缀匹配"},
+						{"value": "contains", "text": "包含"},
+						{"value": "not", "text": "不包含"},
+						{"value": "notexist", "text": "不存在"},
+						{"value": "equal", "text": "等于"},
+						{"value": "in", "text": "在列表中"},
+						{"value": "notin", "text": "不在列表中"},
+						{"value": "regex", "text": "正则表达式"}
+					];
+
+					var elem = conditionRow.find("select[name='field']");
+					let value = elem.val();
+
+					// 要移除的value值的数组
+					let valuesToRemove = [];
+					if (value === "URL") {
+						valuesToRemove = ['notexist', 'in', 'notin'];
+					} else if (value === "IP") {
+						valuesToRemove = ['prefix', 'suffix', 'contains', 'not', 'notexist', 'regex'];
+					} else if (value === "Header" || value === "Cookie") {
+						valuesToRemove = ['prefix', 'suffix', 'in', 'notin'];
+					} else {
+						valuesToRemove = ['in', 'notin'];
+					}
+
+					// 使用filter方法移除对象
+					let filteredArray = operators.filter(obj => !valuesToRemove.includes(obj.value));
+
+					var html = '';
+					$.each(filteredArray, function(i, operator) {
+						html += '<option value="' + operator.value + '">' + operator.text + '</option>';
+					});
+
+					var operatorElem = conditionRow.find("select[name='operator']");
+					operatorElem.html(html);
+
+					if (value === "Header" || value === "Cookie") {
+						conditionRow.find(".col-field-name").show();
+						conditionRow.find('.col-field').removeClass("layui-col-md4").addClass("layui-col-md2");
+					} else {
+						conditionRow.find('.col-field-name').hide();
+						conditionRow.find(":text[name='name']").val("");
+						conditionRow.find('.col-field').removeClass("layui-col-md2").addClass("layui-col-md4");
+					}
+					changeOperator(conditionRow);
+					form.render(null, 'form_rule');
+				}
+
+				function changeOperator(conditionRow) {
+					var elem = conditionRow.find("select[name='operator']");
+					let value = elem.val();
+
+					if (value === "in" || value === "notin") {
+						conditionRow.find("select[name='ipGroupId']").parent().css('display', 'inline-block');
+						conditionRow.find(":text[name='content']").val("").parent().css('display', 'none');
+					} else {
+						conditionRow.find("select[name='ipGroupId']").parent().css('display', 'none');
+						conditionRow.find(":text[name='content']").parent().css('display', 'inline-block');
+					}
+					form.render(null, 'form_rule');
+				}
+
 				// 触发单元格工具事件
 				table.on('tool(table_rule)', function(obj) {
 					var data = obj.data; // 获得当前行数据
@@ -204,24 +287,12 @@
 								$(".condition-row:first").remove();
 							}
 
-							var field = condition.field;
-							if (field === "Header" || field === "Cookie") {
-								newCondition.find(".col-field-name").show();
-								newCondition.find('.col-field').removeClass("layui-col-md4").addClass("layui-col-md2");
-							} else {
-								newCondition.find('.col-field-name').hide();
-								newCondition.find('.col-field').removeClass("layui-col-md2").addClass("layui-col-md4");
-							}
-
-							if (field === "URL" || field === "IP") {
-								newCondition.find("select[name='operator']").find("option[value='notexist']").prop("disabled", true);
-							} else {
-								newCondition.find("select[name='operator']").find("option[value='notexist']").prop("disabled", false);
-							}
-
 							newCondition.find("select[name='field']").val(condition.field);
+							changeField(newCondition);
 							newCondition.find(":text[name='name']").val(condition.name);
 							newCondition.find("select[name='operator']").val(condition.operator);
+							changeOperator(newCondition);
+							newCondition.find("select[name='ipGroupId']").val(condition.ipGroupId);
 							newCondition.find(":text[name='content']").val(condition.content);
 
 							$('#addConditionRow').before(newCondition);
@@ -235,22 +306,22 @@
 							title: '编辑规则',
 							shade: 0.6,
 							shadeClose: true,
-							area: ['620px', 'auto'],
+							area: ['640px', 'auto'],
 							content: $('#form_rule'),
 							end: function() {
 								$("#form_rule").trigger("reset");
 								$("#form_rule").find("input[type='hidden']").val("");
 								$(".condition-row:not(:first)").remove();
+								changeField($(".condition-row:first"));
 							}
 						});
-
 					} else if(obj.event === 'remove') {
 						layer.confirm('确定删除该规则吗？', {
 							icon: 3,
 							title: '提示'
-						}, 
+						},
 						function(index) {
-							$.post('/defense/rule/acl/remove',  {id: data.id}, function(resData) {
+							$.post('/defense/rule/acl/remove', {id: data.id}, function(resData) {
 								if (resData && resData.code == 200) {
 									obj.del(); // 删除对应行（tr）的 DOM 结构，并更新缓存
 									table.reloadData('table_rule');
@@ -278,6 +349,7 @@
 								$("#form_rule").trigger("reset");
 								$("#form_rule").find("input[type='hidden']").val("");
 								$(".condition-row:not(:first)").remove();
+								changeField($(".condition-row:first"));
 							}
 						});
 					} else if (obj.event === 'refresh') {
@@ -296,9 +368,8 @@
 						if (count < 5) {
 							newCondition.find('input').val('');
 							newCondition.find('select').prop("selectedIndex", 0);
-							newCondition.find('.col-field-name').hide();
-							newCondition.find('.col-field').removeClass("layui-col-md2").addClass("layui-col-md4");
-							newCondition.find("select[name='operator']").find("option[value='notexist']").prop("disabled", true);
+
+							changeField(newCondition);
 							$('#addConditionRow').before(newCondition);
 							form.render(null, 'form_rule');
 						} else {
@@ -319,33 +390,42 @@
 					var elem = obj.elem;
 					var value = obj.value;
 					var row = $(elem).closest(".condition-row");
-					var col = $(elem).parent('.col-field');
-					var fieldName = row.find('[name="name"]');
-					if (value === "Header" || value === "Cookie") {
-						col.removeClass("layui-col-md4");
-						col.addClass("layui-col-md2");
-						fieldName.parent().show();
-					} else {
-						col.removeClass("layui-col-md2");
-						col.addClass("layui-col-md4");
-						fieldName.parent().hide();
-						fieldName.val("");
-					}
 
-					if (value === "URL" || value === "IP") {
-						row.find("select[name='operator']").find("option[value='notexist']").prop("disabled", true);
-					} else {
-						row.find("select[name='operator']").find("option[value='notexist']").prop("disabled", false);
-					}
-					form.render('select', 'form_rule');
+					changeField(row);
+				});
+
+				form.on('select(rule_operator)', function(obj) {
+					var elem = obj.elem;
+					var value = obj.value;
+					var row = $(elem).closest(".condition-row");
+
+					changeOperator(row);
 				});
 
 				form.verify({
 					content: function(value, elem) {
 						var row = $(elem).closest(".condition-row");
 						var operator = row.find('select[name="operator"]').val();
-						if (operator != 'notexist' && value.length == 0) {
+						var field = row.find('select[name="field"]').val();
+						if (operator != 'notexist' && operator != 'in' && operator != 'notin' && value.length == 0) {
 							return '匹配内容不能为空';
+						}
+						if (field == 'IP' && operator == 'equal') {
+							if (isIP(value) == false) {
+								return 'IP地址格式不正确';
+							}
+						}
+					},
+					ipGroupId: function(value, elem) {
+						var row = $(elem).closest(".condition-row");
+						var operator = row.find('select[name="operator"]').val();
+
+						if (operator === 'in' || operator === 'notin') {
+							if ($(elem).find('option').length == 0) {
+								return '请先添加IP组';
+							} else if(value.length == 0) {
+								return '请选择IP组';
+							}
 						}
 					}
 				});
@@ -365,6 +445,7 @@
 					delete field.name;
 					delete field.operator;
 					delete field.content;
+					delete field.ipGroupId;
 
 					var conditions = [];
 					$('#conditions').find('select[name="field"]').each(function(i, el) {
@@ -374,11 +455,12 @@
 						condition.name = row.find(':text[name="name"]').val();
 						condition.operator = row.find('select[name="operator"]').val();
 						condition.content = row.find(':text[name="content"]').val();
+						condition.ipGroupId = row.find('select[name="ipGroupId"]').val();
 						conditions.push(condition);
 					});
 					field.conditions = conditions;
 
-					$.post('/defense/rule/acl/save',  {rule: JSON.stringify(field)}, function(data) {
+					$.post('/defense/rule/acl/save', {rule: JSON.stringify(field)}, function(data) {
 						if (data && data.code == 200) {
 							table.reloadData('table_rule');
 							layer.closeLast('page');
@@ -398,7 +480,7 @@
 					var name = this.name;
 
 					var state = this.checked ? 'on' : 'off';
-					$.post('/defense/rule/acl/state',  {id: id, state: state}, function(data) {
+					$.post('/defense/rule/acl/state', {id: id, state: state}, function(data) {
 						if (data && data.code == 200) {
 							table.reloadData('table_rule');
 							return true;
@@ -414,9 +496,7 @@
 						form.render($('#rule_select'));
 					});
 				});
-
 			});
-
 		</script>
 	</body>
 </html>

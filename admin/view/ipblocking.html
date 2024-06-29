@@ -63,7 +63,11 @@
 					cols: [[ //标题栏
 						{field: 'ip', title: 'IP', templet: function(d) {
 							if (d.ip_country_cn == 'CN') {
-								return '<div>' + d.ip + '(' + d.ip_province_cn + '-' + d.ip_city_cn + ')' + '</div>';
+								if (d.ip_province_cn == d.ip_city_cn) {
+									return '<div>' + d.ip + '(' + d.ip_country_cn + '-' + d.ip_city_cn + ')' + '</div>';
+								} else {
+									return '<div>' + d.ip + '(' + d.ip_province_cn + '-' + d.ip_city_cn + ')' + '</div>';
+								}
 							} else {
 								return '<div>' + d.ip + '(' + d.ip_country_cn + ')' + '</div>';
 							}

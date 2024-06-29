@@ -174,6 +174,7 @@ local SQL_CREATE_TABLE_IP_BLOCK_LOG = [[
         `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
+    CREATE UNIQUE INDEX idx_unique_ip_block_log_ip_start_time ON ip_block_log (ip, start_time);
 ]]
 
 local SQL_INSERT_IP_BLOCK_LOG = [[

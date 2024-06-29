@@ -13,5 +13,7 @@ _M.KEY_ATTACK_TYPE_PREFIX = 'attack_type_'
 _M.KEY_ATTACK_LOG = 'attack_log'
 _M.KEY_IP_BLOCK_LOG = 'ip_block_log'
 _M.KEY_BLACKIP_PREFIX = 'black_ip:'
+_M.KEY_IP_GROUPS_WHITELIST = 'ipWhiteList'
+_M.KEY_IP_GROUPS_BLACKLIST = 'ipBlackList'
 
 return _M

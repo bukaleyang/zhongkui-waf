@@ -4,9 +4,11 @@
 local cjson = require "cjson"
 local fileUtils = require "file"
 local ipUtils = require "ip"
+local constants = require "constants"
 local stringutf8 = require "stringutf8"
 local nkeys = require "table.nkeys"
 local ffi = require "ffi"
+local ipmatcher = require "resty.ipmatcher"
 
 local readRule = fileUtils.readRule
 local readFileToString = fileUtils.readFileToString
@@ -26,6 +28,7 @@ local insert = table.insert
 local concat = table.concat
 
 local pairs = pairs
+local ipairs = ipairs
 local tonumber = tonumber
 local type = type
 
@@ -120,6 +123,35 @@ local function isOptionOn(option)
     return config[option] == "on" and true or false
 end
 
+-- Load the ip blacklist in the configuration file and log file to the ngx.shared.dict_blackip or Redis
+local function loadIPBlackList()
+    if _M.isBlackIPOn and _M.ipBlackList then
+        local redisCli = require "redisCli"
+        if config.isRedisOn then
+            redisCli.redisBathSet(_M.ipBlackList, 0, constants.KEY_BLACKIP_PREFIX)
+        else
+            local blackip = ngx.shared.dict_blackip
+
+            for _, ip in ipairs(_M.ipBlackList) do
+                blackip:set(ip, 1)
+            end
+        end
+    end
+end
+
+_M.ipgroups = {}
+
+local function addIPGroup(group, ips)
+    if ips and nkeys(ips) > 0 then
+        local matcher, err = ipmatcher.new(ips)
+        if not matcher then
+            ngx.log(ngx.ERR, 'error to add ip group ' .. group, err)
+            return
+        end
+        _M.ipgroups[group] = matcher
+    end
+end
+
 -- 初始化配置项
 local function initConfig()
     _M.isWAFOn = isOptionOn("waf")
@@ -157,8 +189,10 @@ local function initConfig()
     local rulePath = _M.ZHONGKUI_PATH .. "/rules/"
     _M.rulePath = rulePath
 
-    _M.ipBlackList_subnet, _M.ipBlackList = ipUtils.filterIPList(readFileToTable(rulePath .. "ipBlackList"))
-    _M.ipWhiteList_subnet, _M.ipWhiteList = ipUtils.filterIPList(readFileToTable(rulePath .. "ipWhiteList"))
+    _M.ipBlackList_cidr, _M.ipBlackList = ipUtils.filterIPList(readFileToTable(rulePath .. "ipBlackList"))
+    _M.ipWhiteList = readFileToTable(rulePath .. "ipWhiteList")
+    addIPGroup(constants.KEY_IP_GROUPS_BLACKLIST, _M.ipBlackList_cidr)
+    addIPGroup(constants.KEY_IP_GROUPS_WHITELIST, _M.ipWhiteList)
 
     local securityModules = {}
     securityModules.blackUrl = readRule(rulePath, "blackUrl")
@@ -196,6 +230,8 @@ local function initConfig()
         end
     end
     _M.logPath = logPath
+
+    loadIPBlackList()
 end
 
 function _M.get(option)
@@ -281,12 +317,29 @@ function _M.parseConfigFile()
     return configTable
 end
 
+local function initIPGroups()
+    local IP_GROUP_PATH = _M.rulePath .. 'ipgroup.json'
+    local json = fileUtils.readFileToString(IP_GROUP_PATH)
+    if json then
+        local ruleTable = cjson.decode(json)
+        local groups = ruleTable.rules
+
+        if groups then
+            for _, g in pairs(groups) do
+                addIPGroup(tonumber(g.id), g.ips)
+            end
+        end
+    end
+end
+
 -- 加载配置文件
 function _M.loadConfigFile()
     local configTable = _M.parseConfigFile()
     config = configTable or {}
 
     initConfig()
+
+    initIPGroups()
 
     return configTable
 end

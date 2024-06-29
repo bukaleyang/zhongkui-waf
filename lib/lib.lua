@@ -29,8 +29,6 @@ local ngxfind = ngx.re.find
 
 local _M = {}
 
-local blackIPLoaded = false
-
 local methodWhiteList = config.get("methodWhiteList")
 
 -- whether or not the regular expression matches on the input
@@ -61,23 +59,15 @@ local function matchRule(ruleTab, str, options)
     return false
 end
 
-
--- Load the ip blacklist in the configuration file and log file to the ngx.shared.dict_blackip or Redis
-local function loadIPBlackList()
-    if config.ipBlackList then
-        if config.isRedisOn then
-            redisCli.redisBathSet(config.ipBlackList, 0, constants.KEY_BLACKIP_PREFIX)
-        else
-            local blackip = ngx.shared.dict_blackip
-
-            for _, ip in ipairs(config.ipBlackList) do
-                blackip:set(ip, 1)
-            end
-        end
+local function ipGroupMatch(group, ip)
+    local matcher = config.ipgroups[group]
+    if matcher then
+        return matcher:match(ip)
     end
+
+    return false
 end
 
--- Returns true if the client ip is in the whiteList,otherwise false
 function _M.isWhiteIp()
     if config.isWhiteIPOn then
         local ip = ngx.ctx.ip
@@ -87,33 +77,15 @@ function _M.isWhiteIp()
 
         local module = config.securityModules.whiteIp
 
-        for _, v in pairs(config.ipWhiteList) do
-            if ip == v then
-                doAction(module.moduleName, module.rules[1])
-                return true
-            end
-        end
-
-        for _, v in pairs(config.ipWhiteList_subnet) do
-            if type(v) == 'table' then
-                if ipUtils.isSameSubnet(v, ip) then
-                    doAction(module.moduleName, module.rules[1])
-                    return true
-                end
-            end
+        if ipGroupMatch(constants.KEY_IP_GROUPS_WHITELIST, ip) then
+            doAction(module.moduleName, module.rules[1])
         end
     end
-
-    return false
 end
 
 -- Returns true if the client ip is in the blackList,otherwise false
 function _M.isBlackIp()
     if config.isBlackIPOn then
-        if not blackIPLoaded then
-            loadIPBlackList()
-            blackIPLoaded = true
-        end
 
         local ip = ngx.ctx.ip
         if ip == "unknown" then
@@ -134,13 +106,8 @@ function _M.isBlackIp()
         end
 
         if not exists then
-            for _, v in pairs(config.ipBlackList_subnet) do
-                if type(v) == 'table' then
-                    if ipUtils.isSameSubnet(v, ip) then
-                        exists = true
-                        break
-                    end
-                end
+            if ipGroupMatch(constants.KEY_IP_GROUPS_BLACKLIST, ip) then
+                exists = true
             end
         end
 
@@ -148,11 +115,7 @@ function _M.isBlackIp()
             local module = config.securityModules.blackIp
             doAction(module.moduleName, module.rules[1])
         end
-
-        return exists
     end
-
-    return false
 end
 
 function _M.isUnsafeHttpMethod()
@@ -315,7 +278,22 @@ function _M.isACL()
             elseif field == 'User-Agent' then
                 matchValue = ngx.var.http_user_agent
             elseif field == 'IP' then
-                matchValue = ngx.ctx.ip
+                local ip = ngx.ctx.ip
+                local operator = condition.operator
+                local ipGroupId = condition.ipGroupId
+                if operator == 'in' then
+                    if ipGroupMatch(ipGroupId, ip) == false then
+                        match = false
+                        break
+                    end
+                elseif operator == 'notin' then
+                    if ipGroupMatch(ipGroupId, ip) then
+                        match = false
+                        break
+                    end
+                elseif operator == 'equal' then
+                    matchValue = ip
+                end
             end
 
             if pattern == '' then
