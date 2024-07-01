@@ -75,10 +75,12 @@ function _M.isWhiteIp()
             return false
         end
 
-        local module = config.securityModules.whiteIp
+        --local module = config.securityModules.whiteIp
 
         if ipGroupMatch(constants.KEY_IP_GROUPS_WHITELIST, ip) then
-            doAction(module.moduleName, module.rules[1])
+            -- doAction(module.moduleName, module.rules[1])
+            ngx.status = ngx.OK
+            return ngx.exit(ngx.status)
         end
     end
 end
