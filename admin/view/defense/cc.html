@@ -7,46 +7,62 @@
 		<link href="../../component/pear/css/pear.css" rel="stylesheet">
 		<style>
 			.layui-form-label {width: 112px;}
-			.layui-card-body .layui-form {margin-top: 0px;}
 		</style>
 	</head>
 	<body class="pear-container">
-		<form class="layui-form" lay-filter="form_config">
+		<form class="layui-form" lay-filter="filter-form-sites">
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-body layui-row">
+							<div class="layui-col-md6">
+								<div class="layui-input-inline">
+									<select name="site" id="site" lay-filter="filter-site">
+										<option value="0">全局设置</option>
+									</select>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</form>
+		<form class="layui-form" lay-filter="filter-form-cc">
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
 					<div class="layui-card">
 						<div class="layui-card-header">CC防护设置</div>
-						<div class="layui-card-body layui-row layui-col-space10">
+						<div class="layui-card-body layui-row">
 							<div class="layui-col-md12">
 								<div class="layui-form-item">
 									<label class="layui-form-label">CC攻击防护</label>
 									<div class="layui-input-block">
-										<input type="checkbox" name="cc_defence" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
+										<input type="checkbox" id="id-cc-state" name="state" lay-skin="switch" title="ON|OFF" />
 									</div>
 								</div>
 								<div class="layui-form-item">
 									<label class="layui-form-label">验证失败次数</label>
 									<div class="layui-input-group">
-										<input type="text" name="cc_max_fail_times" lay-verify="required|number" lay-filter="config_input" autocomplete="off" class="layui-input" />
+										<input type="text" id="id-cc-maxFailTimes" name="maxFailTimes" lay-verify="required|number" autocomplete="off" class="layui-input" />
 										<div class="layui-input-suffix">次，浏览器验证失败几次后自动拉黑IP地址，需要开启自动IP屏蔽</div>
 									</div>
 								</div>
 								<div class="layui-form-item">
 									<label class="layui-form-label">处置动作超时时间</label>
 									<div class="layui-input-group">
-										<input type="text" name="cc_action_timeout" lay-verify="required|number" lay-filter="config_input" autocomplete="off" class="layui-input" />
+										<input type="text" id="id-cc-actionTimeout" name="actionTimeout" lay-verify="required|number" autocomplete="off" class="layui-input" />
 										<div class="layui-input-suffix">秒，处置动作超时时间</div>
 									</div>
 								</div>
 								<div class="layui-form-item">
 									<label class="layui-form-label">令牌有效时间</label>
 									<div class="layui-input-group">
-										<input type="text" name="cc_accesstoken_timeout" lay-verify="required|number" lay-filter="config_input" autocomplete="off" class="layui-input" />
+										<input type="text" id="id-cc-accessTokenTimeout" name="accessTokenTimeout" lay-verify="required|number" autocomplete="off" class="layui-input" />
 										<div class="layui-input-suffix">秒，验证请求来自于真实浏览器后，浏览器Cookie携带的访问令牌有效时间</div>
 									</div>
 								</div>
 								<div class="layui-input-block">
-									<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="config_save">保存</button>
+									<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-cc-save">保存</button>
 									<button type="reset" class="pear-btn">重置</button>
 								</div>
 							</div>
@@ -55,14 +71,14 @@
 				</div>
 			</div>
 		</form>
-		<div class="layui-row layui-col-space10" style="margin-top: 10px;">
+		<div class="layui-row layui-col-space10">
 			<div class="layui-col-md12">
 				<div class="layui-card">
 					<div class="layui-card-header">CC防护规则</div>
 					<div class="layui-card-body">
 						<div class="layui-row layui-col-space10">
 							<div class="layui-col-md12">
-								<table id="table_rule" lay-filter="table_rule"></table>
+								<table id="id-table-rules" lay-filter="filter-table-rules"></table>
 							</div>
 						</div>
 					</div>
@@ -70,7 +86,7 @@
 			</div>
 		</div>
 
-		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="form_rule" id="form_rule">
+		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="filter-form-rule" id="id-form-rule">
 			<input type="hidden" name="id" />
 			<input type="hidden" name="state" />
 			<div class="layui-row layui-col-space10">
@@ -79,7 +95,7 @@
 
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
-					<input type="text" name="rule" lay-verify="required" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+					<input type="text" name="rule" lay-verify="required" autocomplete="off" class="layui-input" />
 				</div>
 			</div>
 
@@ -91,16 +107,16 @@
 
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md6 layui-col-sm6">
-					<select name="countType" lay-filter="config_select">
+					<select name="countType">
 						<option value="ip">IP</option>
 						<option value="url">URL</option>
 					</select>
 				</div>
 				<div class="layui-col-md3 layui-col-sm3">
-					<input type="text" name="duration" lay-verify="required|number" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+					<input type="text" name="duration" lay-verify="required|number" autocomplete="off" class="layui-input" />
 				</div>
 				<div class="layui-col-md3 layui-col-sm3">
-					<input type="text" name="threshold" lay-verify="required|number" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+					<input type="text" name="threshold" lay-verify="required|number" autocomplete="off" class="layui-input" />
 				</div>
 			</div>
 
@@ -109,7 +125,7 @@
 			</div>
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12 layui-col-sm12">
-					<input type="text" name="pattern" lay-verify="" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+					<input type="text" name="pattern" lay-verify="" autocomplete="off" class="layui-input" />
 				</div>
 			</div>
 		
@@ -120,13 +136,13 @@
 			</div>
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md6 layui-col-sm6">
-					<select id="rule_select" name="action" lay-filter="rule_select"></select>
+					<select id="id-action" name="action" lay-filter="filter-action"></select>
 				</div>
 				<div class="layui-col-md2 layui-col-sm2">
-					<input type="checkbox" name="autoIpBlock" lay-skin="switch" lay-filter="rule_switch" title="ON|OFF" />
+					<input type="checkbox" name="autoIpBlock" lay-skin="switch" title="ON|OFF" />
 				</div>
 				<div class="layui-col-md4 layui-col-sm4">
-					<input type="text" name="ipBlockTimeout" lay-verify="required|number" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+					<input type="text" name="ipBlockTimeout" lay-verify="required|number" autocomplete="off" class="layui-input" />
 				</div>
 			</div>
 
@@ -137,7 +153,7 @@
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
 					<div class="layui-form-text">
-						<textarea name="description" placeholder="请输入备注" lay-filter="rule_textarea" class="layui-textarea"></textarea>
+						<textarea name="description" placeholder="请输入备注" class="layui-textarea"></textarea>
 					</div>
 				</div>
 			</div>
@@ -145,30 +161,29 @@
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
 					<div style="float: right;">
-						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="rule_save">保存</button>
+						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-rule-save">保存</button>
 						<button type="button" class="pear-btn" lay-on="ruleCancel">取消</button>
 					</div>
 				</div>
 			</div>
 		</form>
 
-		<script type="text/html" id="user_toolbar">
+		<script type="text/html" id="id-template-toolbar">
 			<button class="pear-btn pear-btn-primary pear-btn-md" lay-event="add">
 				<i class="layui-icon layui-icon-add-1"></i>
 				新增
 			</button>
 		</script>
-		<script type="text/html" id="rule_bar">
+		<script type="text/html" id="id-template-bar">
 			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i></button>
 			<button class="pear-btn pear-btn-danger pear-btn-xs" lay-event="remove"><i class="layui-icon layui-icon-delete"></i></button>
 		</script>
-		<script type="text/html" id="rule_state">
-			<input type="checkbox" name="state" value="{{= d.id }}" lay-skin="switch" lay-filter="rule_switch_status" title="ON|OFF" {{= d.state == "on" ? "checked" : "" }} />
+		<script type="text/html" id="id-template-rule-state">
+			<input type="checkbox" name="state" value="{{= d.id }}" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" {{= d.state == "on" ? "checked" : "" }} />
 		</script>
 
 		<script src="../../component/layui/layui.js"></script>
 		<script src="../../component/pear/pear.js"></script>
-		<script src="../../js/config.js"></script>
 		<script src="../../js/action.js"></script>
 		<script>
 			layui.use(['form','table','util','jquery','popup'], function() {
@@ -176,14 +191,58 @@
 				var form = layui.form;
 				var util = layui.util;
 				var popup = layui.popup;
+				var layer = layui.layer;
 				var $ = layui.$;
 
+				// 切换域名
+				form.on('select(filter-site)', function(data) {
+					getSiteConfig();
+					reloadTableData();
+				});
+
+				function getSiteConfig() {
+					$.get('/cc/config/get', {siteId : $('#site').val()}, function(res) {
+						if (res && res.data) {
+							var cc = JSON.parse(res.data);
+
+							$('#id-cc-state').prop('checked', cc.state == 'on' ? true : false);
+							$('#id-cc-actionTimeout').val(cc.actionTimeout);
+							$('#id-cc-maxFailTimes').val(cc.maxFailTimes);
+							$('#id-cc-accessTokenTimeout').val(cc.accessTokenTimeout);
+
+							form.render(null, 'filter-form-cc');
+						}
+					}, "json");
+				}
+
+				$(function() {
+					$.get('/sites/list', {}, function(data) {
+						if (data && data.data) {
+							$.each(data.data, function(key, site) {
+								var serverName = site.serverNames.join(',');
+								$('#site').append('<option value="' + site.id + '">' + serverName + '</option>');
+							});
+
+							form.render(null, 'filter-form-sites');
+							getSiteConfig();
+							reloadTableData();
+						}
+					}, "json");
+
+					// 阻止回车触发表单提交
+					$('input').on('keydown', function (e) {
+						if (e.keyCode === 13) {
+							e.preventDefault();
+							return false;
+						}
+					});
+				});
+
 				table.render({
-					elem: '#table_rule',
-					url: '/defense/rule/cc/list',
-					cols: [[ //标题栏
+					elem: '#id-table-rules',
+					cols: [[
 						{field: 'rule', title: '规则名称'},
-						{field: 'state', title: '状态', templet: '#rule_state', width: 100},
+						{field: 'state', title: '状态', templet: '#id-template-rule-state', width: 100},
 						{field: 'countType', title: '统计对象', width: 100},
 						{field: 'pattern', title: '匹配正则', minWidth: 60},
 						{field: 'duration', title: '统计时长', templet: '<div>{{= d.duration }} 秒</div>'},
@@ -202,51 +261,66 @@
 							}
 						}},
 						{field: 'description', title: '备注', minWidth: 200},
-						{fixed: 'right', title:'操作', width: 110, minWidth: 110, toolbar: '#rule_bar'}
+						{fixed: 'right', title:'操作', width: 110, minWidth: 110, toolbar: '#id-template-bar'}
 					]],
-					toolbar: '#user_toolbar',
+					toolbar: '#id-template-toolbar',
 					css:'.layui-form{margin-top:0px;}',
-					//skin: 'line', // 表格风格
-					//even: true,
-					page: true, // 是否显示分页
+					page: true,
 					limits: [5, 10, 15, 20, 25, 30],
 					limit: 10, // 每页默认显示的数量
 				});
 
+				function reloadTableData() {
+					table.reloadData('id-table-rules', {
+						url: '/cc/rule/list',
+						page: {
+							curr: 1
+						},
+						where: {
+							siteId: $('#site').val()
+						}
+					});
+				}
+
+				function openLayer(title) {
+					layer.open({
+						type: 1,
+						title: title,
+						shade: 0.6,
+						shadeClose: true,
+						content: $('#id-form-rule'),
+						end: function() {
+							$("#id-form-rule").trigger("reset");
+							$("#id-form-rule").find("input[type='hidden']").val("");
+						}
+					});
+				}
+
 				// 触发单元格工具事件
-				table.on('tool(table_rule)', function(obj) {
+				table.on('tool(filter-table-rules)', function(obj) {
 					var data = obj.data; // 获得当前行数据
 
 					if(obj.event === 'edit') {
-						layer.open({
-							type: 1,
-							title: '编辑规则',
-							shade: 0.6,
-							shadeClose: true,
-							content: $('#form_rule'),
-							end: function() {
-								$("#form_rule").trigger("reset");
-								$("#form_rule").find("input[type='hidden']").val("");
-							}
-						});
-
+						openLayer('编辑规则');
 						var autoIpBlock = data.autoIpBlock == 'on' ? true : false;
 						data.autoIpBlock = autoIpBlock;
-						form.val('form_rule', data);
+						form.val('filter-form-rule', data);
 					} else if(obj.event === 'remove') {
 						layer.confirm('确定删除该规则吗？', {
 							icon: 3,
 							title: '提示'
-						}, 
+						},
 						function(index) {
-							$.post('/defense/rule/cc/remove',  {id: data.id}, function(resData) {
-								if (resData && resData.code == 200) {
+							var param = {siteId : $('#site').val()};
+							param.ruleId = data.id;
+							$.post('/cc/rule/remove',  param, function(res) {
+								if (res && res.code == 200) {
 									obj.del();
-									table.reloadData('table_rule');
+									table.reloadData('id-table-rules');
 									layer.close(index);
 									return true;
 								} else {
-									popup.failure(resData.msg);
+									popup.failure(res.msg);
 									return false;
 								}
 							}, "json");
@@ -254,21 +328,11 @@
 					}
 				});
 
-				table.on('toolbar(table_rule)', function(obj) {
+				table.on('toolbar(filter-table-rules)', function(obj) {
 					if (obj.event === 'add') {
-						layer.open({
-							type: 1,
-							title: '添加规则',
-							shade: 0.6,
-							shadeClose: true,
-							content: $('#form_rule'),
-							end: function() {
-								$("#form_rule").trigger("reset");
-								$("#form_rule").find("input[type='hidden']").val("");
-							}
-						});
+						openLayer('添加规则');
 					} else if (obj.event === 'refresh') {
-						table.reload('table_rule');
+						table.reload('id-table-rules');
 					}
 				});
 
@@ -278,8 +342,31 @@
 					}
 				});
 
-				// 提交事件
-				form.on('submit(rule_save)', function(data) {
+				// 配置提交保存
+				form.on('submit(filter-cc-save)', function(data) {
+					var field = data.field;
+					field.actionTimeout = parseInt(field.actionTimeout);
+					field.maxFailTimes = parseInt(field.maxFailTimes);
+					field.accessTokenTimeout = parseInt(field.accessTokenTimeout);
+
+					var param = {siteId : $('#site').val()};
+					param.cc = JSON.stringify(field);
+
+					$.post('/cc/config/update', param, function(data) {
+						if (data && data.code == 200) {
+							popup.success('保存成功');
+							return true;
+						} else {
+							popup.failure(data.msg);
+							return false;
+						}
+					}, "json");
+
+					return false;
+				});
+
+				// 规则提交保存事件
+				form.on('submit(filter-rule-save)', function(data) {
 					var field = data.field; // 获取表单字段值
 					if (!field.id) {
 						field.state = 'off';
@@ -288,15 +375,18 @@
 					if (field.autoIpBlock != 'on') {
 						field.autoIpBlock = 'off';
 					}
+
+					var param = {siteId : $('#site').val()};
+					param.rule = JSON.stringify(field);
 					
-					$.post('/defense/rule/cc/save',  {rule: JSON.stringify(field)}, function(data) {
-						if (data && data.code == 200) {
-							table.reloadData('table_rule');
+					$.post('/cc/rule/save',  param, function(res) {
+						if (res && res.code == 200) {
+							table.reloadData('id-table-rules');
 							layer.closeLast('page');
 							popup.success("已保存");
 							return true;
 						} else {
-							popup.failure(data.msg);
+							popup.failure(res.msg);
 							return false;
 						}
 					}, "json");
@@ -304,24 +394,25 @@
 					return false; // 阻止默认 form 跳转
 				});
 
-				form.on('switch(rule_switch_status)', function(obj) {
-					var id = this.value;
-					var name = this.name;
-					var state = this.checked ? 'on' : 'off';
-					$.post('/defense/rule/cc/state',  {id: id, state: state}, function(data) {
-						if (data && data.code == 200) {
-							table.reloadData('table_rule');
+				form.on('switch(filter-rule-state)', function(obj) {
+					var param = {siteId : $('#site').val()};
+					param.ruleId = this.value;
+					param.state = this.checked ? 'on' : 'off';
+
+					$.post('/cc/rule/state/update',  param, function(res) {
+						if (res && res.code == 200) {
+							table.reloadData('id-table-rules');
 							return true;
 						} else {
-							popup.failure(data.msg);
+							popup.failure(res.msg);
 							return false;
 						}
 					}, "json");
 				});
 
 				$(function() {
-					initActionSelect('rule_select', 'coding', function() {
-						form.render($('#rule_select'));
+					initActionSelect('id-action', 'coding', function() {
+						form.render($('#id-action'));
 					});
 				});
 			});

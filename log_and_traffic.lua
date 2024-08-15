@@ -18,8 +18,16 @@ local concat = table.concat
 local defaultIfBlank = stringutf8.defaultIfBlank
 local quote_sql_str = ngx.quote_sql_str
 
-local logPath = config.logPath
-local language = config.get("geoip_language") ~= '' and config.get("geoip_language") or 'en'
+local cjson_encode = cjson.encode
+
+local get_site_config = config.get_site_config
+local is_site_option_on = config.is_site_option_on
+local is_global_option_on = config.is_global_option_on
+local is_system_option_on = config.is_system_option_on
+local get_system_config = config.get_system_config
+
+local LOG_PATH = config.LOG_PATH
+local language = get_system_config().geoip.language ~= '' and get_system_config().geoip.language or 'en'
 
 local function writeAttackLog()
     local ctx = ngx.ctx
@@ -54,8 +62,8 @@ local function writeAttackLog()
     local referer = ngx.var.http_referer
     local attackTime = ngx.localtime()
 
-    if config.isAttackLogOn then
-        if config.isJsonFormatLogOn then
+    if is_system_option_on("attackLog") then
+        if get_system_config().attackLog.jsonFormat == "on" then
             local logTable = {
                 request_id = requestId,
                 attack_type = attackType,
@@ -75,9 +83,9 @@ local function writeAttackLog()
                 hit_rule = rule,
                 action = action
             }
-            local logStr, err = cjson.encode(logTable)
+            local logStr, err = cjson_encode(logTable)
             if logStr then
-                local hostLogger = loggerFactory.getLogger(logPath, host, true)
+                local hostLogger = loggerFactory.getLogger(LOG_PATH, host, true)
                 hostLogger:log(logStr .. '\n')
             else
                 ngx.log(ngx.ERR, "failed to encode json: ", err)
@@ -89,12 +97,12 @@ local function writeAttackLog()
             data = defaultIfBlank(data, '-')
 
             local logStr = concat({attackType, realIp, address, "[" .. attackTime .. "]", '"' .. method, host, url, protocol .. '"', data, '"' .. ua .. '"', '"' .. rule .. '"', action},' ')
-            local hostLogger = loggerFactory.getLogger(logPath, host, true)
+            local hostLogger = loggerFactory.getLogger(LOG_PATH, host, true)
             hostLogger:log(logStr .. '\n')
         end
     end
 
-    if config.isMysqlOn then
+    if is_system_option_on("mysql") then
         local sqlStr = '(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %.7f, %.7f, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
 
         local reqHeader = ngx.req.raw_header() or ''
@@ -143,15 +151,15 @@ local function writeIPBlockLog()
     local ipBlockTimeout = ruleTable.ipBlockTimeout
     local ip = ctx.ip
     local action = ctx.action
-    local hostLogger = loggerFactory.getLogger(logPath .. "ipBlock.log", 'ipBlock', false)
+    local hostLogger = loggerFactory.getLogger(LOG_PATH .. "ipBlock.log", 'ipBlock', false)
     hostLogger:log(concat({ngx.localtime(), ip, attackType, ipBlockTimeout .. 's'}, ' ') .. "\n")
 
     if ipBlockTimeout == 0 then
-        local ipBlackLogger = loggerFactory.getLogger(config.rulePath .. "ipBlackList", 'ipBlack', false)
+        local ipBlackLogger = loggerFactory.getLogger(config.CONF_PATH .. "ipBlackList", 'ipBlack', false)
         ipBlackLogger:log(ip .. "\n")
     end
 
-    if config.isMysqlOn then
+    if is_system_option_on("mysql") then
         local requestId = ctx.requestId
         local geoip = ctx.geoip
         local country = geoip.country
@@ -274,7 +282,7 @@ local function countAttackRequestTraffic()
 end
 
 
-if config.isWAFOn then
+if is_site_option_on("waf") then
     countRequestTraffic()
 
     countWafStatus()

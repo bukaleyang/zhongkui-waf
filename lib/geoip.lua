@@ -11,42 +11,42 @@ local pcall = pcall
 local next = next
 local ipairs = ipairs
 
-local dbFile = config.get('geoip_db_file')
-local disallowCountryList = config.get('geoip_disallow_country') or {}
-local disallowCountryTable = nil
+local get_site_config = config.get_site_config
+local get_system_config = config.get_system_config
+
+local db_file = get_system_config().geoip.file
 
 local unknown = {['iso_code'] = ''}
 local unknownNames = {en = 'unknown', ['zh-CN'] = '未知'}
 unknown.names = unknownNames
 
-local default = {isAllowed = true, country = unknown, province = unknown, city = unknown, longitude = 0, latitude = 0}
+local default = {is_allowed = true, country = unknown, province = unknown, city = unknown, longitude = 0, latitude = 0}
 
-local intranet = {isAllowed = true, longitude = 0, latitude = 0,
+local intranet = {is_allowed = true, longitude = 0, latitude = 0,
                 country = {names = {['iso_code'] = '', en = 'intranet', ['zh-CN'] = '内网'}},
                 province = {names = {['iso_code'] = '', en = 'intranet', ['zh-CN'] = '内网'}},
                 city = {names = {['iso_code'] = '', en = 'intranet', ['zh-CN'] = '内网'}}}
 
 function _M.lookup(ip)
-    if not config.isGeoIPOn then
-        return default
-    end
-
     if ipUtils.isPrivateIP(ip) then
         return intranet
     end
 
     if not geo.initted() then
-        geo.init(dbFile)
+        geo.init(db_file)
+    end
 
-        if next(disallowCountryList) ~= nil then
-            disallowCountryTable = {}
-            for _, code in ipairs(disallowCountryList) do
-                disallowCountryTable[code] = 1
-            end
+    local disallow_country_list =  get_site_config("geoip")['disallowCountrys']
+    local disallow_country_table = nil
+
+    if next(disallow_country_list) ~= nil then
+        disallow_country_table = {}
+        for _, code in ipairs(disallow_country_list) do
+            disallow_country_table[code] = 1
         end
     end
 
-    local isAllowed = true
+    local is_allowed = true
     local country = nil
     local province = nil
     local city = nil
@@ -102,24 +102,24 @@ function _M.lookup(ip)
 
         local iso_code = country.iso_code
 
-        if disallowCountryTable then
-            if disallowCountryTable[iso_code] then
-                isAllowed = false
+        if disallow_country_table then
+            if disallow_country_table[iso_code] then
+                is_allowed = false
             end
         end
 
         if iso_code == 'TW' or iso_code == 'HK' or iso_code == 'MO' then
-            local cnName = country.names['zh-CN']
-            local enName = country.names['en']
+            local name_cn = country.names['zh-CN']
+            local name_en = country.names['en']
 
             province.iso_code = iso_code
-            province.names['zh-CN'] = cnName
-            province.names['en'] = enName
+            province.names['zh-CN'] = name_cn
+            province.names['en'] = name_en
 
             if iso_code ~= 'TW' then
                 city.iso_code = ''
-                city.names['zh-CN'] = cnName
-                city.names['en'] = enName
+                city.names['zh-CN'] = name_cn
+                city.names['en'] = name_en
             end
             country.iso_code = 'CN'
             country.names['zh-CN'] = '中国'
@@ -127,7 +127,7 @@ function _M.lookup(ip)
         end
     end
 
-    return { isAllowed = isAllowed, country = country, province = province, city = city, longitude = longitude or 0, latitude = latitude or 0 }
+    return { is_allowed = is_allowed, country = country, province = province, city = city, longitude = longitude or 0, latitude = latitude or 0 }
 end
 
 return _M

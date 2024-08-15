@@ -3,9 +3,12 @@
 
 local config = require "config"
 
-if config.isWAFOn and config.isProtectionMode then
+local get_site_config = config.get_site_config
+local is_site_option_on = config.is_site_option_on
+
+if is_site_option_on("waf") and get_site_config("waf").mode == "protection" then
     if ngx.status ~= 403 then
-        if config.isSensitiveDataFilteringOn or config.isBotTrapOn then
+        if is_site_option_on("sensitiveDataFilter") or (is_site_option_on("bot") and get_site_config("bot").trap.state == "on") then
             ngx.header.content_length = nil
         end
     else

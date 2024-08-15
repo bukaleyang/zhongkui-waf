@@ -12,7 +12,9 @@ let attackTypeArray = [
     {"type":"commandi","name_en":"Command Injection","name_cn":"命令注入"},
     {"type":"rce","name_en":"Remote Code Exec","name_cn":"代码执行"},
     {"type":"codei","name_en":"Code Injection","name_cn":"代码注入"},
-    {"type":"backdoor","name_en":"backdoor","name_cn":"后门"}
+    {"type":"backdoor","name_en":"backdoor","name_cn":"后门"},
+    {"type":"data_leak","name_en":"Data Leak","name_cn":"信息泄露"},
+    {"type":"read_file","name_en":"Read File","name_cn":"文件读取"}
 ]
 
 function initAttackTypeSelect(id, success) {

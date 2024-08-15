@@ -1,3 +1,4 @@
+#!/bin/bash
 
 echo "
   ______                       _  __     _ 
@@ -13,11 +14,11 @@ ZHONGKUI_PATH=$OPENRESTY_PATH/zhongkui-waf
 GEOIP_DATABASE_PATH=/usr/local/share/GeoIP
 
 cd /usr/local/src
-if [ ! -x "openresty-1.21.4.2.tar.gz" ]; then  
-    wget https://openresty.org/download/openresty-1.21.4.2.tar.gz
+if [ ! -x "openresty-1.25.3.2.tar.gz" ]; then
+    wget https://openresty.org/download/openresty-1.25.3.2.tar.gz
 fi
-tar zxf openresty-1.21.4.2.tar.gz
-cd openresty-1.21.4.2
+tar zxf openresty-1.25.3.2.tar.gz
+cd openresty-1.25.3.2
 
 ./configure --prefix=$OPENRESTY_PATH \
 --with-http_ssl_module \
@@ -47,9 +48,7 @@ unzip zhongkui-waf-master.zip
 mv ./zhongkui-waf-master $OPENRESTY_PATH/zhongkui-waf
 
 mkdir -p $OPENRESTY_PATH/nginx/logs/hack
-chmod -R 744 $OPENRESTY_PATH/nginx/logs/hack
-chown -R nobody:nobody $OPENRESTY_PATH/zhongkui-waf
-
+echo -e "\033[34m[hack目录已创建]\033[0m"
 echo -e "\033[34m[zhongkui-waf安装成功]\033[0m"
 
 
@@ -87,6 +86,17 @@ make all5.1 includedir=$OPENRESTY_PATH/luajit/include/luajit-2.1 && make install
 echo -e "\033[34m[luaossl安装成功]\033[0m"
 
 
+cd /usr/local/src
+if [ ! -x "luafilesystem-master.zip" ]; then
+    wget -O /usr/local/src/luafilesystem-master.zip https://github.com/lunarmodules/luafilesystem/archive/refs/heads/master.zip
+fi
+unzip luafilesystem-master.zip
+cd ./luafilesystem-master
+make INCS=-I$OPENRESTY_PATH/luajit/include/luajit-2.1
+mv ./src/lfs.so $OPENRESTY_PATH/lualib/lfs.so
+echo -e "\033[34m[luafilesystem安装成功]\033[0m"
+
+
 # =================maxminddb数据库文件自动更新start=================
 cd /usr/local/src
 if [ ! -x "geoipupdate_6.0.0_linux_386.tar.gz" ]; then
@@ -115,4 +125,3 @@ DatabaseDirectory $GEOIP_DATABASE_PATH
     /usr/local/bin/geoipupdate
 fi
 # =================maxminddb数据库文件自动更新end=================
-

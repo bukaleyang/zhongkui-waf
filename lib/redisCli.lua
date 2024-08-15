@@ -10,15 +10,18 @@ local tonumber = tonumber
 local tostring = tostring
 local ipairs = ipairs
 local ngxmatch = ngx.re.match
+local get_system_config = config.get_system_config
 
 local _M = {}
 
-local host = config.get("redis_host")
-local port = tonumber(config.get("redis_port")) or 6379
-local password = config.get("redis_password")
-local poolSize = config.get("redis_pool_size")
+local redis_config = get_system_config("redis")
+local host = redis_config.host
+local port = redis_config.port
+local password = redis_config.password
+local poolSize = redis_config.poolSize
+local ssl = redis_config.ssl
 
-local redis_timeouts = config.get("redis_timeouts")
+local redis_timeouts = redis_config.timeouts
 local connect_timeout, send_timeout, read_timeout = 1000, 1000, 1000
 if redis_timeouts then
     local m, err = ngxmatch(tostring(redis_timeouts), "(\\d+),(\\d+),(\\d+)")
@@ -31,7 +34,6 @@ if redis_timeouts then
     end
 end
 
-local redisSSL = config.get("redis_ssl")
 --local filterName = "blackIpFilter"
 
 function _M.getRedisConn()
@@ -43,7 +45,7 @@ function _M.getRedisConn()
 
     red:set_timeouts(connect_timeout, send_timeout, read_timeout)
 
-    local ok, err = red:connect(host, port, { ssl = redisSSL, pool_size = poolSize })
+    local ok, err = red:connect(host, port or 6379, { ssl = ssl, pool_size = poolSize })
 
     if not ok then
         ngx.log(ngx.ERR, "failed to connect: ", err .. "\n")

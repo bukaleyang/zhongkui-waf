@@ -12,6 +12,8 @@ local upper = string.upper
 local sub = string.sub
 
 local random = math.random
+local get_system_config = config.get_system_config
+local secret = get_system_config().secret
 
 local _M = {}
 
@@ -45,9 +47,9 @@ function _M.checkAuthToken()
     if authtoken then
         local realIp =  ipUtils.getClientIP()
         local ua = ngx.var.http_user_agent or ''
-        local salt = sub(md5(realIp .. ua .. config.secret), 1, 8)
+        local salt = sub(md5(realIp .. ua .. secret), 1, 8)
 
-        local tokenJson = aes.decrypt(config.secret, authtoken, salt)
+        local tokenJson = aes.decrypt(secret, authtoken, salt)
         if tokenJson then
             local token = cjson.decode(tokenJson)
             local expTime = token.expTime
@@ -74,11 +76,11 @@ end
 function _M.setAuthToken()
     local realIp =  ipUtils.getClientIP()
     local ua = ngx.var.http_user_agent or ''
-    local salt = sub(md5(realIp .. ua .. config.secret), 1, 8)
+    local salt = sub(md5(realIp .. ua .. secret), 1, 8)
     local time = ngx.time()
 
     local token = { ip = realIp, ua = ua, tokenTime = time, expTime = time + AUTH_TOKEN_EXPIRE_TIME }
-    local authtoken = aes.encrypt(config.secret, cjson.encode(token), salt)
+    local authtoken = aes.encrypt(secret, cjson.encode(token), salt)
 
     local cookieExpire = ngx.cookie_time(time + AUTH_TOKEN_EXPIRE_TIME)
     ngx.header['Set-Cookie'] = { 'waf_authtoken=' .. authtoken .. '; path=/; Expires=' .. cookieExpire }

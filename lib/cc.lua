@@ -15,6 +15,12 @@ local pairs = pairs
 local tonumber = tonumber
 local upper = string.upper
 
+local get_site_config = config.get_site_config
+local is_system_option_on = config.is_system_option_on
+local get_system_config = config.get_system_config
+
+local SECRET = get_system_config("secret")
+
 local _M = {}
 
 -- 浏览器验证，302重定向
@@ -26,18 +32,15 @@ function _M.redirect302()
     local reqSign = ngx.var.arg_redirect302_sign
     local reqTime = tonumber(ngx.var.arg_redirect302_time)
 
-    if reqSign and reqTime and type(reqTime) == "number" and ((reqTime + config.ccActionTimeout) >= time) then
-        local pass = _M.signVerify(args, "redirect302_sign", config.secret)
+    if reqSign and reqTime and type(reqTime) == "number" and ((reqTime + get_site_config("cc").actionTimeout) >= time) then
+        local pass = _M.signVerify(args, "redirect302_sign", SECRET)
         if pass then
             -- 设置访问令牌
             _M.setAccessToken()
-            return true
-        else
-            return false
         end
     else
         args["redirect302_time"] = time
-        local sign = _M.getSign(args, 'redirect302_sign', config.secret)
+        local sign = _M.getSign(args, 'redirect302_sign', SECRET)
         local newUri = ''
         if nkeys(args) > 1 then
             newUri = reqUri .. '&redirect302_sign=' .. sign .. '&redirect302_time=' .. time
@@ -47,9 +50,9 @@ function _M.redirect302()
 
         _M.clearAccessToken()
         ngx.redirect(newUri, 302)
-
-        return
     end
+
+    return ngx.exit(302)
 end
 
 -- 浏览器验证，js重定向
@@ -61,18 +64,15 @@ function _M.redirectJS()
     local reqSign = ngx.var.arg_redirectjs_sign
     local reqTime = tonumber(ngx.var.arg_redirectjs_time)
 
-    if reqSign and reqTime and type(reqTime) == "number" and ((reqTime + config.ccActionTimeout) >= time) then
-        local pass = _M.signVerify(args, "redirectjs_sign", config.secret)
+    if reqSign and reqTime and type(reqTime) == "number" and ((reqTime + get_site_config("cc").actionTimeout) >= time) then
+        local pass = _M.signVerify(args, "redirectjs_sign", SECRET)
         if pass then
             -- 设置访问令牌
             _M.setAccessToken()
-            return true
-        else
-            return false
         end
     else
         args["redirectjs_time"] = time
-        local sign = _M.getSign(args, 'redirectjs_sign', config.secret)
+        local sign = _M.getSign(args, 'redirectjs_sign', SECRET)
         local newUri = ''
         if nkeys(args) > 1 then
             newUri = reqUri .. '&redirectjs_sign=' .. sign .. '&redirectjs_time=' .. time
@@ -83,10 +83,9 @@ function _M.redirectJS()
         _M.clearAccessToken()
         ngx.header.content_type = "text/html"
         ngx.print("<script>window.location.href='" .. newUri .. "';</script>")
-        ngx.exit(200)
-
-        return
     end
+
+    return ngx.exit(ngx.HTTP_OK)
 end
 
 -- 验证请求中的AccessToken，验证通过则返回true,否则返回false
@@ -97,12 +96,13 @@ function _M.checkAccessToken()
         return false
     end
 
-    local realIp = ngx.ctx.ip
-    local ua = ngx.ctx.ua
-    local key = md5(realIp .. ua .. config.secret)
+    local ctx = ngx.ctx
+    local realIp = ctx.ip
+    local ua = ctx.ua
+    local key = md5(realIp .. ua .. SECRET)
 
     local token = nil
-    if config.isRedisOn then
+    if is_system_option_on("redis") then
         local prefix = "cc_req_accesstoken:"
         token = redisCli.redisGet(prefix .. key)
     else
@@ -121,20 +121,19 @@ end
 function _M.setAccessToken()
     local realIp = ngx.ctx.ip
     local ua = ngx.ctx.ua
-    local key = md5(realIp .. ua .. config.secret)
-
+    local key = md5(realIp .. ua .. SECRET)
     local time = ngx.time()
 
     local accesstoken = upper(md5(key .. time))
-    local cookieExpire = ngx.cookie_time(time + config.ccAccessTokenTimeout)
+    local cookieExpire = ngx.cookie_time(time + get_site_config("cc").accessTokenTimeout)
     ngx.header['Set-Cookie'] = { 'waf_accesstoken=' .. accesstoken .. '; path=/; Expires=' .. cookieExpire }
 
-    if config.isRedisOn then
+    if is_system_option_on("redis") then
         local prefix = "cc_req_accesstoken:"
-        redisCli.redisSet(prefix .. key, accesstoken, config.ccAccessTokenTimeout)
+        redisCli.redisSet(prefix .. key, accesstoken, get_site_config("cc").accessTokenTimeout)
     else
         local limit = ngx.shared.dict_accesstoken
-        limit:set(key, accesstoken, config.ccAccessTokenTimeout)
+        limit:set(key, accesstoken, get_site_config("cc").accessTokenTimeout)
     end
 end
 

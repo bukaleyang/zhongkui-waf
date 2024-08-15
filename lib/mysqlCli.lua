@@ -4,22 +4,16 @@
 local mysql = require "resty.mysql"
 local config = require "config"
 
-
-local tonumber = tonumber
-local tostring = tostring
-local ipairs = ipairs
-local ngxmatch = ngx.re.match
-
 local _M = {}
 
-local host = config.get("mysql_host")
-local port = tonumber(config.get("mysql_port")) or 3306
-local database = config.get("mysql_database")
-local user = config.get("mysql_user")
-local password = config.get("mysql_password")
-local poolSize = tonumber(config.get("mysql_pool_size")) or 10
-local timeout = tonumber(config.get("mysql_timeout")) or 1000
-
+local mysql_config = config.get_system_config("mysql")
+local host = mysql_config.host
+local port = mysql_config.port
+local user = mysql_config.user
+local password = mysql_config.password
+local database = mysql_config.database
+local poolSize = mysql_config.poolSize
+local timeout = mysql_config.timeout or 1000
 
 function _M.getConnection()
     local db, err = mysql:new()
@@ -32,13 +26,13 @@ function _M.getConnection()
 
     local ok, err, errcode, sqlstate = db:connect{
         host = host,
-        port = port,
+        port = port or 3306,
         database = database,
         user = user,
         password = password,
         charset = "utf8mb4",
         max_packet_size = 1024 * 1024,
-        pool_size = poolSize
+        pool_size = poolSize or 10
     }
 
     if not ok then
@@ -69,7 +63,7 @@ end
 function _M.closeConnection(db)
     -- put it into the connection pool of size 100,
     -- with 10 seconds max idle timeout
-    local ok, err = db:set_keepalive(10000, poolSize)
+    local ok, err = db:set_keepalive(10000, poolSize or 10)
     if not ok then
         ngx.log(ngx.ERR, "failed to set keepalive: ", err)
     end

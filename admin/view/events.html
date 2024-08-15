@@ -6,7 +6,6 @@
 		<title>攻击事件</title>
 		<link href="../component/pear/css/pear.css" rel="stylesheet">
 		<style>
-			.layui-card-body .layui-form {margin-top: 0px;}
 			.pre-text {
 				white-space: pre-wrap; /* CSS3, 现代浏览器 */
 				white-space: -moz-pre-wrap; /* Mozilla, Firefox 2 and earlier */
@@ -24,7 +23,7 @@
 					<div class="layui-card-body">
 						<div class="layui-row">
 							<div class="layui-col-md12">
-								<table id="table_log" lay-filter="table_log"></table>
+								<table id="id-table-events" lay-filter="filter-table-events"></table>
 							</div>
 						</div>
 					</div>
@@ -32,7 +31,7 @@
 			</div>
 		</div>
 
-		<form class="layui-form layui-bg-gray" style="padding: 10px 15px;display: none;" lay-filter="form_detail" id="form_detail">
+		<form class="layui-form layui-bg-gray" style="padding: 10px 15px;display: none;" lay-filter="filter-form-detail" id="id-form-detail">
 			<input type="hidden" name="id" />
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
@@ -123,7 +122,7 @@
 					</select>
 				</div>
 				<div class="pear-btn-container layui-col-md2">
-					<button class="pear-btn pear-btn-primary pear-btn-md" lay-submit lay-filter="table-search">查询</button>
+					<button class="pear-btn pear-btn-primary pear-btn-md" lay-submit lay-filter="filter-table-search">查询</button>
 					<button type="reset" class="pear-btn pear-btn-md">重置</button>
 				</div>
 			</form>
@@ -146,7 +145,7 @@
 				var $ = layui.$;
 
 				table.render({
-					elem: '#table_log',
+					elem: '#id-table-events',
 					url: '/events/list',
 					cols: [[ //标题栏
 						{field: 'server_name', title: '域名'},
@@ -202,7 +201,7 @@
 				});
 
 				// 触发单元格工具事件
-				table.on('tool(table_log)', function(obj) {
+				table.on('tool(filter-table-events)', function(obj) {
 					var rowData = obj.data; // 获得当前行数据
 
 					if(obj.event === 'detail') {
@@ -268,7 +267,7 @@
 							}
 						}, "json");
 
-						form.render(null, 'form_detail');
+						form.render(null, 'filter-form-detail');
 						
 						layer.open({
 							type: 1,
@@ -276,11 +275,11 @@
 							shade: 0.6,
 							shadeClose: true,
 							area: ['750px', 'auto'],
-							content: $('#form_detail'),
+							content: $('#id-form-detail'),
 							end: function() {
-								$("#form_detail").trigger("reset");
-								$("#form_detail").find("input[type='hidden']").val("");
-								$("#form_detail").find(".data").text("");
+								$("#id-form-detail").trigger("reset");
+								$("#id-form-detail").find("input[type='hidden']").val("");
+								$("#id-form-detail").find(".data").text("");
 								element.tabChange("filter-tab", "tab1");
 								$('#data_action').removeClass('layui-bg-green layui-bg-orange');
 								$('#data_attack_type').removeClass();
@@ -289,10 +288,10 @@
 					}
 				});
 
-				form.on('submit(table-search)', function(data) {
+				form.on('submit(filter-table-search)', function(data) {
 					var field = data.field; // 获得表单字段
 					// 执行搜索重载
-					table.reloadData('table_log', {
+					table.reloadData('id-table-events', {
 						page: {
 							curr: 1 // 重新从第 1 页开始
 						},

@@ -11,7 +11,13 @@
 		<!-- 布 局 样 式 -->
 		<link rel="stylesheet" href="admin/css/admin.css" />
 		<style>
-			.version-info {position: absolute; bottom: 10px; left: 0; width: 200px; z-index: 990; text-align: center; background: #fff; color: #3c3c3cb3;}
+			.version-info {position: absolute; bottom: 0px; left: 0; width: 100%; z-index: 990; text-align: center;}
+
+			.light-theme .version-info,.light-theme .version-info a {background-color: white ; color: #2f363c;}
+			.light-theme .version-info a:hover {color: #000;}
+
+			.dark-theme .version-info,.dark-theme .version-info a {background-color: #28333E; color: #eeeeee;}
+			.dark-theme .version-info a:hover {color: #fff;}
 		</style>
 	</head>
 	<!-- 结 构 代 码 -->
@@ -65,7 +71,7 @@
 					<div id="sideMenu"></div>
 					<div class="version-info">
 						<div class="layui-row">
-							<div class="layui-col-md12 layui-font-13">Version 1.2.1</div>
+							<div class="layui-col-md12 layui-font-13">Version 1.3.0</div>
 						</div>
 						<div class="layui-row layui-margin-2">
 							<div class="layui-col-md12"><a class="layui-icon layui-icon-github layui-font-12" href="https://github.com/bukaleyang/zhongkui-waf" target="_blank">&nbsp;&nbsp;GitHub地址</a></div>
@@ -105,7 +111,7 @@
 		<script src="component/pear/pear.js"></script>
 		<!-- 框 架 初 始 化 -->
 		<script>
-			layui.use(['admin','jquery','popup','drawer'], function() {
+			layui.use(['admin','jquery','popup'], function() {
 				var $ = layui.jquery;
 				var admin = layui.admin;
 				var popup = layui.popup;

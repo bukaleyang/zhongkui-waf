@@ -6,15 +6,14 @@ local config = require "config"
 local fileUtils = require "file"
 local user = require "user"
 local ruleUtils = require "lib.ruleUtils"
-local stringutf8 = require "stringutf8"
 
 local tonumber = tonumber
 local insert = table.insert
 
 local _M = {}
 
-local IP_GROUP_PATH = config.rulePath .. 'ipgroup.json'
-local ACL_PATH = config.rulePath .. 'acl.json'
+local IP_GROUP_PATH = config.CONF_PATH .. '/ipgroup.json'
+local ACL_PATH = config.CONF_PATH .. '/global_rules/acl.json'
 
 function _M.doRequest()
     local response = {code = 200, data = {}, msg = ""}
@@ -65,7 +64,6 @@ function _M.doRequest()
     elseif uri == "/common/ipgroups/update" then
         -- 修改ip组内容
         local newRule = ruleUtils.getRuleFromRequest()
-
         if newRule then
             newRule.id = tonumber(newRule.id)
             local ips = newRule.ips
@@ -83,14 +81,13 @@ function _M.doRequest()
         end
     elseif uri == "/common/ipgroups/remove" then
         -- 删除IP组
-        local flag = false
-
         ngx.req.read_body()
         local args, err = ngx.req.get_post_args()
 
         if args then
             local id = tonumber(args['id'])
             if id then
+                local flag = false
                 local json = fileUtils.readFileToString(ACL_PATH)
                 if json then
                     local ruleTable = cjson.decode(json)

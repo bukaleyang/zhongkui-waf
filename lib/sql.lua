@@ -15,10 +15,11 @@ local ngxmatch = ngx.re.match
 local floor = math.floor
 local format = string.format
 local quote_sql_str = ngx.quote_sql_str
+local get_system_config = config.get_system_config
 
 local _M = {}
 
-local database = config.get("mysql_database")
+local database = get_system_config('mysql').database
 
 local BATCH_SIZE = 300
 
@@ -115,10 +116,10 @@ local SQL_CREATE_TABLE_ATTACK_LOG = [[
         `http_method` VARCHAR(20) NULL COMMENT '请求http方法',
         `server_name` VARCHAR(100) NULL COMMENT '请求域名',
         `user_agent` VARCHAR(255) NULL COMMENT '请求客户端ua',
-        `referer` VARCHAR(500) NULL COMMENT 'referer',
+        `referer` VARCHAR(2048) NULL COMMENT 'referer',
 
         `request_protocol` VARCHAR(50) NULL COMMENT '请求协议',
-        `request_uri` VARCHAR(500) NULL COMMENT '请求uri',
+        `request_uri` VARCHAR(2048) NULL COMMENT '请求uri',
         `request_body` MEDIUMTEXT NULL COMMENT '请求体',
         `http_status` SMALLINT UNSIGNED NOT NULL COMMENT 'http响应状态码',
         `response_body` MEDIUMTEXT NULL COMMENT '响应体',

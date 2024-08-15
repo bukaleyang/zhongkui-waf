@@ -18,7 +18,7 @@ local date = os.date
 
 local _M = {}
 
-local CERTIFICATE_PATH = config.rulePath .. "certificate.json"
+local CERTIFICATE_PATH = config.CONF_PATH .. "/certificate.json"
 local CERTS_PATH = config.ZHONGKUI_PATH .. "/admin/ssl-certs/"
 
 local REGEX_CERT_PATH = "^" .. CERTS_PATH .. "\\S+\\.(?:pem|crt)$"
@@ -39,10 +39,10 @@ function _M.doRequest()
         return
     end
 
-    if uri == "/certificate/list" then
+    if uri == "/common/certificate/list" then
         -- 查询证书列表
         response = ruleUtils.listRules(CERTIFICATE_PATH)
-    elseif uri == "/certificate/save" then
+    elseif uri == "/common/certificate/save" then
         -- 修改或新增证书
         local newRule = ruleUtils.getRuleFromRequest()
         if not newRule then
@@ -128,7 +128,7 @@ function _M.doRequest()
 
         response = ruleUtils.saveOrUpdateRule(CERTIFICATE_PATH, newRule)
         reload = true
-    elseif uri == "/certificate/remove" then
+    elseif uri == "/common/certificate/remove" then
         response = ruleUtils.getRule(CERTIFICATE_PATH)
         local cert = response.data
         if cert then
@@ -155,7 +155,7 @@ function _M.doRequest()
             response.code = 500
             response.msg = "crt not exists"
         end
-    elseif uri == "/certificate/get" then
+    elseif uri == "/common/certificate/get" then
         -- 查询证书
         response = ruleUtils.getRule(CERTIFICATE_PATH)
         if response.code == 200 then
@@ -167,7 +167,7 @@ function _M.doRequest()
                 response.data = {id = cert.id, publicKey = publicKey, privateKey = privateKey}
             end
         end
-    elseif uri == "/certificate/readfile" then
+    elseif uri == "/common/certificate/readfile" then
         -- 读取证书或私钥文件中的内容
 
         local files, err = request.getUploadFiles()
@@ -181,7 +181,7 @@ function _M.doRequest()
             response.msg = err
             ngx.log(ngx.ERR, err)
         end
-    elseif uri == "/certificate/listcerts" then
+    elseif uri == "/common/certificate/listcerts" then
         local json = fileUtils.readFileToString(CERTIFICATE_PATH)
         if json then
             local ruleTable = cjson.decode(json)

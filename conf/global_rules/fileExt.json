@@ -1,0 +1,46 @@
+{
+    "nextId": 6,
+    "moduleName": "文件上传检测",
+    "rules": [
+        {
+            "id": 1,
+            "state": "on",
+            "action": "redirect",
+            "rule": "php",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 2,
+            "state": "on",
+            "action": "redirect",
+            "rule": "jsp",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 3,
+            "state": "on",
+            "action": "redirect",
+            "rule": "asp",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 4,
+            "state": "on",
+            "action": "redirect",
+            "rule": "exe",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 5,
+            "state": "on",
+            "action": "redirect",
+            "rule": "sh",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        }
+    ]
+}

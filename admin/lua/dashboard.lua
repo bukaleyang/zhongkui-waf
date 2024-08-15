@@ -13,6 +13,8 @@ local ipairs = ipairs
 local concat = table.concat
 local ngxfind = ngx.re.find
 
+local is_system_option_on = config.is_system_option_on
+
 local _M = {}
 
 local function getRequestTraffic()
@@ -81,7 +83,7 @@ function _M.doRequest()
         local world = {}
         local china = {}
 
-        if config.isMysqlOn then
+        if is_system_option_on("mysql") then
             local res, err = sql.getTodayWafStatus()
             if res then
                 wafStatus = res[1]

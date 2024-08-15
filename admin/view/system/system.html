@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+		<title>系统设置</title>
+		<link href="../../component/pear/css/pear.css" rel="stylesheet">
+	</head>
+	<body class="pear-container">
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
+				<form class="layui-form" lay-filter="filter-form-log">
+					<div class="layui-card" lay-filter="component-form-element">
+						<div class="layui-card-header">攻击日志设置</div>
+						<div class="layui-card-body">
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md6" style="padding-left: 20px;">开启后将会记录攻击日志到文件中</div>
+							</div>
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md3">
+									<label class="layui-form-label" style="width: auto;">记录日志</label>
+									<div class="layui-input-block">
+										<input type="checkbox" name="state" lay-skin="switch" title="ON|OFF" />
+									</div>
+								</div>
+								<div class="layui-col-md3">
+									<label class="layui-form-label" style="width: auto;">Json格式日志</label>
+									<div class="layui-input-block">
+										<input type="checkbox" name="jsonFormat" lay-skin="switch" title="ON|OFF" />
+									</div>
+								</div>
+							</div>
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md6">
+									<label class="layui-form-label" style="width: auto;">日志保存路径</label>
+									<div class="layui-input-block" style="margin-left: 115px;">
+										<input type="text" name="logPath" lay-verify="required|pathRule" autocomplete="off" class="layui-input" />
+									</div>
+								</div>
+							</div>
+							<div class="layui-row layui-col-space10 btn-save" style="display: none;">
+								<div class="layui-col-md6">
+									<div class="layui-input-block">
+										<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-form-log-save">保存</button>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
+				<form class="layui-form" lay-filter="filter-form-sort">
+					<div class="layui-card" lay-filter="component-form-element">
+						<div class="layui-card-header">规则引擎设置</div>
+						<div class="layui-card-body">
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md6" style="padding-left: 20px;">开启规则排序有助于提升检测性能</div>
+							</div>
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md3">
+									<label class="layui-form-label" style="width: auto;">规则排序</label>
+									<div class="layui-input-block">
+										<input type="checkbox" name="state" lay-skin="switch" title="ON|OFF" />
+									</div>
+								</div>
+								<div class="layui-col-md3">
+									<label class="layui-form-label" style="width: auto;">排序周期</label>
+									<div class="layui-input-group">
+										<input type="text" name="period" lay-verify="required|number" autocomplete="off" class="layui-input" />
+										<div class="layui-input-suffix" style="padding: 9px 0px 9px 10px;">秒</div>
+									</div>
+								</div>
+								<div class="layui-col-md6">
+									<button type="submit" class="pear-btn pear-btn-primary btn-save" lay-submit lay-filter="filter-form-sort-save" style="display: none;">保存</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
+				<form class="layui-form" lay-filter="filter-form-geoip">
+					<div class="layui-card" lay-filter="component-form-element">
+						<div class="layui-card-header">IP地理位置识别设置</div>
+						<div class="layui-card-body">
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md6">
+									<label class="layui-form-label" style="width: auto;">GeoIP数据文件路径</label>
+									<div class="layui-input-block" style="margin-left: 155px;">
+										<input type="text" name="file" lay-verify="required|pathRule" autocomplete="off" class="layui-input" />
+									</div>
+								</div>
+								<div class="layui-col-md6">
+									<button type="submit" class="pear-btn pear-btn-primary btn-save" lay-submit lay-filter="filter-form-geoip-save" style="display: none;">保存</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
+				<form class="layui-form" lay-filter="filter-form-secret">
+					<div class="layui-card" lay-filter="component-form-element">
+						<div class="layui-card-header">密钥设置</div>
+						<div class="layui-card-body">
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md6" style="padding-left: 20px;">密钥用于请求签名等，建议长度长一点</div>
+							</div>
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md6" style="padding-left: 20px;">
+									<input type="text" name="secret" lay-verify="required|secretRule" autocomplete="off" class="layui-input" />
+								</div>
+								<div class="layui-col-md6">
+									<button type="submit" class="pear-btn pear-btn-primary btn-save" lay-submit lay-filter="filter-form-secret-save" style="display: none;">保存</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md6">
+				<form class="layui-form" lay-filter="filter-form-redis">
+					<div class="layui-card" lay-filter="component-form-element">
+						<div class="layui-card-header">Redis设置</div>
+						<div class="layui-card-body layui-row layui-col-space10">
+							<div class="layui-col-md12">
+								<div class="layui-form-item">
+									<label class="layui-form-label">Redis</label>
+									<div class="layui-input-block">
+										<input type="checkbox" name="state" lay-skin="switch" title="ON|OFF" />
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">开启SSL</label>
+									<div class="layui-input-block">
+										<input type="checkbox" name="ssl" lay-skin="switch" title="ON|OFF" />
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">IP地址</label>
+									<div class="layui-input-inline">
+									<input type="text" name="host" lay-verify="ip" lay-reqtext="IP地址不能为空" autocomplete="off" class="layui-input" />
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">端口号</label>
+									<div class="layui-input-inline">
+									<input type="text" name="port" lay-verify="redis|number" lay-reqtext="端口号不能为空" autocomplete="off" class="layui-input" />
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">密码</label>
+									<div class="layui-input-inline">
+									<input type="password" name="password" lay-verify="" autocomplete="off" class="layui-input" />
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">连接池大小</label>
+									<div class="layui-input-inline">
+									<input type="text" name="poolSize" lay-verify="redis|number" lay-reqtext="连接池大小不能为空" autocomplete="off" class="layui-input" />
+									</div>
+								</div>
+								<div class="layui-input-block">
+									<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-form-redis-save">保存</button>
+									<button type="reset" class="pear-btn">重置</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</form>
+			</div>
+			<div class="layui-col-md6">
+				<form class="layui-form" lay-filter="filter-form-mysql">
+					<div class="layui-card" lay-filter="component-form-element">
+						<div class="layui-card-header">MySQL设置</div>
+						<div class="layui-card-body layui-row layui-col-space10">
+							<div class="layui-col-md12">
+								<div class="layui-form-item">
+									<label class="layui-form-label">MySQL</label>
+									<div class="layui-input-group">
+										<input type="checkbox" name="state" lay-skin="switch" title="ON|OFF" />
+										<div class="layui-input-suffix">需自行创建database(zhongkui_waf)</div>
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">IP地址</label>
+									<div class="layui-input-group">
+										<input type="text" name="host" lay-verify="ip" lay-reqtext="IP地址不能为空" autocomplete="off" class="layui-input" />
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">端口号</label>
+									<div class="layui-input-group">
+										<input type="text" name="port" lay-verify="number" lay-reqtext="端口号不能为空" autocomplete="off" class="layui-input" />
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">用户名</label>
+									<div class="layui-input-group">
+										<input type="text" name="user" lay-verify="mysql" lay-reqtext="用户名不能为空" autocomplete="off" class="layui-input" />
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">密码</label>
+									<div class="layui-input-group">
+										<input type="password" name="password" lay-verify="mysql" lay-reqtext="密码不能为空" autocomplete="off" class="layui-input" />
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">连接池大小</label>
+									<div class="layui-input-group">
+									<input type="text" name="poolSize" lay-verify="mysql|number" lay-reqtext="连接池大小不能为空" autocomplete="off" class="layui-input" />
+									</div>
+								</div>
+								<div class="layui-input-block">
+									<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-form-mysql-save">保存</button>
+									<button type="reset" class="pear-btn">重置</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+		<script src="../../component/layui/layui.js"></script>
+		<script src="../../component/pear/pear.js"></script>
+		<script src="../../js/validator.js"></script>
+		<script>
+			layui.use(['form','jquery','popup'], function() {
+				var $ = layui.$;
+				var form = layui.form;
+				var popup = layui.popup;
+
+				form.verify({
+					ip: function(value, elem) {
+						var checked = $(elem).parents("form").find(":checkbox[name='state']").is(":checked");
+						if (checked) {
+							var reqtext = $(elem).attr("lay-reqtext");
+							if (value == "") {
+								return reqtext ? reqtext : '必填项不能为空';
+							} else if (validator.isIP(value) == false) {
+								return 'IP地址格式不正确';
+							}
+						}
+					},
+					redis: function(value, elem) {
+						var checked = $(":checkbox[name='state']").is(":checked");
+						if (checked) {
+							var reqtext = $(elem).attr("lay-reqtext");
+							if (value == "") {
+								return reqtext ? reqtext : '必填项不能为空';
+							}
+						}
+					},
+					mysql: function(value, elem) {
+						var checked = $(":checkbox[name='state']").is(":checked");
+						if (checked) {
+							var reqtext = $(elem).attr("lay-reqtext");
+							if (value == "") {
+								return reqtext ? reqtext : '必填项不能为空';
+							}
+						}
+					},
+					pathRule: function(value, elem) {
+						var regex = /^[^'"\s]+$/
+						if (regex.test(value) == false) {
+							return "路径格式不正确";
+						}
+					},
+					secretRule: function(value, elem) {
+						var regex = /^[a-zA-Z0-9]+$/
+						if (regex.test(value) == false) {
+							return "密钥格式不正确，只能包含字母和数字";
+						}
+					}
+				});
+
+				function setFormValue($form, value) {
+					$.each(value, function(k, val) {
+						if (val == "on" || val === true) {
+							$form.find("[name='" + k + "']").prop('checked', true);
+						} else if (val == "off" || val === false) {
+							$form.find("[name='" + k + "']").prop('checked', false);
+						} else {
+							$form.find("[name='" + k + "']").val(val);
+						}
+					});
+				}
+
+				$(function() {
+					$.get('/system/get', {}, function(data) {
+						if (data && data.data) {
+							var system = data.data;
+
+							$.each(JSON.parse(data.data), function(key, value) {
+								if (key == "redis") {
+									var $form = $('form[lay-filter="filter-form-redis"]');
+									setFormValue($form, value);
+								} else if (key == "mysql") {
+									var $form = $('form[lay-filter="filter-form-mysql"]');
+									setFormValue($form, value);
+								} else if (key == "attackLog") {
+									var $form = $('form[lay-filter="filter-form-log"]');
+									setFormValue($form, value);
+								} else if (key == "rulesSort") {
+									var $form = $('form[lay-filter="filter-form-sort"]');
+									setFormValue($form, value);
+								} else if (key == "geoip") {
+									var $form = $('form[lay-filter="filter-form-geoip"]');
+									$form.find("[name='file']").val(value.file);
+								} else if (key == "secret") {
+									var $form = $('form[lay-filter="filter-form-secret"]');
+									$form.find("[name='" + key + "']").val(value);
+								}
+							});
+
+							form.render();
+						}
+					}, "json");
+					// 阻止回车触发表单提交
+					$('input').on('keydown', function (e) {
+						if (e.keyCode === 13) {
+							e.preventDefault();
+							return false;
+						}
+					});
+				});
+
+				function update(param, callback) {
+					$.post('/system/update', param, function(data) {
+						if (data && data.code == 200) {
+							popup.success("已保存");
+							if (callback) {
+								callback();
+							}
+						} else {
+							popup.failure(data.msg);
+						}
+					},'json');
+				}
+
+				function getFormfiled(formObj, field) {
+					formObj.find(':checkbox').each(function(i, el) {
+						var name = $(el).attr('name');
+						field[name] = $(el).prop('checked') ? 'on' : 'off';
+					});
+
+					formObj.find('input:text').each(function(i, el) {
+						var name = $(el).attr('name');
+						field[name] = $(el).val().trim();
+					});
+					return field;
+				}
+
+				form.on('submit(filter-form-redis-save)', function(data) {
+					var field = data.field;
+					var elem = data.elem;
+					var $form = $(elem).parents('form');
+
+					getFormfiled($form, field);
+					update({redis: JSON.stringify(field)});
+
+					return false;
+				});
+
+				form.on('submit(filter-form-mysql-save)', function(data) {
+					var field = data.field;
+					var elem = data.elem;
+					var $form = $(elem).parents('form');
+
+					getFormfiled($form, field);
+					update({mysql: JSON.stringify(field)});
+
+					return false;
+				});
+
+				form.on('submit(filter-form-log-save)', function(data) {
+					var field = data.field;
+					var elem = data.elem;
+					var $form = $(elem).parents('form');
+
+					getFormfiled($form, field);
+					update({attackLog: JSON.stringify(field)}, function() {
+						$form.find('.btn-save').hide();
+					});
+
+					return false;
+				});
+
+				form.on('submit(filter-form-sort-save)', function(data) {
+					var field = data.field;
+					var elem = data.elem;
+					var $form = $(elem).parents('form');
+
+					getFormfiled($form, field);
+					update({rulesSort: JSON.stringify(field)}, function() {
+						$form.find('.btn-save').hide();
+					});
+
+					return false;
+				});
+
+				form.on('submit(filter-form-geoip-save)', function(data) {
+					var field = data.field;
+					var elem = data.elem;
+					var $form = $(elem).parents('form');
+
+					getFormfiled($form, field);
+					update({geoip: JSON.stringify(field)}, function() {
+						$form.find('.btn-save').hide();
+					});
+
+					return false;
+				});
+
+				form.on('submit(filter-form-secret-save)', function(data) {
+					var field = data.field;
+					var elem = data.elem;
+					var $form = $(elem).parents('form');
+
+					getFormfiled($form, field);
+					update({secret: field.secret}, function() {
+						$form.find('.btn-save').hide();
+					});
+
+					return false;
+				});
+
+				form.on('switch', function(data) {
+					var $form = $(this).closest('form');
+					$form.find('.btn-save').show();
+				});
+
+				$(function() {
+					$(':input').on('input change keyup', function() {
+						var $form = $(this).closest('form');
+						$form.find('.btn-save').show();
+					});
+				});
+			});
+		</script>
+	</body>
+</html>

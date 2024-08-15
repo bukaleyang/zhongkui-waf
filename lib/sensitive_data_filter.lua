@@ -6,8 +6,12 @@ local ahocorasick = require "ahocorasick"
 local stringutf8 = require "stringutf8"
 local file = require "file"
 local nkeys = require "table.nkeys"
+local cjson = require "cjson"
 
 local ipairs = ipairs
+local pairs = pairs
+local tonumber = tonumber
+
 local sort = table.sort
 local concat = table.concat
 
@@ -21,32 +25,77 @@ local gsub = string.gsub
 local find = string.find
 local rep = string.rep
 local lower = string.lower
-local tonumber = tonumber
 local utf8len = stringutf8.len
 local utf8trim = stringutf8.trim
 local toCharArray = stringutf8.toCharArray
+
+local readFileToTable = file.readFileToTable
+local readFileToString = file.readFileToString
+
+local get_site_security_modules = config.get_site_security_modules
+local is_global_option_on = config.is_global_option_on
+local is_site_option_on = config.is_site_option_on
+
+local cjson_decode = cjson.decode
 
 local _M = {}
 
 local STR_PREPROCESSING_REGEX = "[.,!?;:\"'()<>\\[\\]{}\\-_/\\|@#\\$%&\\*\\+=\\s]*"
 local CODING_RANGE_REGEX = "(-*\\d+),(-*\\d+)"
 local CODING_RANGE_DOLLAR_REGEX = "\\$(\\d+)"
-local SENSITIVE_WORDS_PATH = config.rulePath .. 'sensitiveWords'
 
-local rules = config.securityModules.sensitive.rules
+local acs = {}
 
-local needFilterSensitiveWords = false
-local ac = ahocorasick:new()
-
-local function initSensitiveWordsAC()
-    local wordsList = file.readFileToTable(SENSITIVE_WORDS_PATH) or {}
-    if wordsList and nkeys(wordsList) > 0 then
-        ac:add(wordsList)
-        needFilterSensitiveWords = true
+local function init_ac(file_path)
+    local words = readFileToTable(file_path) or {}
+    if words and nkeys(words) > 0 then
+        local ac = ahocorasick:new()
+        ac:add(words)
+        return ac
     end
 end
 
-initSensitiveWordsAC()
+local function load_site_sensitive_words_ac()
+    local website_path = config.CONF_PATH .. '/website.json'
+    local json = readFileToString(website_path)
+    if json then
+        local ac_global = nil
+        if is_global_option_on('sensitiveDataFilter') then
+            ac_global = init_ac(config.CONF_PATH .. '/global_rules/sensitiveWords')
+            acs['global'] = ac_global
+        end
+
+        local t = cjson_decode(json)
+        local sites = t.rules
+        if sites then
+            for _, site in pairs(sites) do
+                local ac_site = nil
+
+                local site_dir = config.CONF_PATH .. '/sites/' .. tostring(site.id)
+                local config_file = site_dir .. '/config.json'
+                local config_str = readFileToString(config_file)
+                if config_str then
+                    local site_config = cjson_decode(config_str)
+                    if site_config and site_config.sensitiveDataFilter.state == 'on' then
+                        ac_site = init_ac(site_dir .. '/rules/sensitiveWords')
+                        if not ac_site then
+                            ac_site = ac_global
+                        end
+                    end
+                end
+
+                if ac_site then
+                    local server_names = site['serverNames']
+                    for _, server in pairs(server_names) do
+                        acs[server] = ac_site
+                    end
+                end
+            end
+        end
+    end
+end
+
+load_site_sensitive_words_ac()
 
 local function getRange(codingRange)
     local f, _ = find(codingRange, "$", 1, true)
@@ -91,7 +140,6 @@ local function getRange(codingRange)
 
     return nil
 end
-
 
 local function codingString(strMatches, from, to)
     local str = strMatches[0]
@@ -140,11 +188,12 @@ function _M.textPreprocessing(text)
     return text
 end
 
-function _M.sensitive_data_filtering(content)
+function _M.data_filter(content)
     if content == nil or content == '' then
         return
     end
 
+    local rules = get_site_security_modules("sensitive").rules
     if rules then
         for _, rt in ipairs(rules) do
             local regex = rt.rule
@@ -178,16 +227,20 @@ function _M.sensitive_data_filtering(content)
         end
     end
 
-    if needFilterSensitiveWords then
-        local text = _M.textPreprocessing(content)
-        local t = ac:match(text, true)
-        if t and #t > 0 then
-            sort(t)
-            for _, value in ipairs(t) do
-                local array = toCharArray(value)
-                local regex = concat(array, STR_PREPROCESSING_REGEX)
+    if is_site_option_on('sensitiveDataFilter') then
+        local server_name = ngx.ctx.server_name
+        local ac_site = acs[server_name] or acs['global']
+        if ac_site then
+            local text = _M.textPreprocessing(content)
+            local t = ac_site:match(text, true)
+            if t and #t > 0 then
+                sort(t)
+                for _, value in ipairs(t) do
+                    local array = toCharArray(value)
+                    local regex = concat(array, STR_PREPROCESSING_REGEX)
 
-                content = ngxgsub(content, regex, codingString, "isj")
+                    content = ngxgsub(content, regex, codingString, "isj")
+                end
             end
         end
     end

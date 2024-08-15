@@ -14,21 +14,28 @@ local md5 = ngx.md5
 local pairs = pairs
 local tonumber = tonumber
 
+local cjson_decode = cjson.decode
+local cjson_encode = cjson.encode
+
 local dict_config = ngx.shared.dict_config
 local dict_hits = ngx.shared.dict_config_rules_hits
 
+local is_global_option_on = config.is_global_option_on
+local is_system_option_on = config.is_system_option_on
+local get_system_config = config.get_system_config
+
 local prefix = "waf_rules_hits:"
 
-local function sort(ruleType, t)
+local function sort(key_str, t)
     for _, rt in pairs(t) do
-        local ruleMd5Str = md5(rt.rule)
-        local key = ruleType .. '_' .. ruleMd5Str
-        local key_total = ruleType .. '_total_' .. ruleMd5Str
+        local rule_md5 = md5(rt.rule)
+        local key = key_str .. '_' .. rule_md5
+        local key_total = key_str .. '_total_' .. rule_md5
 
         local hits = nil
         local totalHits = nil
 
-        if config.isRedisOn then
+        if is_system_option_on("redis") then
             hits = redisGet(prefix .. key)
             totalHits = redisGet(prefix .. key_total)
         else
@@ -58,19 +65,24 @@ local sortTimerHandler = function(premature)
         return
     end
 
-    local jsonStr = dict_config:get("securityModules")
-    local securityModules = cjson.decode(jsonStr)
+    local config_table = config.get_config_table()
+    if config_table then
+        for server_name, _ in pairs(config_table) do
+            local json = dict_config:get(server_name)
+            if json then
+                local security_modules = cjson_decode(json)
+                for _, module in pairs(security_modules) do
+                    local rules = module.rules
+                    if isArray(rules) then
+                        rules = sort(server_name .. module['moduleName'], rules)
+                    end
+                end
 
-    for k, _ in pairs(securityModules) do
-        local rulesTable = securityModules[k].rules
-
-        if isArray(rulesTable) then
-            rulesTable = sort(k, rulesTable)
+                local json_new = cjson_encode(security_modules)
+                dict_config:set(server_name, json_new)
+            end
         end
     end
-
-    local newJsonStr = cjson.encode(securityModules)
-    dict_config:set("securityModules", newJsonStr)
 end
 
 local getRulesTimerHandler = function(premature)
@@ -78,16 +90,23 @@ local getRulesTimerHandler = function(premature)
         return
     end
 
-    local jsonStr = dict_config:get("securityModules")
-    local securityModules = cjson.decode(jsonStr)
-    config.securityModules = securityModules
+    local config_table = config.get_config_table()
+    if config_table then
+        for key, conf in pairs(config_table) do
+            local json = dict_config:get(key)
+            if json then
+                local security_modules = cjson_decode(json)
+                conf.security_modules = security_modules
+            end
+        end
+    end
 end
 
-if config.isWAFOn then
+if is_global_option_on("waf") then
     local workerId = ngx.worker.id()
 
-    if config.isRulesSortOn then
-        local delay = config.rulesSortPeriod
+    if is_system_option_on('rulesSort') then
+        local delay = get_system_config().rulesSort.period
 
         if workerId == 0 then
             utils.startTimerEvery(delay, sortTimerHandler)
@@ -96,7 +115,7 @@ if config.isWAFOn then
         utils.startTimerEvery(delay, getRulesTimerHandler)
     end
 
-    if config.isMysqlOn then
+    if is_system_option_on("mysql") then
         if workerId == 0 then
             utils.startTimer(0, sql.checkTable)
             utils.startTimerEvery(2, sql.writeSqlQueueToMysql, constants.KEY_ATTACK_LOG)

@@ -14,18 +14,18 @@ local readRule = fileUtils.readRule
 local readFileToString = fileUtils.readFileToString
 local readFileToTable = fileUtils.readFileToTable
 local writeStringToFile = fileUtils.writeStringToFile
+local is_file_exists = fileUtils.is_file_exists
+local is_directory = fileUtils.is_directory
+local mkdir = fileUtils.mkdir
 
-local ngxfind = ngx.re.find
-local ngxmatch = ngx.re.match
-local ngxgmatch = ngx.re.gmatch
 local ngxsub = ngx.re.sub
-local ngxgsub = ngx.re.gsub
 
 local sub = string.sub
-local trim = stringutf8.trim
+local defaultIfBlank = stringutf8.defaultIfBlank
 
-local insert = table.insert
 local concat = table.concat
+local cjson_decode = cjson.decode
+local cjson_encode = cjson.encode
 
 local pairs = pairs
 local ipairs = ipairs
@@ -34,114 +34,155 @@ local type = type
 
 local _M = {}
 
-local config = {}
+local config = {system = {}, global = {}}
 
-local CONFIG_REGEX_SWITCH = "^\"?(?:on|off)\"?$"
-local CONFIG_REGEX_PATH = "^\"?[\\s\\S]+\"?$"
-local CONFIG_REGEX_NUMBER = "^[1-9]\\d*$"
-local CONFIG_REGEX_ARRAY_IP = "^\\[[\\d\\./,\"\\s]*\\]$"
-local CONFIG_REGEX_ACTION = "^\"?(?:allow|deny|redirect|coding|redirect_js|redirect_302)\"?$"
-local CONFIG_REGEX_HOST = "^\"?\\S*\"?$"
+_M.ipgroups = {}
 
--- 配置项验证正则集合
-local configRegex = {
-    waf = CONFIG_REGEX_SWITCH,
-    mode = "^\"?(?:protection|monitor)\"?$",
-    rules_sort = CONFIG_REGEX_SWITCH,
-    rules_sort_period = CONFIG_REGEX_NUMBER,
-    attackLog = CONFIG_REGEX_SWITCH,
-    attackLog_json_format = CONFIG_REGEX_SWITCH,
-    logPath = CONFIG_REGEX_PATH,
-    geoip = CONFIG_REGEX_SWITCH,
-    geoip_db_file = "^\"?[^\\n\\v]+GeoLite2-City.mmdb\"?$",
-    geoip_disallow_country = "^\\[\\S*\\]$",
-    geoip_language = "^\"?\\S+\"?$",
-    whiteIP = CONFIG_REGEX_SWITCH,
-    ipWhiteList = CONFIG_REGEX_ARRAY_IP,
-    blackIP = CONFIG_REGEX_SWITCH,
-    ipBlackList = CONFIG_REGEX_ARRAY_IP,
-    whiteURL = CONFIG_REGEX_SWITCH,
-    blackURL = CONFIG_REGEX_SWITCH,
-    methodWhiteList = "^\\[\\S*\\]$",
-    requestBodyCheck = CONFIG_REGEX_SWITCH,
-    -- 上传文件类型黑名单
-    fileExtBlackList = "^\\[\\S*\\]$",
-    -- 上传文件内容检查
-    fileContentCheck = CONFIG_REGEX_SWITCH,
-    -- sql注入检查
-    sqli = CONFIG_REGEX_SWITCH,
-    -- xss检查
-    xss = CONFIG_REGEX_SWITCH,
-    -- cookie检查
-    cookie = CONFIG_REGEX_SWITCH,
-    -- bot管理
-    bot = CONFIG_REGEX_SWITCH,
-    -- 开启bot陷阱
-    bot_trap = CONFIG_REGEX_SWITCH,
-    -- 陷阱URI，隐藏在页面中，对普通正常用户不可见，访问此URI的请求被视为bot，建议安装后修改
-    bot_trap_uri = "^\"\"$|^\"?/\\S*\"?$",
-    -- 被陷阱捕获后的处置动作
-    bot_trap_action = CONFIG_REGEX_ACTION,
-    -- 访问陷阱URI后屏蔽ip
-    bot_trap_ip_block = CONFIG_REGEX_SWITCH,
-    -- ip禁止访问时间，单位是秒，如果设置为0则永久禁止
-    bot_trap_ip_block_timeout = "^\\d+$",
-    -- cc攻击拦截
-    cc_defence = CONFIG_REGEX_SWITCH,
-    -- 浏览器验证失败几次后自动拉黑IP地址，需要将autoIpBlock设置为on
-    cc_max_fail_times = CONFIG_REGEX_NUMBER,
-    -- 处置动作超时时间，单位是秒
-    cc_action_timeout = CONFIG_REGEX_NUMBER,
-    -- 验证请求来自于真实浏览器后，浏览器cookie携带的访问令牌有效时间，单位是秒
-    cc_accesstoken_timeout = CONFIG_REGEX_NUMBER,
-    -- 密钥，用于请求签名等
-    secret = "^\"\\S+\"$",
-    -- 敏感数据脱敏
-    sensitive_data_filtering = CONFIG_REGEX_SWITCH,
-    -- Redis支持，打开后请求频率统计及ip黑名单将从Redis中存取
-    redis = CONFIG_REGEX_SWITCH,
-    redis_host = CONFIG_REGEX_HOST,
-    redis_port = CONFIG_REGEX_NUMBER,
-    redis_password = "^\"\"$|^\"?\\S+\"?$",
-    redis_ssl = "^(?:true|false)$",
-    redis_pool_size = CONFIG_REGEX_NUMBER,
-    -- Respectively sets the connect, send, and read timeout thresholds (in ms)
-    redis_timeouts = "^\"?[1-9]\\d*,[1-9]\\d*,[1-9]\\d*\"?$",
-    -- MySQL
-    mysql = CONFIG_REGEX_SWITCH,
-    mysql_host = CONFIG_REGEX_HOST,
-    mysql_port = CONFIG_REGEX_NUMBER,
-    mysql_user = "^\"\"$|^\"\\S+\"$",
-    mysql_password = "^\"\"$|^\"?\\S+\"?$",
-    mysql_database = "^\"\"$|^\"\\S+\"$",
-    mysql_pool_size = "^\"\"$|^[1-9]\\d*$",
-    mysql_timeout = CONFIG_REGEX_NUMBER
-}
+-- Returns true if the global config option is "on",otherwise false
+function _M.is_global_option_on(option)
+    return config.global.config[option].state == "on"
+end
 
--- Returns true if the config option is "on",otherwise false
-local function isOptionOn(option)
-    return config[option] == "on" and true or false
+function _M.is_system_option_on(option)
+    return config.system[option].state == "on"
+end
+
+function _M.is_site_option_on(option)
+    local server_name = ngx.ctx.server_name or defaultIfBlank(ngx.var.server_name, 'unknown')
+    if not config[server_name] then
+        return _M.is_global_option_on(option)
+    end
+    return config[server_name].config[option].state == "on"
+end
+
+function _M.get_system_config(option)
+    if option then
+        return config.system[option]
+    end
+    return config.system
+end
+
+function _M.get_global_config(option)
+    if option then
+        return config.global.config[option]
+    end
+    return config.global.config
+end
+
+function _M.get_site_config(option)
+    local server_name = ngx.ctx.server_name or defaultIfBlank(ngx.var.server_name, 'unknown')
+    if not config[server_name] then
+        return _M.get_global_config(option)
+    end
+    if option then
+        return config[server_name].config[option]
+    end
+    return config[server_name].config
+end
+
+function _M.get_global_security_modules(module)
+    if module then
+        return config.global.security_modules[module]
+    end
+    return config.global.security_modules
+end
+
+function _M.get_site_security_modules(module)
+    local server_name = ngx.ctx.server_name or defaultIfBlank(ngx.var.server_name, 'unknown')
+    if not config[server_name] then
+        return _M.get_global_security_modules(module)
+    end
+    if module then
+        return config[server_name].security_modules[module]
+    end
+    return config[server_name].security_modules
+end
+
+function _M.get_site_config_file(site_id)
+    local config_file = ''
+
+    if site_id == '0' then
+        config_file = _M.CONF_PATH .. '/global.json'
+    else
+        config_file = _M.CONF_PATH .. '/sites/' .. site_id .. '/config.json'
+        if not is_file_exists(config_file) then
+            config_file = _M.CONF_PATH .. '/global.json'
+        end
+    end
+    return config_file, readFileToString(config_file)
+end
+
+function _M.update_site_config_file(site_id, str)
+    local config_file = ''
+
+    if site_id == '0' then
+        config_file = _M.CONF_PATH .. '/global.json'
+    else
+        local site_dir = _M.CONF_PATH .. '/sites/' .. site_id
+        config_file = site_dir .. '/config.json'
+        if not is_directory(site_dir) then
+            mkdir(site_dir)
+        end
+    end
+    return writeStringToFile(config_file, str)
+end
+
+function _M.get_site_module_rule_file(site_id, module_id)
+    local file_name = module_id .. '.json'
+    local rule_file = ''
+
+    if site_id == '0' then
+        rule_file = _M.CONF_PATH .. '/global_rules/' .. file_name
+    else
+        rule_file = _M.CONF_PATH .. '/sites/' .. site_id .. '/rules/' .. file_name
+        if not is_file_exists(rule_file) then
+            rule_file = _M.CONF_PATH .. '/global_rules/' .. file_name
+        end
+    end
+
+    return rule_file, readFileToString(rule_file)
+end
+
+function _M.update_site_module_rule_file(site_id, module_id, str)
+    local file_name = module_id .. '.json'
+    local rule_file = ''
+
+    if site_id == '0' then
+        rule_file = _M.CONF_PATH .. '/global_rules/' .. file_name
+    else
+        local site_dir = _M.CONF_PATH .. '/sites/' .. site_id
+        if not is_directory(site_dir) then
+            mkdir(site_dir)
+        end
+
+        local rules_dir = site_dir .. '/rules'
+        if not is_directory(rules_dir) then
+            mkdir(rules_dir)
+        end
+
+        rule_file = rules_dir .. '/' .. file_name
+    end
+
+    return writeStringToFile(rule_file, str)
 end
 
 -- Load the ip blacklist in the configuration file and log file to the ngx.shared.dict_blackip or Redis
-local function loadIPBlackList()
-    if _M.isBlackIPOn and _M.ipBlackList then
+local function loadIPBlackList(blacklist)
+    if _M.is_global_option_on("blackIP") and blacklist and nkeys(blacklist) > 0 then
         local redisCli = require "redisCli"
-        if config.isRedisOn then
-            redisCli.redisBathSet(_M.ipBlackList, 0, constants.KEY_BLACKIP_PREFIX)
+        if _M.is_system_option_on("redis") then
+            redisCli.redisBathSet(blacklist, 0, constants.KEY_BLACKIP_PREFIX)
         else
             local blackip = ngx.shared.dict_blackip
 
-            for _, ip in ipairs(_M.ipBlackList) do
+            for _, ip in ipairs(blacklist) do
                 blackip:set(ip, 1)
             end
         end
     end
 end
 
-_M.ipgroups = {}
-
-local function addIPGroup(group, ips)
+local function add_ip_group(group, ips)
     if ips and nkeys(ips) > 0 then
         local matcher, err = ipmatcher.new(ips)
         if not matcher then
@@ -152,181 +193,152 @@ local function addIPGroup(group, ips)
     end
 end
 
--- 初始化配置项
-local function initConfig()
-    _M.isWAFOn = isOptionOn("waf")
-    _M.isAttackLogOn = isOptionOn("attackLog")
-    _M.isJsonFormatLogOn = isOptionOn("attackLog_json_format")
-    _M.isGeoIPOn = isOptionOn("geoip")
-    _M.isWhiteURLOn = isOptionOn("whiteURL")
-    _M.isBlackURLOn = isOptionOn("blackURL")
-    _M.isWhiteIPOn = isOptionOn("whiteIP")
-    _M.isBlackIPOn = isOptionOn("blackIP")
-    _M.isCCDefenceOn = isOptionOn("cc_defence")
-    _M.isRequestBodyOn = isOptionOn("requestBodyCheck")
-    _M.isFileContentOn = isOptionOn("fileContentCheck")
-    _M.isSqliOn = isOptionOn("sqli")
-    _M.isXssOn = isOptionOn("xss")
-    _M.isCookieOn = isOptionOn("cookie")
-    _M.isRedisOn = isOptionOn("redis")
-    _M.isMysqlOn = isOptionOn("mysql")
-    _M.isSensitiveDataFilteringOn = isOptionOn("sensitive_data_filtering")
-    _M.isBotOn = isOptionOn("bot")
-    _M.isBotTrapOn = isOptionOn("bot_trap")
-    _M.isBotTrapIpBlockOn = isOptionOn("bot_trap_ip_block")
-
-    _M.isProtectionMode = (_M.get("mode") == "protection" and true or false)
-    _M.ccMaxFailTimes = _M.get("cc_max_fail_times") == nil and 5 or tonumber(_M.get("cc_max_fail_times"))
-    _M.ccActionTimeout = _M.get("cc_action_timeout") == nil and 60 or tonumber(_M.get("cc_action_timeout"))
-    _M.ccAccessTokenTimeout = _M.get("cc_accesstoken_timeout") == nil and 1800 or tonumber(_M.get("cc_accesstoken_timeout"))
-    _M.secret = _M.get("secret")
-    _M.botTrapUri = _M.get("bot_trap_uri") or "/zhongkuiwaf/honey/trap"
-    _M.botTrapIpBlockTimeout = tonumber(_M.get("bot_trap_ip_block_timeout")) or 60
-
-    _M.isRulesSortOn = isOptionOn("rules_sort")
-    _M.rulesSortPeriod = _M.get("rules_sort_period") == nil and 60 or tonumber(_M.get("rules_sort_period"))
-
-    local rulePath = _M.ZHONGKUI_PATH .. "/rules/"
-    _M.rulePath = rulePath
-
-    _M.ipBlackList_cidr, _M.ipBlackList = ipUtils.filterIPList(readFileToTable(rulePath .. "ipBlackList"))
-    _M.ipWhiteList = readFileToTable(rulePath .. "ipWhiteList")
-    addIPGroup(constants.KEY_IP_GROUPS_BLACKLIST, _M.ipBlackList_cidr)
-    addIPGroup(constants.KEY_IP_GROUPS_WHITELIST, _M.ipWhiteList)
-
-    local securityModules = {}
-    securityModules.blackUrl = readRule(rulePath, "blackUrl")
-    securityModules.args = readRule(rulePath, "args")
-    securityModules.whiteUrl = readRule(rulePath, "whiteUrl")
-    securityModules.post = readRule(rulePath, "post")
-    securityModules.cookie = readRule(rulePath, "cookie")
-    securityModules.headers = readRule(rulePath, "headers")
-    securityModules.cc = readRule(rulePath, "cc")
-    securityModules.acl = readRule(rulePath, "acl")
-    securityModules.sensitive = readRule(rulePath, "sensitive")
-    securityModules["user-agent"] = readRule(rulePath, "user-agent")
-
-    securityModules.sqli = { moduleName = "SQL注入检测", rules = {{ attackType = "sqli", rule = "sqli", action = "DENY", severityLevel="high" }}}
-    securityModules.xss = { moduleName = "XSS检测",  rules = {{ attackType = "xss", rule = "xss", action = "DENY", severityLevel="low" }}}
-    securityModules.fileExt = { moduleName = "文件上传检测", rules = {{ attackType = "file_ext", rule = "file_ext", action = "REDIRECT", severityLevel="low" }}}
-    securityModules.whiteIp = { moduleName = "IP白名单检测", rules = {{ attackType = "whiteip", rule = "whiteip", action = "ALLOW", severityLevel="low" }}}
-    securityModules.blackIp = { moduleName = "IP黑名单检测", rules = {{ attackType = "blackip", rule = "blackip", action = "DENY", severityLevel="high" }}}
-    securityModules.unsafeMethod = { moduleName = "HTTP方法检测",  rules = {{ attackType = "unsafe_method", rule = "unsafe http method", action = "DENY", severityLevel="low" }}}
-    securityModules.botTrap = { moduleName = "BOt识别",  rules = {{ attackType = "bot_trap", rule = "bot_trap", autoIpBlock = _M.get("bot_trap_ip_block"), ipBlockTimeout = _M.botTrapIpBlockTimeout, action = _M.get("bot_trap_action"), severityLevel="low" }}}
-
-    local jsonStr = cjson.encode(securityModules)
-    local dict_config = ngx.shared.dict_config
-    dict_config:set("securityModules", jsonStr)
-
-    _M.securityModules = securityModules
-
-    _M.html = readFileToString(_M.ZHONGKUI_PATH .. "/redirect.html")
-
-    local logPath = config.logPath
-    if logPath and #logPath > 0 then
-        local last = sub(logPath, -1)
-        if last ~= "/" and last ~= "\\" then
-            logPath = logPath .. "/"
-        end
-    end
-    _M.logPath = logPath
-
-    loadIPBlackList()
-end
-
-function _M.get(option)
-    return config[option]
-end
-
-function _M.getConfigTable()
+function _M.get_config_table()
     return config
 end
 
--- 数组字符串转table ["aaa","bbb","ccc"] -> {"aaa","bbb","ccc"}
-local function arrayStrToTable(inputStr)
-    -- 移除方括号
-    local cleanStr = ngxgsub(inputStr, "[\\[\\]]", "") or ""
+local function load_security_modules(rulePath, site_config)
+    local security_modules = {}
+    security_modules.blackUrl = readRule(rulePath, "blackUrl")
+    security_modules.args = readRule(rulePath, "args")
+    security_modules.whiteUrl = readRule(rulePath, "whiteUrl")
+    security_modules.post = readRule(rulePath, "post")
+    security_modules.cookie = readRule(rulePath, "cookie")
+    security_modules.headers = readRule(rulePath, "headers")
+    security_modules.httpMethod = readRule(rulePath, "httpMethod")
+    security_modules.fileExt = readRule(rulePath, "fileExt")
+    security_modules.cc = readRule(rulePath, "cc")
+    security_modules.acl = readRule(rulePath, "acl")
+    security_modules.sensitive = readRule(rulePath, "sensitive")
+    security_modules["user-agent"] = readRule(rulePath, "user-agent")
 
-    -- 分割字符串并构建 Lua 表
-    local luaTable = {}
-    for item in ngxgmatch(cleanStr, "([^,\"]+)") do
-        local value = trim(item[0])
-        if value ~= "" then
-            insert(luaTable, value)
-        end
-    end
-    return luaTable
+    security_modules.sqli = { moduleName = "SQL注入检测", rules = {{ attackType = "sqli", rule = "sqli", action = "DENY", severityLevel="high" }}}
+    security_modules.xss = { moduleName = "XSS检测",  rules = {{ attackType = "xss", rule = "xss", action = "DENY", severityLevel="low" }}}
+    security_modules.whiteIp = { moduleName = "IP白名单检测", rules = {{ attackType = "whiteip", rule = "whiteip", action = "ALLOW", severityLevel="low" }}}
+    security_modules.blackIp = { moduleName = "IP黑名单检测", rules = {{ attackType = "blackip", rule = "blackip", action = "DENY", severityLevel="high" }}}
+
+    local trap = site_config.bot.trap
+    local rule_trap = { attackType = "bot_trap", rule = "bot_trap", severityLevel="low" }
+    rule_trap.action = trap.action
+    rule_trap.autoIpBlock = trap.autoIpBlock
+    rule_trap.ipBlockTimeout = tonumber(trap.ipBlockTimeout)
+    rule_trap.uri = trap.uri
+    security_modules.botTrap = { moduleName = "Bot识别",  rules = {rule_trap}}
+
+    return security_modules
 end
 
--- 配置文件读取并进行语法分析
-function _M.parseConfigFile()
-    local fileName = _M.ZHONGKUI_PATH .. "/conf/zhongkui.conf"
-    local file, err = io.open(fileName, "r")
-    if not file then
-        ngx.log(ngx.ERR, "failed to open file ", err)
-        return
+local function storage_security_modules(server_name, security_modules)
+    local json = cjson_encode(security_modules)
+    local dict_config = ngx.shared.dict_config
+    dict_config:set(server_name, json)
+end
+
+local function load_system_config()
+    local system_path = _M.CONF_PATH .. '/system.json'
+    local json = readFileToString(system_path)
+    local system = {}
+    if json then
+        system = cjson_decode(json)
     end
 
-    local configTable = {}
+    local log_path = system.attackLog.logPath
+    if log_path and #log_path > 0 then
+        local last = sub(log_path, -1)
+        if last ~= "/" and last ~= "\\" then
+            log_path = log_path .. "/"
+        end
+    end
 
-    for line in file:lines() do
-        -- 忽略空行和注释行
-        local from = ngxfind(line, "^\\s*$|^\\s*#", "jo")
-        if not from then
-            -- 解析键值对
-            local m, err = ngxmatch(line, "^\\s*([^\\s=]+)\\s?=\\s?(.+)\\s*$", "isjo")
+    _M.LOG_PATH = log_path or _M.ZHONGKUI_PATH .. "/logs/hack/"
+    system.attackLog.logPath = _M.LOG_PATH
+    system.html = readFileToString(_M.ZHONGKUI_PATH .. "/redirect.html")
 
-            if m then
-                local key = m[1]
-                local value = m[2]
+    config.system = system
+end
 
-                value = trim(value)
+local function load_global_config()
+    local global_path = _M.CONF_PATH .. '/global.json'
+    local global_config = {}
+    local security_modules = {}
+    local json = readFileToString(global_path)
 
-                local regex = configRegex[key]
+    if json then
+        global_config = cjson_decode(json)
+        if global_config.waf.state == 'on' then
+            security_modules = load_security_modules(_M.CONF_PATH .. '/global_rules/', global_config)
+            storage_security_modules('global', security_modules)
+        end
+    end
 
-                -- 对每一项配置进行格式校验，校验不通过则直接返回
-                if regex and not ngxfind(value, regex, "isjo") then
-                    ngx.log(ngx.ERR, "failed to read config file:", key .. ' ' .. value)
-                    return
+    config.global = {config = global_config, security_modules = security_modules}
+
+    local ipBlackList_cidr, ip_blacklist = ipUtils.filterIPList(readFileToTable(_M.CONF_PATH .. "/global_rules/ipBlackList"))
+    local ipWhiteList = readFileToTable(_M.CONF_PATH .. "/global_rules/ipWhiteList")
+    add_ip_group(constants.KEY_IP_GROUPS_BLACKLIST, ipBlackList_cidr)
+    add_ip_group(constants.KEY_IP_GROUPS_WHITELIST, ipWhiteList)
+
+    loadIPBlackList(ip_blacklist)
+end
+
+local function load_site_config()
+    local website_path = _M.CONF_PATH .. '/website.json'
+    local json = readFileToString(website_path)
+    if json then
+        local global = config.global
+        local global_config = global.config
+        local t = cjson_decode(json)
+        local sites = t.rules
+
+        if sites then
+            for _, site in pairs(sites) do
+                local site_config = {}
+
+                local id = site.id
+                local site_dir = _M.CONF_PATH .. '/sites/' .. tostring(id)
+                local config_file = site_dir .. '/config.json'
+                local config_str = readFileToString(config_file)
+                if config_str then
+                    site_config = cjson_decode(config_str)
                 end
 
-                if ngxfind(value, "^\".*\"$", "sjo") then -- 带引号字符串 "aaa"
-                    value = sub(value, 2, -2)
-                elseif ngxfind(value, "^\\[.*\\]$", "sjo") then -- 数组 ["aaa","bbb","ccc"]
-                    value = arrayStrToTable(value)
-                elseif ngxfind(value, "^\\d+$", "sjo") then  -- 数字
-                    value = tonumber(value)
-                elseif ngxfind(value, "^(?:true|false)$", "isjo") then  -- 布尔值
-                    value = value == "true"
+                -- 站点有独立设置则使用独立设置，否则使用全局设置
+                for k, v in pairs(global_config) do
+                    site_config[k] = site_config[k] or v
                 end
 
-                configTable[key] = value
+                -- waf全局关闭则关闭站点waf
+                if global_config.waf.state == 'off' then
+                    site_config.waf.state = 'off'
+                end
 
-                -- if type(value) == 'table' then
-                --     ngx.log(ngx.ERR, key .. '=' .. table.concat(value, ","))
-                -- else
-                --     ngx.log(ngx.ERR, key .. '=' .. value .. ' ' .. type(value))
-                -- end
-            else
-                ngx.log(ngx.ERR, "failed to read config file:", err)
+                local security_modules = load_security_modules(site_dir .. '/rules/', site_config)
+
+                -- 站点有独立安全模块设置则使用独立设置，否则使用全局设置
+                for k, v in pairs(global.security_modules) do
+                    security_modules[k] = security_modules[k] or v
+                end
+
+                local serverNames = site.serverNames
+                for _, server_name in pairs(serverNames) do
+                    config[server_name] = {config = site_config, security_modules = security_modules}
+                    storage_security_modules(server_name, security_modules)
+                end
             end
         end
     end
-    file:close()
-
-    return configTable
 end
 
-local function initIPGroups()
-    local IP_GROUP_PATH = _M.rulePath .. 'ipgroup.json'
-    local json = fileUtils.readFileToString(IP_GROUP_PATH)
+local function load_ip_groups()
+    local path = _M.CONF_PATH .. '/ipgroup.json'
+    local json = readFileToString(path)
     if json then
-        local ruleTable = cjson.decode(json)
+        local ruleTable = cjson_decode(json)
         local groups = ruleTable.rules
 
         if groups then
             for _, g in pairs(groups) do
-                addIPGroup(tonumber(g.id), g.ips)
+                add_ip_group(tonumber(g.id), g.ips)
             end
         end
     end
@@ -334,14 +346,10 @@ end
 
 -- 加载配置文件
 function _M.loadConfigFile()
-    local configTable = _M.parseConfigFile()
-    config = configTable or {}
-
-    initConfig()
-
-    initIPGroups()
-
-    return configTable
+    load_system_config()
+    load_global_config()
+    load_site_config()
+    load_ip_groups()
 end
 
 -- 修改配置文件
@@ -396,8 +404,8 @@ function _M.reloadNginx()
     if isLinux() then
         command = "sudo " .. command
     end
-    local success = os.execute(command)
 
+    local success = os.execute(command)
     if success then
         ngx.log(ngx.INFO, "nginx configuration has been successfully reloaded.")
     else
@@ -407,12 +415,7 @@ end
 
 -- 如果配置文件正确，则重载nginx
 function _M.reloadConfigFile()
-    local configTable = _M.parseConfigFile()
-    if configTable and nkeys(configTable) > 0 then
-        _M.reloadNginx()
-    else
-        ngx.log(ngx.ERR, "failed to reload Nginx configuration:zhongkui config file error.")
-    end
+    _M.reloadNginx()
 end
 
 return _M

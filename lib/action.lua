@@ -12,29 +12,31 @@ local upper = string.upper
 local ostime = os.time
 local osdate = os.date
 
+local get_site_config = config.get_site_config
+local is_system_option_on = config.is_system_option_on
+local get_system_config = config.get_system_config
+
 local _M = {}
 
 local dict_hits = ngx.shared.dict_config_rules_hits
 local RULES_HIT_PREFIX = "waf_rules_hits:"
 local RULES_HIT_EXPTIME = 60
-local REDIRECT_HTML = config.html
+local REDIRECT_HTML = get_system_config().html
 local REGEX_OPTION = "jo"
 
 local function deny(status)
-    if config.isProtectionMode then
+    if get_site_config("waf").mode == "protection" then
         ngx.ctx.blocked = true
-        local statusCode = ngx.HTTP_FORBIDDEN
-        if status then
-            statusCode = status
-        end
+        local statusCode = status or ngx.HTTP_FORBIDDEN
 
-        ngx.status = statusCode
-        return ngx.exit(ngx.status)
+        return ngx.exit(statusCode)
+    else
+        ngx.ctx.action = "ALLOW"
     end
 end
 
 local function redirect()
-    if config.isProtectionMode then
+    if get_site_config("waf").mode == "protection" then
         ngx.ctx.blocked = true
         ngx.header.content_type = "text/html; charset=UTF-8"
         ngx.status = ngx.HTTP_FORBIDDEN
@@ -56,7 +58,7 @@ function _M.blockIp(ip, ruleTab)
     if upper(ruleTab.autoIpBlock) == "ON" and ip then
         local ok, err = nil, nil
 
-        if config.isRedisOn then
+        if is_system_option_on("redis") then
             local key = constants.KEY_BLACKIP_PREFIX .. ip
 
             ok, err = redisCli.redisSet(key, 1, ruleTab.ipBlockTimeout)
@@ -82,7 +84,7 @@ end
 function _M.unblockIp(ip)
     local ok, err = nil, nil
 
-    if config.isRedisOn then
+    if is_system_option_on("redis") then
         local key = constants.KEY_BLACKIP_PREFIX .. ip
         ok, err = redisCli.redisDel(key)
     else
@@ -97,16 +99,17 @@ function _M.unblockIp(ip)
     return ok
 end
 
-local function hit(ruleTable)
-    if config.isRulesSortOn then
+local function hit(moduleName, ruleTable)
+    if is_system_option_on('rulesSort') then
         local ruleMd5Str = md5(ruleTable.rule)
-        local attackType = ruleTable.attackType
+        local server_name = ngx.ctx.server_name
+        local attackType = server_name .. moduleName
         local key = RULES_HIT_PREFIX .. attackType .. '_' .. ruleMd5Str
         local key_total = RULES_HIT_PREFIX .. attackType .. '_total_' .. ruleMd5Str
         local newHits = nil
         local newTotalHits = nil
 
-        if config.isRedisOn then
+        if is_system_option_on("redis") then
             local count = redisCli.redisGet(key)
             if not count then
                 redisCli.redisSet(key, 1, RULES_HIT_EXPTIME)
@@ -132,7 +135,7 @@ function _M.doAction(moduleName, ruleTable, data, attackType, status)
         ruleTable.attackType = attackType
     end
 
-    hit(ruleTable)
+    hit(moduleName, ruleTable)
     ngx.ctx.moduleName = moduleName
     ngx.ctx.ruleTable = ruleTable
     ngx.ctx.action = action
@@ -140,8 +143,7 @@ function _M.doAction(moduleName, ruleTable, data, attackType, status)
     ngx.ctx.isAttack = true
 
     if action == "ALLOW" then
-        ngx.status = ngx.OK
-        return ngx.exit(ngx.status)
+        return ngx.exit(ngx.OK)
     elseif action == "DENY" then
         deny(status)
     elseif action == "REDIRECT" then

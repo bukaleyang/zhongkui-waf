@@ -35,7 +35,7 @@ local function listLogs()
         local offset = pager.getBegin(page, limit)
 
         local ip = args['ip']
-        local action = args['action']
+        local axtion = args['action']
 
         local where = ' WHERE 1=1 '
 
@@ -43,8 +43,8 @@ local function listLogs()
             where = where .. ' AND ip=' .. quote_sql_str(ip) .. ' '
         end
 
-        if action and #action > 0 then
-            where = where .. ' AND action=' .. quote_sql_str(action) .. ' '
+        if axtion and #axtion > 0 then
+            where = where .. ' AND action=' .. quote_sql_str(axtion) .. ' '
         end
 
         local res, err = mysql.query(SQL_COUNT_IP_BLOCK_LOG .. where)

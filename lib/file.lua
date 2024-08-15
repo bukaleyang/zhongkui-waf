@@ -2,17 +2,19 @@
 -- Copyright (c) 2023 bukale bukale2022@163.com
 
 local cjson = require "cjson"
+local lfs = require "lfs"
 
 local toLower = string.lower
 local insert = table.insert
 local pairs = pairs
+local pcall = pcall
 
 local _M = {}
 
 function _M.readRule(filePath, fileName)
 	local file, err = io.open(filePath .. fileName .. ".json", "r")
     if not file then
-        ngx.log(ngx.ERR, "Failed to open file ", err)
+   --     ngx.log(ngx.ERR, "Failed to open file ", err)
         return
     end
 
@@ -83,7 +85,7 @@ function _M.readFileToString(filePath, binary)
 
     local file, err = io.open(filePath, mode)
     if not file then
-        ngx.log(ngx.ERR, "Failed to open file ", err)
+--        ngx.log(ngx.ERR, "Failed to open file ", err)
         return
     end
 
@@ -133,6 +135,59 @@ function _M.removeFile(filePath)
     else
         ngx.log(ngx.ERR, "failed to remove file " .. filePath .. " " .. err)
     end
+end
+
+function _M.mkdir(path)
+    local res, err = lfs.mkdir(path)
+    if not res then
+        ngx.log(ngx.ERR, err)
+    end
+    return res, err
+end
+
+function _M.is_directory(path)
+    local attr = lfs.attributes(path)
+    return attr and attr.mode == "directory"
+end
+
+function _M.rmdir(path)
+    if not _M.is_directory(path) then
+        return false, "failed to remove directory " .. path .. " is not a directory"
+    end
+
+    for entry in lfs.dir(path) do
+        if entry ~= "." and entry ~= ".." then
+            local e = path .. '/' .. entry
+
+            local mode = lfs.attributes(e, "mode")
+
+            if mode == "directory" then
+                _M.rmdir(e)
+            else
+                _M.removeFile(e)
+            end
+        end
+    end
+
+    local res, err = lfs.rmdir(path)
+    if not res then
+        ngx.log(ngx.ERR, "failed to remove directory " .. path, err)
+    end
+
+    return res, err
+end
+
+function _M.is_file_exists(filePath)
+    if not filePath then
+        return false
+    end
+
+    local res, attr = pcall(lfs.attributes, filePath)
+    if res and attr then
+        return true
+    end
+
+    return false
 end
 
 return _M

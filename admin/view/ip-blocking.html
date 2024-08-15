@@ -5,9 +5,6 @@
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
 		<title>IP封禁日志</title>
 		<link href="../component/pear/css/pear.css" rel="stylesheet">
-		<style>
-			.layui-card-body .layui-form {margin-top: 0px;}
-		</style>
 	</head>
 	<body class="pear-container">
 		<div class="layui-row">
@@ -17,7 +14,7 @@
 					<div class="layui-card-body">
 						<div class="layui-row">
 							<div class="layui-col-md12">
-								<table id="table_log" lay-filter="table_log"></table>
+								<table id="id-table-logs" lay-filter="filter-table-logs"></table>
 							</div>
 						</div>
 					</div>
@@ -30,13 +27,13 @@
 				<div class="layui-col-md2">
 					<input type="text" name="ip" value="" placeholder="封禁IP" class="layui-input" lay-affix="clear" />
 				</div>
-				<div class="layui-col-md2">
+				<div class="layui-col-md3">
 					<select name="action" id="action">
 						<option value="">处置动作-全部</option>
 					</select>
 				</div>
 				<div class="pear-btn-container layui-col-md2">
-					<button class="pear-btn pear-btn-primary pear-btn-md" lay-submit lay-filter="table-search">查询</button>
+					<button class="pear-btn pear-btn-primary pear-btn-md" lay-submit lay-filter="filter-table-search">查询</button>
 					<button type="reset" class="pear-btn  pear-btn-md">重置</button>
 				</div>
 			</form>
@@ -58,7 +55,7 @@
 				var $ = layui.$;
 
 				table.render({
-					elem: '#table_log',
+					elem: '#id-table-logs',
 					url: '/ipblocking/list',
 					cols: [[ //标题栏
 						{field: 'ip', title: 'IP', templet: function(d) {
@@ -103,7 +100,7 @@
 				});
 
 				// 触发单元格工具事件
-				table.on('tool(table_log)', function(obj) {
+				table.on('tool(filter-table-logs)', function(obj) {
 					var data = obj.data; // 获得当前行数据
 
 					if(obj.event === 'unblock') {
@@ -118,7 +115,7 @@
 						function(index) {
 							$.post('/ipblocking/unblock',  {id: data.id}, function(res) {
 								if (res && res.code == 200) {
-									table.reloadData('table_log');
+									table.reloadData('id-table-logs');
 									layer.close(index);
 									return true;
 								} else {
@@ -130,10 +127,10 @@
 					}
 				});
 
-				form.on('submit(table-search)', function(data) {
+				form.on('submit(filter-table-search)', function(data) {
 					var field = data.field;
 					// 执行搜索重载
-					table.reloadData('table_log', {
+					table.reloadData('filter-table-logs', {
 						page: {
 							curr: 1
 						},

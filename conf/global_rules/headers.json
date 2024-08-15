@@ -1,0 +1,22 @@
+{
+    "nextId": 3,
+    "moduleName": "Headers检测",
+    "rules": [
+        {
+            "id": 1,
+            "state": "on",
+            "action": "deny",
+            "rule": "/TomcatBypass/Command/Base64",
+            "attackType": "rce",
+            "severityLevel": "high"
+        },
+        {
+            "id": 2,
+            "state": "on",
+            "action": "deny",
+            "rule": "j\\S*ndi\\S*:\\S*(?:dap|dns)\\S+",
+            "attackType": "rce",
+            "severityLevel": "high"
+        }
+    ]
+}

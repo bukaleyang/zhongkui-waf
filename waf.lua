@@ -6,25 +6,33 @@ local config = require "config"
 local lib = require "lib"
 local ipUtils = require "ip"
 local request = require "request"
+local stringutf8 = require "stringutf8"
 
+local defaultIfBlank = stringutf8.defaultIfBlank
 local generateId = request.generateId
+local is_site_option_on = config.is_site_option_on
 
 local function init()
+    local ctx = ngx.ctx
+
     local ip = ipUtils.getClientIP()
-    ngx.ctx.ip = ip
+    ctx.ip = ip
 
     local ua = ngx.var.http_user_agent
     if ua == nil then
         ua = ""
     end
-    ngx.ctx.ua = ua
 
-    ngx.ctx.geoip = geoip.lookup(ip)
+    ctx.ua = ua
 
-    ngx.ctx.requestId = generateId()
+    ctx.geoip = geoip.lookup(ip)
+
+    ctx.requestId = generateId()
+
+    ctx.server_name = defaultIfBlank(ngx.var.server_name, 'unknown')
 end
 
-if config.isWAFOn then
+if is_site_option_on("waf") then
 
     init()
 

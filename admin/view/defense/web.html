@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+		<title>网站防护</title>
+		<link href="../../component/pear/css/pear.css" rel="stylesheet">
+	</head>
+	<body class="pear-container">
+		<!-- <div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
+				<span class="layui-breadcrumb" lay-separator=">">
+					<a><cite>防护配置</cite></a>
+					<a><cite>网站防护</cite></a>
+				</span>
+			</div>
+		</div> -->
+		
+
+		<form class="layui-form" lay-filter="filter-form-sites">
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-body layui-row">
+							<div class="layui-col-md6">
+								<div class="layui-input-inline">
+									<select name="site" id="site" lay-filter="filter-site">
+										<option value="0">全局设置</option>
+									</select>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-header">防护设置</div>
+						<div class="layui-card-body layui-row">
+							<div class="layui-col-md2">
+								<span class="layui-inline" style="padding-top: 8px; padding-right: 5px;">WAF状态</span>
+								<input type="checkbox" name="waf" lay-skin="switch" id="id-waf-state" lay-filter="filter-waf-state" title="ON|OFF" />
+							</div>
+							<div class="layui-col-md10">
+								<div class="layui-input-group">
+									<div class="layui-input-prefix">工作模式</div>
+									<select name="mode" id="id-waf-mode" lay-filter="filter-waf-mode">
+										<option value="protection" description="拦截攻击请求并记录攻击日志">防御</option>
+										<option value="monitor" description="记录攻击日志但不拦截攻击请求">监控</option>
+									</select>
+									<div class="layui-input-suffix" id="id-waf-mode-desc"></div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-header">规则引擎</div>
+						<div class="layui-card-body layui-row">
+							<div class="layui-col-md12">
+								<div class="layui-tab layui-tab-brief" id="id-tab-rules" lay-filter="filter-tab-rules">
+									<ul class="layui-tab-title">
+										<li class="layui-this" module-id="blackUrl">URL检测</li>
+										<li module-id="args">参数检测</li>
+										<li module-id="headers">Header检测</li>
+										<li module-id="cookie">Cookie检测</li>
+										<li module-id="post">Post检测</li>
+										<li module-id="httpMethod" description="如不允许某HTTP方法的请求，请设置该方法状态为开启状态">HTTP方法检测</li>
+										<li module-id="fileExt" description="如不允许上传某类型的文件，请设置该类型状态为开启状态">文件上传检测</li>
+										<li module-id="sqlixss">语义分析</li>
+									</ul>
+									<div class="layui-tab-content">
+										<div class="layui-tab-item layui-show" id="id-rules-common">
+											<div class="layui-row">
+												<div class="layui-col-md12">
+													<table id="id-table-rules" lay-filter="filter-table-rules"></table>
+												</div>
+											</div>
+										</div>
+										<div class="layui-tab-item" id="id-rules-sqlixss">
+											<div class="layui-row layui-col-space10">
+												<div class="layui-col-md2">
+													<span class="layui-inline" style="padding-top: 8px; padding-right: 5px;">XSS攻击检测</span>
+													<input type="checkbox" name="xss" module-id="xss" lay-skin="switch" lay-filter="filter-rule-state" id="id-module-xss-state" title="ON|OFF" />
+												</div>
+											</div>
+											<div class="layui-row layui-col-space10">
+												<div class="layui-col-md2">
+													<span class="layui-inline" style="padding-top: 8px; padding-right: 5px;">SQL注入检测</span>
+													<input type="checkbox" name="sqli" module-id="sqli" lay-skin="switch" lay-filter="filter-rule-state" id="id-module-sqli-state" title="ON|OFF" />
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</form>
+
+		<script type="text/html" id="id-toolbar">
+			<div class="layui-row">
+				<div class="layui-col-lg1 layui-col-md2 layui-col-sm2">
+					状态&nbsp;&nbsp;<input type="checkbox" id="id-module-state" value="" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" />
+				</div>
+				<div class="layui-col-md7 layui-col-sm8" id="id-module-description"></div>
+				<div class="layui-col-md7 layui-col-sm7 layui-hide" id="id-file-content">
+					<div class="layui-input-group">
+						<div class="layui-input-prefix">上传文件内容检测</div>
+						<input type="checkbox" id="id-file-content-state" module-id="fileContentCheck" value="" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" />
+						<div class="layui-input-suffix">开启后将对上传的文件内容进行检查</div>
+					</div>
+				</div>
+			</div>
+		</script>
+		<script type="text/html" id="rule_bar">
+			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i></button>
+			<button class="pear-btn pear-btn-danger pear-btn-xs" lay-event="remove"><i class="layui-icon layui-icon-delete"></i></button>
+		</script>
+		<script type="text/html" id="id-rule-state">
+			<input type="checkbox" name="state" value="{{= d.id }}" rule-id="{{= d.id }}" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" {{= d.state == "on" ? "checked" : "" }} />
+		</script>
+
+		<script src="../../component/layui/layui.js"></script>
+		<script src="../../component/pear/pear.js"></script>
+		<script src="../../js/action.js"></script>
+		<script src="../../js/attackType.js"></script>
+		<script>
+			var config = {};
+
+			layui.use(['form','table','tag','popup'], function() {
+				var $ = layui.jquery;
+				var form = layui.form;
+				var table = layui.table;
+				var element = layui.element;
+				var	tag = layui.tag;
+				var popup = layui.popup;
+
+				table.render({
+					elem: '#id-table-rules',
+					cols: [[
+						{field: 'rule', title: '规则'},
+						{field: 'attackType', title: '攻击类型', width: 200, templet: function(d) {
+							return '<div>' + getAttackTypeText(d.attackType) + '</div>';
+						}},
+						{field: 'severityLevel', title: '危险级别', width: 100, templet: function(d) {
+							let levelStr = '';
+							switch (d.severityLevel) {
+								case 'low':
+									levelStr = '<span class="layui-badge layui-bg-blue">低危</span>';
+									break;
+								case 'medium':
+									levelStr = '<span class="layui-badge" style="background-color:#ffcc00;">中危</span>';
+									break;
+								case 'high':
+									levelStr = '<span class="layui-badge layui-bg-orange">高危</span>';
+									break;
+								case 'critical':
+									levelStr = '<span class="layui-badge layui-bg-red">严重</span>';
+									break;
+								default:
+									levelStr = '<span class="layui-badge layui-bg-blue">低危</span>';
+							}
+
+							return '<div>' + levelStr + '</div>';
+						}},
+						{field: 'state', title: '状态', width: 100, templet: '#id-rule-state'},
+					]],
+					toolbar: '#id-toolbar',
+					defaultToolbar: [],
+					page: true,
+					limits: [10, 15, 20, 25, 30, 50, 100],
+					limit: 10
+				});
+
+				// 切换域名
+				form.on('select(filter-site)', function(data) {
+					getSiteConfig();
+					reloadTableData();
+				});
+
+				function updateConfig(param) {
+					param.siteId = $('#site').val();
+					$.post('/defense/config/update', param, function(data) {
+						if (data && data.code == 200) {
+							return true;
+						} else {
+							popup.failure(data.msg);
+							return false;
+						}
+					}, "json");
+				}
+
+				function reloadTableData() {
+					var moduleId = $('#id-tab-rules li.layui-this').attr('module-id');
+					if (moduleId == 'sqlixss') {
+						return;
+					}
+					table.reloadData('id-table-rules', {
+						url: '/defense/rule/list',
+						page: {
+							curr: 1
+						},
+						where: {
+							siteId: $('#site').val(), 
+							moduleId: moduleId
+						}
+					});
+				}
+
+				// waf状态
+				form.on('switch(filter-waf-state)', function(data) {
+					var id = this.value;
+					var name = this.name;
+					var state = this.checked ? 'on' : 'off';
+					var param = {state : state}
+
+					updateConfig(param);
+				});
+
+				// 工作模式
+				form.on('select(filter-waf-mode)', function(data) {
+					var id = this.value;
+					var name = this.name;
+					var state = this.checked ? 'on' : 'off';
+					$('#id-waf-mode-desc').text($("#id-waf-mode option:selected").attr('description'));
+
+					var param = {mode : data.value}
+					updateConfig(param);
+				});
+
+				// 状态
+				form.on('switch(filter-rule-state)', function(obj) {
+					var id = this.value;
+					var name = this.name;
+					var state = this.checked ? 'on' : 'off';
+
+					var ruleId = $(this).attr('rule-id');
+
+				//	var moduleId = $('#id-tab-rules li.layui-this').attr('module-id');
+					var moduleId = $(this).attr('module-id');
+					if (!moduleId) {
+						moduleId = $('#id-tab-rules li.layui-this').attr('module-id');
+					}
+
+					var param = {siteId: $('#site').val(), moduleId: moduleId, state : state}
+					if (ruleId) {
+						param.ruleId = ruleId;
+					}
+
+					$.post('/defense/rule/state/update', param, function(res) {
+						if (res && res.code == 200) {
+							if (!ruleId) {
+								config[moduleId].state = state;
+							}
+						//	table.reload('id-table-rules');
+							return true;
+						} else {
+							popup.failure(res.msg);
+							return false;
+						}
+					}, "json");
+				});
+
+				element.on('tab(filter-tab-rules)', function(data) {
+					var id = $(this).attr('lay-id');
+					var currentTabId = $(this).attr('lay-id');
+					var moduleId = $(this).attr('module-id');
+
+					$('#id-tab-rules').find(".layui-tab-item").removeClass('layui-show');
+					$('#id-file-content').addClass('layui-hide');
+					if (moduleId == 'sqlixss') {
+						$('#id-module-sqli-state').prop('checked', config['sqli'].state == 'on' ? true : false);
+						$('#id-module-xss-state').prop('checked', config['xss'].state == 'on' ? true : false);
+						$("#id-rules-sqlixss").addClass('layui-show');
+						form.render('checkbox', 'filter-form-sites');
+					} else {
+						if (moduleId == 'post') {
+							$('#id-file-content').removeClass('layui-hide').addClass('layui-show');
+							$('#id-file-content-state').prop('checked', config['fileContentCheck'].state == 'on' ? true : false);
+						}
+						$('#id-module-state').prop('checked', config[moduleId].state == 'on' ? true : false);
+						
+						reloadTableData();
+						$("#id-rules-common").addClass('layui-show');
+					}
+					var moduleDesc = $(this).attr('description');
+					$('#id-module-description').text(moduleDesc ? moduleDesc : '');
+				});
+
+				function getSiteConfig() {
+					$.get('/defense/config/get', {siteId : $('#site').val()}, function(res) {
+						if (res && res.data) {
+							config = JSON.parse(res.data);
+
+							var waf = config.waf;
+							$('#id-waf-state').prop('checked', waf.state == 'on' ? true : false);
+							$('#id-waf-mode').val(waf.mode);
+							$('#id-waf-mode-desc').text($("#id-waf-mode option:selected").attr('description'));
+
+							var moduleId = $('#id-tab-rules li.layui-this').attr('module-id');
+							if (config[moduleId]) {
+								$('#id-module-state').prop('checked', config[moduleId].state == 'on' ? true : false);
+							}
+							$('#id-file-content-state').prop('checked', config['fileContentCheck'].state == 'on' ? true : false);
+							$('#id-module-sqli-state').prop('checked', config['sqli'].state == 'on' ? true : false);
+							$('#id-module-xss-state').prop('checked', config['xss'].state == 'on' ? true : false);
+
+							form.render();
+						}
+					}, "json");
+				}
+
+				$(function() {
+					$.get('/sites/list', {}, function(data) {
+						if (data && data.data) {
+							$.each(data.data, function(key, site) {
+								var serverName = site.serverNames.join(',');
+								$('#site').append('<option value="' + site.id + '">' + serverName + '</option>');
+							});
+
+							form.render(null, 'filter-form-sites');
+							getSiteConfig();
+							reloadTableData();
+						}
+					}, "json");
+
+					// 阻止回车触发表单提交
+					$('input').on('keydown', function (e) {
+						if (e.keyCode === 13) {
+							e.preventDefault();
+							return false;
+						}
+					});
+				});
+			});
+		</script>
+	</body>
+</html>

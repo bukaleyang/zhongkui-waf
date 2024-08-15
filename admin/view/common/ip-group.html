@@ -3,11 +3,8 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
-		<title>IP黑白名单</title>
+		<title>IP组</title>
 		<link href="../../component/pear/css/pear.css" rel="stylesheet">
-		<style>
-			.layui-card-body .layui-form {margin-top: 0px;}
-		</style>
 	</head>
 	<body class="pear-container">
 		<div class="layui-row layui-col-space10">
@@ -17,7 +14,7 @@
 					<div class="layui-card-body">
 						<div class="layui-row layui-col-space10">
 							<div class="layui-col-md12">
-								<table id="table_ipgroup" lay-filter="table_ipgroup"></table>
+								<table id="id-table-rules" lay-filter="filter-table-rules"></table>
 							</div>
 						</div>
 					</div>
@@ -25,14 +22,14 @@
 			</div>
 		</div>
 
-		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="form_iplist" id="form_iplist">
+		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="filter-form-rule" id="id-form-rule">
 			<input type="hidden" name="id" />
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">规则名称</div>
 			</div>
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
-					<input type="text" name="groupName" lay-verify="required" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+					<input type="text" name="groupName" lay-verify="required" autocomplete="off" class="layui-input" />
 				</div>
 			</div>
 			<div class="layui-row layui-col-space10">
@@ -48,7 +45,7 @@
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
 					<div style="float: right;">
-						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="iplist_save">保存</button>
+						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-rule-save">保存</button>
 						<button type="button" class="pear-btn" lay-on="cancel">取消</button>
 					</div>
 				</div>
@@ -64,7 +61,7 @@
 			<button class="pear-btn pear-btn-danger pear-btn-xs" lay-event="remove"><i class="layui-icon layui-icon-delete"></i></button>
 		</script>
 		<script type="text/html" id="iplist_state">
-			<input type="checkbox" name="state" value="{{= d.id }}" lay-skin="switch" lay-filter="iplist_switch_status" title="ON|OFF" {{= d.state == "on" ? "checked" : "" }} />
+			<input type="checkbox" name="state" value="{{= d.id }}" lay-skin="switch" title="ON|OFF" {{= d.state == "on" ? "checked" : "" }} />
 		</script>
 
 		<script src="../../component/layui/layui.js"></script>
@@ -82,7 +79,7 @@
 				var currentTabId;
 
 				table.render({
-					elem: '#table_ipgroup',
+					elem: '#id-table-rules',
 					url: '/common/ipgroups/list',
 					cols: [[ //标题栏
 						{field: 'groupName', title: '组名'},
@@ -104,31 +101,35 @@
 					limit: 10, // 每页默认显示的数量
 				});
 
+				function openLayer(title) {
+					layer.open({
+						type: 1,
+						title: title,
+						shade: 0.6,
+						shadeClose: true,
+						area: ['430px', '440px'],
+						content: $('#id-form-rule'),
+						end: function() {
+							$("#id-form-rule").trigger("reset");
+							$("#id-form-rule").find("input[type='hidden']").val("");
+						}
+					});
+				}
+
 				// 触发单元格工具事件
-				table.on('tool(table_ipgroup)', function(obj) {
+				table.on('tool(filter-table-rules)', function(obj) {
 					var data = obj.data; // 获得当前行数据
 
 					if(obj.event === 'edit') {
 						$.get('/common/ipgroups/get',  {id: data.id}, function(res) {
 							if (res && res.code == 200) {
-								layer.open({
-									type: 1,
-									title: '编辑IP组',
-									shade: 0.6,
-									shadeClose: true,
-									area: ['430px', '440px'],
-									content: $('#form_iplist'),
-									end: function() {
-										$("#form_iplist").trigger("reset");
-										$("#form_iplist").find("input[type='hidden']").val("");
-									}
-								});
+								openLayer('编辑IP组');
 
 								let data = res.data;
 								let ips = data.ips;
 
 								data.ips = ips.join('\n');
-								form.val('form_iplist', data);
+								form.val('filter-form-rule', data);
 							} else {
 								popup.failure(res.msg);
 								return false;
@@ -144,7 +145,7 @@
 							$.post('/common/ipgroups/remove',  {id: data.id}, function(resData) {
 								if (resData && resData.code == 200) {
 									obj.del();
-									table.reloadData('table_ipgroup');
+									table.reloadData('id-table-rules');
 									layer.close(index);
 									return true;
 								} else {
@@ -156,22 +157,11 @@
 					}
 				});
 
-				table.on('toolbar(table_ipgroup)', function(obj) {
+				table.on('toolbar(filter-table-rules)', function(obj) {
 					if (obj.event === 'add') {
-						layer.open({
-							type: 1,
-							title: '添加IP组',
-							shade: 0.6,
-							shadeClose: true,
-							area: ['430px', '440px'],
-							content: $('#form_iplist'),
-							end: function() {
-								$("#form_iplist").trigger("reset");
-								$("#form_iplist").find("input[type='hidden']").val("");
-							}
-						});
+						openLayer('添加IP组');
 					} else if (obj.event === 'refresh') {
-						table.reload('table_ipgroup');
+						table.reload('id-table-rules');
 					}
 				});
 
@@ -187,7 +177,7 @@
 							let arr = value.split('\n');
 							let flag = false;
 							$.each(arr, function(i, ip) {
-								if (isIPWithCIDR(ip) == false) {
+								if (validator.isIPWithCIDR(ip) == false) {
 									flag = true;
 									return false;
 								}
@@ -202,7 +192,7 @@
 				});
 
 				// 提交事件
-				form.on('submit(iplist_save)', function(data) {
+				form.on('submit(filter-rule-save)', function(data) {
 					var field = data.field; // 获取表单字段值
 					field.groupName = field.groupName.trim();
 					let arr = field.ips.split('\n');
@@ -211,7 +201,7 @@
 
 					$.post('/common/ipgroups/update',  {rule: JSON.stringify(field)}, function(data) {
 						if (data && data.code == 200) {
-							table.reloadData('table_ipgroup');
+							table.reloadData('id-table-rules');
 							layer.closeLast('page');
 							popup.success("已保存");
 							return true;

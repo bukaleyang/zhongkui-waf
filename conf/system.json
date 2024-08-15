@@ -1,0 +1,36 @@
+{
+    "attackLog": {
+        "state": "off",
+        "logPath": "/usr/local/openresty/nginx/logs/hack/",
+        "jsonFormat": "off"
+    },
+    "geoip": {
+        "file": "/usr/local/share/GeoIP/GeoLite2-City.mmdb",
+        "language": "zh-CN"
+    },
+    "html": "",
+    "secret": "2215D605B798A5CCEB6D5C900EE3585B",
+    "mysql": {
+        "state": "off",
+        "host": "127.0.0.1",
+        "port": "3306",
+        "user": "",
+        "password": "",
+        "database": "zhongkui_waf",
+        "poolSize": "10",
+        "timeout": 5000
+    },
+    "redis": {
+        "state": "off",
+        "host": "127.0.0.1",
+        "password": "",
+        "timeouts": "1000,1000,1000",
+        "poolSize": 10,
+        "ssl": false,
+        "port": 6379
+    },
+    "rulesSort": {
+        "state": "off",
+        "period": 10
+    }
+}

@@ -18,7 +18,7 @@
 		"title": "IP封禁日志",
 		"icon": "layui-icon layui-icon-disabled",
 		"type": 1,
-		"href": "view/ipblocking.html"
+		"href": "view/ip-blocking.html"
 	},
 	{
 		"id": 4,
@@ -36,11 +36,11 @@
 		"children": [
 			{
 				"id": 51,
-				"title": "基本配置",
+				"title": "网站防护",
 				"icon": "layui-icon layui-icon-console",
 				"type": 1,
 				"openType": "_iframe",
-				"href": "view/defense/basic.html"
+				"href": "view/defense/web.html"
 			},
 			{
 				"id": 52,
@@ -48,7 +48,7 @@
 				"icon": "layui-icon layui-icon-list",
 				"type": 1,
 				"openType": "_iframe",
-				"href": "view/defense/ip.html"
+				"href": "view/defense/ip-filter.html"
 			},
 			{
 				"id": 53,
@@ -73,6 +73,14 @@
 				"type": 1,
 				"openType": "_iframe",
 				"href": "view/defense/acl.html"
+			},
+			{
+				"id": 56,
+				"title": "敏感数据过滤",
+				"icon": "layui-icon layui-icon-console",
+				"type": 1,
+				"openType": "_iframe",
+				"href": "view/defense/sensitive.html"
 			}
 		]
 	},
@@ -83,14 +91,6 @@
 		"type": 0,
 		"href": "",
 		"children": [
-			{
-				"id": 61,
-				"title": "数据存储",
-				"icon": "layui-icon layui-icon-template-1",
-				"type": 1,
-				"openType": "_iframe",
-				"href": "view/common/storage.html"
-			},
 			{
 				"id": 62,
 				"title": "证书管理",
@@ -105,24 +105,24 @@
 				"icon": "layui-icon layui-icon-list",
 				"type": 1,
 				"openType": "_iframe",
-				"href": "view/common/ipgroup.html"
+				"href": "view/common/ip-group.html"
 			}
 		]
 	},
 	{
 		"id": 7,
-		"title": "其它配置",
+		"title": "系统设置",
 		"icon": "layui-icon layui-icon-util",
 		"type": 0,
 		"href": "",
 		"children": [
 			{
 				"id": 71,
-				"title": "敏感数据过滤",
-				"icon": "layui-icon layui-icon-console",
+				"title": "系统设置",
+				"icon": "layui-icon layui-icon-template-1",
 				"type": 1,
 				"openType": "_iframe",
-				"href": "view/other/sensitive.html"
+				"href": "view/system/system.html"
 			},
 			{
 				"id": 72,
@@ -130,7 +130,7 @@
 				"icon": "layui-icon layui-icon-console",
 				"type": 1,
 				"openType": "_iframe",
-				"href": "view/other/password.html"
+				"href": "view/system/password.html"
 			}
 		]
 	}

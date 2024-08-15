@@ -1,0 +1,86 @@
+{
+    "moduleName": "URL黑名单检测",
+    "nextId": 11,
+    "rules": [
+        {
+            "attackType": "data_leak",
+            "rule": "\\.(svn|htaccess|bash_history)",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 1
+        },
+        {
+            "attackType": "read_file",
+            "rule": "\\.(bak|inc|old|mdb|sql|backup|java|class)$",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 2
+        },
+        {
+            "attackType": "data_leak",
+            "rule": "(vhost|bbs|host|wwwroot|www|site|root|hytop|flashfxp).*\\.rar",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 3
+        },
+        {
+            "attackType": "backdoor",
+            "rule": "(phpmyadmin|jmx-console|jmxinvokerservlet)",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 4
+        },
+        {
+            "attackType": "backdoor",
+            "rule": "(?:phpMyAdmin2|phpMyAdmin|phpmyadmin|dbadmin|pma|myadmin|admin|mysql)\/scripts\/setup%.php",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 5
+        },
+        {
+            "attackType": "rce",
+            "rule": "java\\.lang",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 6
+        },
+        {
+            "attackType": "rce",
+            "rule": "\/(attachments|upimg|images|css|uploadfiles|html|uploads|templets|static|template|data|inc|forumdata|upload|includes|cache|avatar)\/(\\\\w+).(php|jsp)",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 7
+        },
+        {
+            "attackType": "data_leak",
+            "rule": "wp-includes\/wlwmanifest.xml",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 8
+        },
+        {
+            "attackType": "rce",
+            "rule": "<php>die(@md5(HelloThinkCMF))<\/php>",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 9
+        },
+        {
+            "attackType": "backdoor",
+            "rule": "\/boaform\/admin\/formLogin",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 10
+        }
+    ]
+}

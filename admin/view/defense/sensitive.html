@@ -6,27 +6,47 @@
 		<title>敏感数据过滤</title>
 		<link href="../../component/pear/css/pear.css" rel="stylesheet">
 		<style>
-			.layui-card-body .layui-form {margin-top: 0px;}
 			p {margin: 6px 15px;}
 		</style>
 	</head>
 	<body class="pear-container" >
-		<div class="layui-row layui-col-space10 layui-form">
+		<form class="layui-form" lay-filter="filter-form-sites">
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-body layui-row">
+							<div class="layui-col-md6">
+								<div class="layui-input-inline">
+									<select name="site" id="site" lay-filter="filter-site">
+										<option value="0">全局设置</option>
+									</select>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</form>
+		
+		<div class="layui-row layui-col-space10">
 			<div class="layui-col-md12">
 				<div class="layui-card">
 					<div class="layui-card-header">敏感数据过滤设置</div>
 					<div class="layui-card-body">
 						<div class="layui-row layui-col-space10">
 							<div class="layui-col-md12">
-								<label class="layui-form-label" style="width: auto;">敏感数据过滤</label>
-								<div class="layui-input-block">
-									<input type="checkbox" name="sensitive_data_filtering" lay-skin="switch" lay-filter="config_switch" title="ON|OFF" />
-								</div>
+								<form class="layui-form" lay-filter="filter-form-sensitive">
+									<div class="layui-input-group">
+										<div class="layui-input-prefix" style="padding: 9px 10px 9px 0;">敏感数据过滤</div>
+										<input type="checkbox" id="id-sensitive-state" name="state" lay-skin="switch" lay-filter="filter-sensitive-module-state" title="ON|OFF" />
+										<div class="layui-input-suffix" style="padding: 9px 0px 9px 10px;">开启后将对上游服务器返回的页面中敏感数据进行过滤打码处理（仅网页有效）</div>
+									</div>
+								</form>
 							</div>
 						</div>
 						<div class="layui-row layui-col-space10">
 							<div class="layui-col-md12">
-								<table id="table_rule" lay-filter="table_rule"></table>
+								<table id="id-table-rules" lay-filter="filter-table-rules"></table>
 							</div>
 						</div>
 					</div>
@@ -48,7 +68,7 @@
 						<div class="layui-row layui-col-space10">
 							<div class="layui-col-md12">
 								<div class="layui-form-text">
-									<textarea name="senstiveWords" placeholder="要过滤的敏感词，每行一个。" style="height: 150px;" class="layui-textarea" readonly></textarea>
+									<textarea id="id-senstiveWords" name="senstiveWords" placeholder="要过滤的敏感词，每行一个。" style="height: 150px;" class="layui-textarea" readonly></textarea>
 								</div>
 							</div>
 						</div>
@@ -57,7 +77,7 @@
 			</div>
 		</div>
 
-		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="form_rule" id="form_rule">
+		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="filter-form-rule" id="id-form-rule">
 			<input type="hidden" name="id" />
 			<input type="hidden" name="state" />
 			<div class="layui-row layui-col-space10">
@@ -100,14 +120,14 @@
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
 					<div style="float: right;">
-						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="rule_save">保存</button>
+						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-rule-save">保存</button>
 						<button type="button" class="pear-btn" lay-on="ruleCancel">取消</button>
 					</div>
 				</div>
 			</div>
 		</form>
 
-		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="form_wordlist" id="form_wordlist">
+		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="filter-words" id="id-words">
 			<input type="hidden" name="id" />
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">敏感词列表</div>
@@ -122,24 +142,24 @@
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
 					<div style="float: right;">
-						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="wordlist_save">保存</button>
+						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-words-save">保存</button>
 						<button type="button" class="pear-btn" lay-on="ruleCancel">取消</button>
 					</div>
 				</div>
 			</div>
 		</form>
 
-		<script type="text/html" id="user_toolbar">
+		<script type="text/html" id="id-template-toolbar">
 			<button class="pear-btn pear-btn-primary pear-btn-md" lay-event="add">
 				<i class="layui-icon layui-icon-add-1"></i>
 				新增
 			</button>
 		</script>
-		<script type="text/html" id="ualist_bar">
+		<script type="text/html" id="id-template-bar">
 			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i></button>
 		</script>
-		<script type="text/html" id="ualist_state">
-			<input type="checkbox" name="state" value="{{= d.id }}" lay-skin="switch" lay-filter="rule_switch_status" title="ON|OFF" {{= d.state == "on" ? "checked" : "" }} />
+		<script type="text/html" id="id-template-rule-state">
+			<input type="checkbox" name="state" value="{{= d.id }}" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" {{= d.state == "on" ? "checked" : "" }} />
 		</script>
 
 		<script src="../../component/layui/layui.js"></script>
@@ -152,91 +172,116 @@
 				var form = layui.form;
 				var util = layui.util;
 				var popup = layui.popup;
+				var layer = layui.layer;
 				var $ = layui.$;
 
-				function getData() {
-					// 加载配置
-					$.get('/other/sensitive/get', {}, function(data) {
-						if (data.data) {
-							$.each(data.data, function(key, value) {	
-								if (value == "on") {
-									$("[name='" + key + "']").prop('checked', true);
-								} else if (value == "off") {
-									$("[name='" + key + "']").prop('checked', false);
-								} else {
-									$("[name='" + key + "']").val(value);
-								}
-							});
+				// 切换域名
+				form.on('select(filter-site)', function(data) {
+					getSiteConfig();
+					reloadTableData();
+				});
 
-							form.render();
+				function getSiteConfig() {
+					$.get('/sensitive/config/get', {siteId : $('#site').val()}, function(res) {
+						if (res && res.data) {
+							var sensitive = JSON.parse(res.data);
+							var sensitiveDataFilter = sensitive.sensitiveDataFilter;
+							var senstiveWords = sensitive.senstiveWords;
+
+							$('#id-sensitive-state').prop('checked', sensitiveDataFilter.state == 'on' ? true : false);
+							$('#id-senstiveWords').val(senstiveWords);
+
+							form.render(null, 'filter-form-sensitive');
 						}
 					}, "json");
 				}
 
+				$(function() {
+					$.get('/sites/list', {}, function(data) {
+						if (data && data.data) {
+							$.each(data.data, function(key, site) {
+								var serverName = site.serverNames.join(',');
+								$('#site').append('<option value="' + site.id + '">' + serverName + '</option>');
+							});
+
+							form.render(null, 'filter-form-sites');
+							getSiteConfig();
+							reloadTableData();
+						}
+					}, "json");
+
+					// 阻止回车触发表单提交
+					$('input').on('keydown', function (e) {
+						if (e.keyCode === 13) {
+							e.preventDefault();
+							return false;
+						}
+					});
+				});
+
 				table.render({
-					elem: '#table_rule',
-					url: '/other/sensitive/list',
+					elem: '#id-table-rules',
 					cols: [[ //标题栏
-						{field: 'state', title: '状态', templet: '#ualist_state', width: 100},
+						{field: 'state', title: '状态', templet: '#id-template-rule-state', width: 100},
 						{field: 'action', title: '响应动作', templet: function(d) {
 							return '<div>' + getActionText(d.action) + '</div>';
 						}},
 						{field: 'description', title: '备注', minWidth: 200},
-						{fixed: 'right', title:'操作', width: 110, minWidth: 110, toolbar: '#ualist_bar'}
+						{fixed: 'right', title:'操作', width: 80, minWidth: 80, toolbar: '#id-template-bar'}
 					]],
-					toolbar: '#user_toolbar',
+					toolbar: '#id-template-toolbar',
 					css:'.layui-form{margin-top:0px;}',
 					page: true, // 是否显示分页
 					limits: [5, 10, 15, 20, 25, 30],
-					limit: 10, // 每页默认显示的数量
+					limit: 10
 				});
 
-				$(function() {
-					getData();
-				});
+				function reloadTableData() {
+					table.reloadData('id-table-rules', {
+						url: '/sensitive/rule/list',
+						page: {
+							curr: 1
+						},
+						where: {
+							siteId: $('#site').val()
+						}
+					});
+				}
+
+				function openLayer(title) {
+					layer.open({
+						type: 1,
+						title: title,
+						area: ['600px', 'auto'],
+						shade: 0.6,
+						shadeClose: true,
+						content: $('#id-form-rule'),
+						end: function() {
+							$("#id-form-rule").trigger("reset");
+							$("#id-form-rule").find("input[type='hidden']").val("");
+						}
+					});
+				}
 
 				// 触发单元格工具事件
-				table.on('tool(table_rule)', function(obj) {
+				table.on('tool(filter-table-rules)', function(obj) {
 					var data = obj.data; // 获得当前行数据
-
 					if(obj.event === 'edit') {
-						layer.open({
-							type: 1,
-							title: '编辑规则',
-							area: ['600px', 'auto'],
-							shade: 0.6,
-							shadeClose: true,
-							content: $('#form_rule'),
-							end: function() {
-								$("#form_rule").trigger("reset");
-								$("#form_rule").find("input[type='hidden']").val("");
-							}
-						});
-
-						form.val('form_rule', data);
+						openLayer('编辑规则');
+						form.val('filter-form-rule', data);
 					}
 				});
 
-				table.on('toolbar(table_rule)', function(obj) {
+				table.on('toolbar(filter-table-rules)', function(obj) {
 					if (obj.event === 'add') {
-						layer.open({
-							type: 1,
-							title: '新增规则',
-							area: ['600px', 'auto'],
-							shade: 0.6,
-							shadeClose: true,
-							content: $('#form_rule'),
-							end: function() {
-								$("#form_rule").trigger("reset");
-								$("#form_rule").find("input[type='hidden']").val("");
-							}
-						});
+						openLayer('添加规则');
 					}
 				});
 
 				util.on('lay-on', {
 					editWords: function() {
-						$.get('/other/sensitive/words/get', function(res) {
+						var param = {siteId : $('#site').val()};
+						$.get('/sensitive/words/get', param, function(res) {
 							if (res && res.code == 200) {
 								layer.open({
 									type: 1,
@@ -244,13 +289,13 @@
 									shade: 0.6,
 									shadeClose: true,
 									area: ['430px', '360px'],
-									content: $('#form_wordlist'),
+									content: $('#id-words'),
 									end: function() {
-										$("#form_wordlist").trigger("reset");
+										$("#id-words").trigger("reset");
 									}
 								});
 
-								form.val('form_wordlist', res.data);
+								form.val('filter-words', res.data);
 							} else {
 								popup.failure(res.msg);
 								return false;
@@ -272,12 +317,13 @@
 				});
 
 				// 提交事件
-				form.on('submit(rule_save)', function(data) {
+				form.on('submit(filter-rule-save)', function(data) {
 					var field = data.field;
-					
-					$.post('/other/sensitive/save',  {rule: JSON.stringify(field)}, function(data) {
+					var param = {siteId : $('#site').val()};
+					param.rule = JSON.stringify(field);
+					$.post('/sensitive/rule/save',  param, function(data) {
 						if (data && data.code == 200) {
-							table.reloadData('table_rule');
+							table.reloadData('id-table-rules');
 							layer.closeLast('page');
 							popup.success("已保存");
 							return true;
@@ -290,13 +336,13 @@
 					return false;
 				});
 
-				form.on('switch(rule_switch_status)', function(obj) {
-					var id = this.value;
-					var name = this.name;
-					var state = this.checked ? 'on' : 'off';
-					$.post('/other/sensitive/state',  {id: id, state: state}, function(data) {
+				form.on('switch(filter-rule-state)', function(obj) {
+					var param = {siteId : $('#site').val()};
+					param.ruleId = this.value;
+					param.state = this.checked ? 'on' : 'off';
+					$.post('/sensitive/rule/state/update',  param, function(data) {
 						if (data && data.code == 200) {
-							table.reloadData('table_rule');
+							table.reloadData('id-table-rules');
 							return true;
 						} else {
 							popup.failure(data.msg);
@@ -305,26 +351,30 @@
 					}, "json");
 				});
 
-				form.on('switch(config_switch)', function(data) {
-					var key = data.elem.name;
-					var val = this.checked ? 'on' : 'off';
-					var json = {};
-					json[key] = val;
-
-					$.post('/defense/basic/update', {config: JSON.stringify(json)}, function(data) {
-						popup.success("已保存");
-					});
+				form.on('switch(filter-sensitive-module-state)', function(obj) {
+					var state = this.checked ? 'on' : 'off';
+					var param = {siteId: $('#site').val(), state : state}
+					$.post('/sensitive/config/state/update', param, function(data) {
+						if (data && data.code == 200) {
+							return true;
+						} else {
+							popup.failure(data.msg);
+							return false;
+						}
+					}, "json");
 				});
 
 				// 提交事件
-				form.on('submit(wordlist_save)', function(data) {
+				form.on('submit(filter-words-save)', function(data) {
 					var field = data.field; // 获取表单字段值
-
-					$.post('/other/sensitive/words/update',  {content: field.content}, function(data) {
+					var content = field.content;
+					var param = {siteId : $('#site').val()};
+					param.content = content;
+					$.post('/sensitive/words/update',  param, function(data) {
 						if (data && data.code == 200) {
-							getData();
 							layer.closeLast('page');
 							popup.success("已保存");
+							$('#id-senstiveWords').val(content);
 							return true;
 						} else {
 							popup.failure(data.msg);
@@ -334,14 +384,7 @@
 
 					return false;
 				});
-
-				$(function() {
-					initActionSelect('rule_select', 'coding', function() {
-						form.render($('#rule_select'));
-					});
-				});
 			});
-
 		</script>
 	</body>
 </html>

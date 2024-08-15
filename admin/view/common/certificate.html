@@ -5,9 +5,6 @@
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
 		<title>证书管理</title>
 		<link href="../../component/pear/css/pear.css" rel="stylesheet">
-		<style>
-			.layui-card-body .layui-form {margin-top: 0px;}
-		</style>
 	</head>
 
 	<body class="pear-container">
@@ -105,7 +102,7 @@
 
 				table.render({
 					elem: '#table_rule',
-					url: '/certificate/list',
+					url: '/common/certificate/list',
 					cols: [[ //标题栏
 						{ field: 'domainName', title: '域名' },
 						{ field: 'issuerName', title: '颁发机构' },
@@ -129,7 +126,7 @@
 						form.val('form_rule', data);
 						form.render(null, 'form_rule');
 
-						$.get('/certificate/get',  { id: data.id }, function(res) {
+						$.get('/common/certificate/get',  { id: data.id }, function(res) {
 							if (res && res.code == 200) {
 								$("#publicKey").val(res.data.publicKey);
 								$("#privateKey").val(res.data.privateKey);
@@ -159,7 +156,7 @@
 							title: '提示'
 						},
 						function (index) {
-							$.post('/certificate/remove', { id: data.id }, function (resData) {
+							$.post('/common/certificate/remove', { id: data.id }, function (resData) {
 								if (resData && resData.code == 200) {
 									obj.del();
 									table.reloadData('table_rule');
@@ -203,7 +200,7 @@
 				form.on('submit(rule_save)', function (data) {
 					var field = data.field;
 
-					$.post('/certificate/save', { rule: JSON.stringify(field) }, function (res) {
+					$.post('/common/certificate/save', { rule: JSON.stringify(field) }, function (res) {
 						if (res && res.code == 200) {
 							table.reloadData('table_rule');
 							layer.closeLast('page');
@@ -225,7 +222,7 @@
 					accept: 'file',
 					exts: 'crt|pem',
 					drag: true,
-					url: '/certificate/readfile',
+					url: '/common/certificate/readfile',
 					text: {
 						"check-error": "证书文件应为.crt或.pem格式"
 					},
@@ -248,7 +245,7 @@
 					accept: 'file',
 					exts: 'key',
 					drag: true,
-					url: '/certificate/readfile',
+					url: '/common/certificate/readfile',
 					text: {
 						"check-error": "私钥文件应为.key格式"
 					},

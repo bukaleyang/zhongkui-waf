@@ -5,19 +5,44 @@
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
 		<title>CC防护</title>
 		<link href="../../component/pear/css/pear.css" rel="stylesheet">
-		<style>
-			.layui-card-body .layui-form {margin-top: 0px;}
-		</style>
 	</head>
 	<body class="pear-container">
-		<div class="layui-row">
+		<form class="layui-form" lay-filter="filter-form-sites">
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-body layui-row">
+							<div class="layui-col-md6">
+								<div class="layui-input-inline">
+									<select name="site" id="site" lay-filter="filter-site">
+										<option value="0">全局设置</option>
+									</select>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</form>
+		<div class="layui-row layui-col-space10">
 			<div class="layui-col-md12">
 				<div class="layui-card">
 					<div class="layui-card-header">ACL规则</div>
 					<div class="layui-card-body">
+						<div class="layui-row layui-col-space10">
+							<div class="layui-col-md12">
+								<form class="layui-form" lay-filter="filter-form-acl">
+									<div class="layui-input-group">
+										<div class="layui-input-prefix" style="padding: 9px 10px 9px 0;">ACL</div>
+										<input type="checkbox" id="id-acl-state" name="state" lay-skin="switch" lay-filter="filter-acl-module-state" title="ON|OFF" />
+										<div class="layui-input-suffix" style="padding: 9px 0px 9px 10px;">开启后可启用网站自定义访问控制策略，如限制某接口地址只允许特定IP或UA访问、不带某请求头则不允许访问等。</div>
+									</div>
+								</form>
+							</div>
+						</div>
 						<div class="layui-row">
 							<div class="layui-col-md12">
-								<table id="table_rule" lay-filter="table_rule"></table>
+								<table id="id-table-rules" lay-filter="filter-table-rules"></table>
 							</div>
 						</div>
 					</div>
@@ -25,7 +50,7 @@
 			</div>
 		</div>
 
-		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="form_rule" id="form_rule">
+		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="filter-form-rule" id="id-form-rule">
 			<input type="hidden" name="id" />
 			<input type="hidden" name="state" />
 			<div class="layui-row layui-col-space10">
@@ -34,7 +59,7 @@
 
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
-					<input type="text" name="rule" lay-verify="required" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+					<input type="text" name="rule" lay-verify="required" autocomplete="off" class="layui-input" />
 				</div>
 			</div>
 
@@ -50,7 +75,7 @@
 					</div>
 					<div class="layui-row layui-col-space5 condition-row">
 						<div class="layui-col-md4 col-field" style="padding-left: 10px;">
-							<select name="field" lay-verify="required" lay-filter="rule_field">
+							<select name="field" lay-verify="required" lay-filter="filter-rule-field">
 								<option value="URL">URL</option>
 								<option value="Cookie">Cookie</option>
 								<option value="Header">Header</option>
@@ -60,14 +85,14 @@
 							</select>
 						</div>
 						<div class="layui-col-md2 col-field-name" style="display: none;">
-							<input type="text" name="name" lay-filter="rule_field_name" autocomplete="off" class="layui-input" />
+							<input type="text" name="name" lay-filter="filter-rule-field-name" autocomplete="off" class="layui-input" />
 						</div>
 						<div class="layui-col-md3">
-							<select name="operator" lay-verify="required" lay-filter="rule_operator"></select>
+							<select name="operator" lay-verify="required" lay-filter="filter-rule-operator"></select>
 						</div>
 						<div class="layui-col-md5">
 							<div class="layui-input-inline" style="width: 90%;">
-								<input type="text" name="content" lay-verify="content" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+								<input type="text" name="content" lay-verify="content" autocomplete="off" class="layui-input" />
 							</div>
 							<div class="layui-input-inline" style="width: 90%; display: none;">
 								<select name="ipGroupId" lay-verify="ipGroupId"></select>
@@ -84,7 +109,6 @@
 					</div>
 				</div>
 			</div>
-
 		
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md6 layui-col-sm6">处置动作</div>
@@ -93,15 +117,13 @@
 			</div>
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md6 layui-col-sm6">
-					<select id="rule_select" name="action" lay-filter="rule_select">
-
-					</select>
+					<select id="id-action" name="action" lay-filter="filter-action"></select>
 				</div>
 				<div class="layui-col-md2 layui-col-sm2">
-					<input type="checkbox" name="autoIpBlock" lay-skin="switch" lay-filter="rule_switch" title="ON|OFF" />
+					<input type="checkbox" name="autoIpBlock" lay-skin="switch" title="ON|OFF" />
 				</div>
 				<div class="layui-col-md4 layui-col-sm4">
-					<input type="text" name="ipBlockTimeout" lay-verify="required|number" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+					<input type="text" name="ipBlockTimeout" lay-verify="required|number" autocomplete="off" class="layui-input" />
 				</div>
 			</div>
 
@@ -112,7 +134,7 @@
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
 					<div class="layui-form-text">
-						<textarea name="description" rows="3" style="min-height: 50px;" placeholder="请输入备注" lay-filter="rule_textarea" class="layui-textarea"></textarea>
+						<textarea name="description" rows="3" style="min-height: 50px;" placeholder="请输入备注" class="layui-textarea"></textarea>
 					</div>
 				</div>
 			</div>
@@ -120,7 +142,7 @@
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
 					<div style="float: right;">
-						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="rule_save">保存</button>
+						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-rule-save">保存</button>
 						<button type="button" class="pear-btn" lay-on="ruleCancel">取消</button>
 					</div>
 				</div>
@@ -133,12 +155,12 @@
 				新增
 			</button>
 		</script>
-		<script type="text/html" id="rule_bar">
+		<script type="text/html" id="id-template-bar">
 			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i></button>
 			<button class="pear-btn pear-btn-danger pear-btn-xs" lay-event="remove"><i class="layui-icon layui-icon-delete"></i></button>
 		</script>
 		<script type="text/html" id="rule_state">
-			<input type="checkbox" name="state" value="{{= d.id }}" lay-skin="switch" lay-filter="rule_switch_status" title="ON|OFF" {{= d.state == "on" ? "checked" : "" }} />
+			<input type="checkbox" name="state" value="{{= d.id }}" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" {{= d.state == "on" ? "checked" : "" }} />
 		</script>
 
 		<script src="../../component/layui/layui.js"></script>
@@ -151,12 +173,81 @@
 				var form = layui.form;
 				var util = layui.util;
 				var popup = layui.popup;
+				var layer = layui.layer;
 				var $ = layui.$;
 
+				// 切换域名
+				form.on('select(filter-site)', function(data) {
+					getSiteConfig();
+					reloadTableData();
+				});
+
+				function getSiteConfig() {
+					$.get('/acl/config/get', {siteId : $('#site').val()}, function(res) {
+						if (res && res.data) {
+							var acl = JSON.parse(res.data);
+							$('#id-acl-state').prop('checked', acl.state == 'on' ? true : false);
+
+							form.render(null, 'filter-form-acl');
+						}
+					}, "json");
+				}
+
+				$(function() {
+					$.get('/sites/list', {}, function(data) {
+						if (data && data.data) {
+							$.each(data.data, function(key, site) {
+								var serverName = site.serverNames.join(',');
+								$('#site').append('<option value="' + site.id + '">' + serverName + '</option>');
+							});
+
+							form.render(null, 'filter-form-sites');
+							getSiteConfig();
+							reloadTableData();
+						}
+					}, "json");
+
+					// 阻止回车触发表单提交
+					$('input').on('keydown', function (e) {
+						if (e.keyCode === 13) {
+							e.preventDefault();
+							return false;
+						}
+					});
+				});
+
+				function reloadTableData() {
+					table.reloadData('id-table-rules', {
+						url: '/acl/rule/list',
+						page: {
+							curr: 1
+						},
+						where: {
+							siteId: $('#site').val()
+						}
+					});
+				}
+
+				function openLayer(title) {
+					layer.open({
+						type: 1,
+						title: title,
+						shade: 0.6,
+						shadeClose: true,
+						area: ['640px', 'auto'],
+						content: $('#id-form-rule'),
+						end: function() {
+							$("#id-form-rule").trigger("reset");
+							$("#id-form-rule").find("input[type='hidden']").val("");
+							$(".condition-row:not(:first)").remove();
+							changeField($(".condition-row:first"));
+						}
+					});
+				}
+
 				table.render({
-					elem: '#table_rule',
-					url: '/defense/rule/acl/list',
-					cols: [[ //标题栏
+					elem: '#id-table-rules',
+					cols: [[
 						{field: 'rule', title: '规则名称'},
 						{field: 'state', title: '状态', templet: '#rule_state', width: 100},
 						{field: 'action', title: '响应动作', templet: function(d) {
@@ -173,12 +264,10 @@
 							}
 						}},
 						{field: 'description', title: '备注', minWidth: 200},
-						{fixed: 'right', title:'操作', width: 110, minWidth: 110, toolbar: '#rule_bar'}
+						{fixed: 'right', title:'操作', width: 110, minWidth: 110, toolbar: '#id-template-bar'}
 					]],
 					toolbar: '#user_toolbar',
 					css:'.layui-form{margin-top:0px;}',
-					//skin: 'line', // 表格风格
-					//even: true,
 					page: true, // 是否显示分页
 					limits: [5, 10, 15, 20, 25, 30],
 					limit: 10, // 每页默认显示的数量
@@ -194,7 +283,7 @@
 								});
 							}
 							$('#conditions select[name="ipGroupId"]:first').html(html);
-							form.render('select', 'form_rule');
+							form.render('select', 'filter-form-rule');
 						} else {
 							popup.failure(res.msg);
 						}
@@ -254,7 +343,7 @@
 						conditionRow.find('.col-field').removeClass("layui-col-md2").addClass("layui-col-md4");
 					}
 					changeOperator(conditionRow);
-					form.render(null, 'form_rule');
+					form.render(null, 'filter-form-rule');
 				}
 
 				function changeOperator(conditionRow) {
@@ -268,11 +357,11 @@
 						conditionRow.find("select[name='ipGroupId']").parent().css('display', 'none');
 						conditionRow.find(":text[name='content']").parent().css('display', 'inline-block');
 					}
-					form.render(null, 'form_rule');
+					form.render(null, 'filter-form-rule');
 				}
 
 				// 触发单元格工具事件
-				table.on('tool(table_rule)', function(obj) {
+				table.on('tool(filter-table-rules)', function(obj) {
 					var data = obj.data; // 获得当前行数据
 
 					if(obj.event === 'edit') {
@@ -298,37 +387,26 @@
 							$('#addConditionRow').before(newCondition);
 						});
 
-						form.val('form_rule', data);
-						form.render(null, 'form_rule');
+						form.val('filter-form-rule', data);
+						form.render(null, 'filter-form-rule');
 						
-						layer.open({
-							type: 1,
-							title: '编辑规则',
-							shade: 0.6,
-							shadeClose: true,
-							area: ['640px', 'auto'],
-							content: $('#form_rule'),
-							end: function() {
-								$("#form_rule").trigger("reset");
-								$("#form_rule").find("input[type='hidden']").val("");
-								$(".condition-row:not(:first)").remove();
-								changeField($(".condition-row:first"));
-							}
-						});
+						openLayer('编辑规则');
 					} else if(obj.event === 'remove') {
 						layer.confirm('确定删除该规则吗？', {
 							icon: 3,
 							title: '提示'
 						},
 						function(index) {
-							$.post('/defense/rule/acl/remove', {id: data.id}, function(resData) {
-								if (resData && resData.code == 200) {
+							var param = {siteId : $('#site').val()};
+							param.ruleId = data.id;
+							$.post('/acl/rule/remove', param, function(res) {
+								if (res && res.code == 200) {
 									obj.del(); // 删除对应行（tr）的 DOM 结构，并更新缓存
-									table.reloadData('table_rule');
+									table.reloadData('id-table-rules');
 									layer.close(index);
 									return true;
 								} else {
-									popup.failure(resData.msg);
+									popup.failure(res.msg);
 									return false;
 								}
 							}, "json");
@@ -336,24 +414,11 @@
 					}
 				});
 
-				table.on('toolbar(table_rule)', function(obj) {
+				table.on('toolbar(filter-table-rules)', function(obj) {
 					if (obj.event === 'add') {
-						layer.open({
-							type: 1,
-							title: '添加规则',
-							shade: 0.6,
-							shadeClose: true,
-							area: ['620px', 'auto'],
-							content: $('#form_rule'),
-							end: function() {
-								$("#form_rule").trigger("reset");
-								$("#form_rule").find("input[type='hidden']").val("");
-								$(".condition-row:not(:first)").remove();
-								changeField($(".condition-row:first"));
-							}
-						});
+						openLayer('添加规则');
 					} else if (obj.event === 'refresh') {
-						table.reload('table_rule');
+						table.reload('id-table-rules');
 					}
 				});
 
@@ -371,7 +436,7 @@
 
 							changeField(newCondition);
 							$('#addConditionRow').before(newCondition);
-							form.render(null, 'form_rule');
+							form.render(null, 'filter-form-rule');
 						} else {
 							popup.failure("最多添加5个匹配条件");
 						}
@@ -386,7 +451,7 @@
 					}
 				});
 
-				form.on('select(rule_field)', function(obj) {
+				form.on('select(filter-rule-field)', function(obj) {
 					var elem = obj.elem;
 					var value = obj.value;
 					var row = $(elem).closest(".condition-row");
@@ -394,7 +459,7 @@
 					changeField(row);
 				});
 
-				form.on('select(rule_operator)', function(obj) {
+				form.on('select(filter-rule-operator)', function(obj) {
 					var elem = obj.elem;
 					var value = obj.value;
 					var row = $(elem).closest(".condition-row");
@@ -411,7 +476,7 @@
 							return '匹配内容不能为空';
 						}
 						if (field == 'IP' && operator == 'equal') {
-							if (isIP(value) == false) {
+							if (validator.isIP(value) == false) {
 								return 'IP地址格式不正确';
 							}
 						}
@@ -430,8 +495,8 @@
 					}
 				});
 
-				// 提交事件
-				form.on('submit(rule_save)', function(data) {
+				// 规则提交保存事件
+				form.on('submit(filter-rule-save)', function(data) {
 					var field = data.field;
 					if (!field.id) {
 						field.state = 'off';
@@ -460,9 +525,12 @@
 					});
 					field.conditions = conditions;
 
-					$.post('/defense/rule/acl/save', {rule: JSON.stringify(field)}, function(data) {
+					var param = {siteId : $('#site').val()};
+					param.rule = JSON.stringify(field);
+
+					$.post('/acl/rule/save', param, function(data) {
 						if (data && data.code == 200) {
-							table.reloadData('table_rule');
+							table.reloadData('id-table-rules');
 							layer.closeLast('page');
 							popup.success("已保存");
 							return true;
@@ -475,14 +543,28 @@
 					return false; // 阻止默认 form 跳转
 				});
 
-				form.on('switch(rule_switch_status)', function(obj) {
-					var id = this.value;
-					var name = this.name;
-
+				form.on('switch(filter-rule-state)', function(obj) {
 					var state = this.checked ? 'on' : 'off';
-					$.post('/defense/rule/acl/state', {id: id, state: state}, function(data) {
+					var param = {siteId : $('#site').val()};
+					param.ruleId = this.value;
+					param.state = this.checked ? 'on' : 'off';
+
+					$.post('/acl/rule/state/update', param, function(data) {
 						if (data && data.code == 200) {
-							table.reloadData('table_rule');
+							table.reloadData('id-table-rules');
+							return true;
+						} else {
+							popup.failure(data.msg);
+							return false;
+						}
+					}, "json");
+				});
+
+				form.on('switch(filter-acl-module-state)', function(obj) {
+					var state = this.checked ? 'on' : 'off';
+					var param = {siteId: $('#site').val(), state : state}
+					$.post('/acl/config/state/update', param, function(data) {
+						if (data && data.code == 200) {
 							return true;
 						} else {
 							popup.failure(data.msg);
@@ -492,8 +574,8 @@
 				});
 
 				$(function() {
-					initActionSelect('rule_select', 'coding', function() {
-						form.render($('#rule_select'));
+					initActionSelect('id-action', 'coding', function() {
+						form.render($('#id-action'));
 					});
 				});
 			});

@@ -14,9 +14,9 @@ local format = string.format
 
 local _M = {}
 
-local WEBSITES_PATH = config.rulePath .. 'website.json'
-local CERTIFICATE_PATH = config.rulePath .. "certificate.json"
-local SITES_CONF_PATH = config.ZHONGKUI_PATH .. '/conf/sites.conf'
+local WEBSITES_PATH = config.CONF_PATH .. '/website.json'
+local CERTIFICATE_PATH = config.CONF_PATH .. "/certificate.json"
+local SITES_CONF_PATH = config.ZHONGKUI_PATH .. '/admin/conf/sites.conf'
 
 -- nginx server
 local NGINX_SERVER_CONFIG = [[

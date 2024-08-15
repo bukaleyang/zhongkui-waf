@@ -58,6 +58,11 @@ function _M.getRequestBody()
     return bodyData
 end
 
+function _M.get_post_args()
+    ngx.req.read_body()
+    return ngx.req.get_post_args()
+end
+
 function _M.getUploadFiles()
     local boundary = _M.getBoundary()
     if not boundary then
