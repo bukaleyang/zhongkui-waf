@@ -3,15 +3,15 @@
 
 local cjson = require "cjson"
 local config = require "config"
-local file = require "file"
+local file = require "file_utils"
 local user = require "user"
 local request = require "request"
 
 local get_post_args = request.get_post_args
 local cjson_encode = cjson.encode
 local cjson_decode = cjson.decode
-local readFileToString = file.readFileToString
-local writeStringToFile = file.writeStringToFile
+local read_file_to_string = file.read_file_to_string
+local write_string_to_file = file.write_string_to_file
 
 local type = type
 
@@ -19,16 +19,16 @@ local _M = {}
 
 local SYSTEM_PATH = config.CONF_PATH .. '/system.json'
 
-function _M.doRequest()
+function _M.do_request()
     local response = {code = 200, data = {}, msg = ""}
     local uri = ngx.var.uri
     local reload = false
 
-    if user.checkAuthToken() == false then
+    if user.check_auth_token() == false then
         response.code = 401
         response.msg = 'User not logged in'
         ngx.status = 401
-        ngx.say(cjson.encode(response))
+        ngx.say(cjson_encode(response))
         ngx.exit(401)
         return
     end
@@ -49,7 +49,7 @@ function _M.doRequest()
     elseif uri == "/system/update" then
         local args, err = get_post_args()
         if args then
-            local json = readFileToString(SYSTEM_PATH)
+            local json = read_file_to_string(SYSTEM_PATH)
             local system = cjson_decode(json)
 
             for key, val in pairs(args) do
@@ -71,7 +71,7 @@ function _M.doRequest()
                 system[key] = option
             end
 
-            writeStringToFile(SYSTEM_PATH, cjson_encode(system))
+            write_string_to_file(SYSTEM_PATH, cjson_encode(system))
             reload = true
         else
             response.code = 500
@@ -79,14 +79,14 @@ function _M.doRequest()
         end
     end
 
-    ngx.say(cjson.encode(response))
+    ngx.say(cjson_encode(response))
 
     -- 如果没有错误且需要重载配置文件则重载配置文件
     if (response.code == 200 or response.code == 0) and reload == true then
-        config.reloadConfigFile()
+        config.reload_config_file()
     end
 end
 
-_M.doRequest()
+_M.do_request()
 
 return _M

@@ -3,13 +3,12 @@
 
 local cjson = require "cjson"
 local config = require "config"
-local redisCli = require "redisCli"
-local isArray = require "table.isarray"
+local redis_cli = require "redis_cli"
+local isarray = require "table.isarray"
 local sql = require "sql"
 local utils = require "utils"
 local constants = require "constants"
 
-local redisGet = redisCli.redisGet
 local md5 = ngx.md5
 local pairs = pairs
 local tonumber = tonumber
@@ -36,8 +35,8 @@ local function sort(key_str, t)
         local totalHits = nil
 
         if is_system_option_on("redis") then
-            hits = redisGet(prefix .. key)
-            totalHits = redisGet(prefix .. key_total)
+            hits = redis_cli.get(prefix .. key)
+            totalHits = redis_cli.get(prefix .. key_total)
         else
             hits = dict_hits:get(key)
             totalHits = dict_hits:get(key_total)
@@ -60,7 +59,7 @@ local function sort(key_str, t)
     return t
 end
 
-local sortTimerHandler = function(premature)
+local sort_timer_handler = function(premature)
     if premature then
         return
     end
@@ -73,7 +72,7 @@ local sortTimerHandler = function(premature)
                 local security_modules = cjson_decode(json)
                 for _, module in pairs(security_modules) do
                     local rules = module.rules
-                    if isArray(rules) then
+                    if isarray(rules) then
                         rules = sort(server_name .. module['moduleName'], rules)
                     end
                 end
@@ -85,7 +84,7 @@ local sortTimerHandler = function(premature)
     end
 end
 
-local getRulesTimerHandler = function(premature)
+local get_rules_timer_handler = function(premature)
     if premature then
         return
     end
@@ -103,25 +102,25 @@ local getRulesTimerHandler = function(premature)
 end
 
 if is_global_option_on("waf") then
-    local workerId = ngx.worker.id()
+    local worker_id = ngx.worker.id()
 
     if is_system_option_on('rulesSort') then
-        local delay = get_system_config().rulesSort.period
+        local delay = get_system_config('rulesSort').period
 
-        if workerId == 0 then
-            utils.startTimerEvery(delay, sortTimerHandler)
+        if worker_id == 0 then
+            utils.start_timer_every(delay, sort_timer_handler)
         end
 
-        utils.startTimerEvery(delay, getRulesTimerHandler)
+        utils.start_timer_every(delay, get_rules_timer_handler)
     end
 
     if is_system_option_on("mysql") then
-        if workerId == 0 then
-            utils.startTimer(0, sql.checkTable)
-            utils.startTimerEvery(2, sql.writeSqlQueueToMysql, constants.KEY_ATTACK_LOG)
-            utils.startTimerEvery(2, sql.writeSqlQueueToMysql, constants.KEY_IP_BLOCK_LOG)
-            utils.startTimerEvery(2, sql.updateWafStatus)
-            utils.startTimerEvery(2, sql.updateTrafficStats)
+        if worker_id == 0 then
+            utils.start_timer(0, sql.check_table)
+            utils.start_timer_every(2, sql.write_sql_queue_to_mysql, constants.KEY_ATTACK_LOG)
+            utils.start_timer_every(2, sql.write_sql_queue_to_mysql, constants.KEY_IP_BLOCK_LOG)
+            utils.start_timer_every(2, sql.update_waf_status)
+            utils.start_timer_every(2, sql.update_traffic_stats)
         end
     end
 

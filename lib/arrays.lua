@@ -11,35 +11,35 @@ local _M = {}
 
 local INDEX_OUT_OF_RANGE = "String index out of range: "
 
-function _M.binarySearch(array, fromIndex, toIndex, item)
+function _M.binary_search(array, from_index, ro_index, item)
     if isempty(array) then
         return -1
     end
 
-    if fromIndex > toIndex then
-        error("out of range: " .. fromIndex .. "," .. toIndex)
+    if from_index > ro_index then
+        error("out of range: " .. from_index .. "," .. ro_index)
     end
 
-    if fromIndex < 1 then
-        error(INDEX_OUT_OF_RANGE .. fromIndex)
+    if from_index < 1 then
+        error(INDEX_OUT_OF_RANGE .. from_index)
     end
 
-    local arrayLength = nkeys(array)
-    if toIndex > arrayLength then
-        error(INDEX_OUT_OF_RANGE .. toIndex)
+    local array_length = nkeys(array)
+    if ro_index > array_length then
+        error(INDEX_OUT_OF_RANGE .. ro_index)
     end
 
-    local low = fromIndex
-    local high = toIndex
+    local low = from_index
+    local high = ro_index
 
     while low <= high do
         local mid = rshift(low + high, 1)
         --local mid = math.ceil((low + high) / 2)
 
-        local midVal = array[mid]
-        if midVal < item then
+        local midval = array[mid]
+        if midval < item then
             low = mid + 1
-        elseif midVal > item then
+        elseif midval > item then
             high = mid - 1
         else
             return mid

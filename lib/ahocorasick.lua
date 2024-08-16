@@ -29,7 +29,7 @@ local setmetatable = setmetatable
 local pairs = pairs
 local ipairs = ipairs
 
-local toCharArray = stringutf8.toCharArray
+local to_char_array = stringutf8.to_char_array
 local trim = stringutf8.trim
 local lower = string.lower
 
@@ -86,7 +86,7 @@ function _Trie:addNodes(str)
     str = lower(str)
 
     local current = self.rootNode
-    local array = toCharArray(str)
+    local array = to_char_array(str)
     for i, word in ipairs(array) do
         local children = current.children
         if not children then
@@ -101,7 +101,7 @@ function _Trie:addNodes(str)
 		local storedSize = nkeys(children)
         if self.childrenArrayLimit > 0 and storedSize < self.childrenArrayLimit then
             node = _TrieNode:new(word, i)
-            local pos = arrays.binarySearch(children, 1, storedSize, node)
+            local pos = arrays.binary_search(children, 1, storedSize, node)
             if pos > 0 then
                 node = children[pos]
                 node.count = node.count + 1
@@ -149,14 +149,14 @@ function _Trie:contains(str)
     end
     local current = self.rootNode
     local children
-    local array = toCharArray(str)
+    local array = to_char_array(str)
     for _, word in ipairs(array) do
         children = current.children
         if children then
             local isArray = current.isChildrenArray
             if isArray then
                 local storedSize = nkeys(children)
-                local pos = arrays.binarySearch(children, 1, storedSize, _TrieNode:new(word))
+                local pos = arrays.binary_search(children, 1, storedSize, _TrieNode:new(word))
 
                 if pos > 0 then
                     current = children[pos]
@@ -211,7 +211,7 @@ local function getFail(self, childNode, fatherFail)
         local isArray = fatherFail.isChildrenArray
         if isArray then
             local storedSize = nkeys(children)
-            local pos = arrays.binarySearch(children, 1, storedSize, childNode)
+            local pos = arrays.binary_search(children, 1, storedSize, childNode)
             if pos > 0 then
                 fail = children[pos]
             end
@@ -297,7 +297,7 @@ function _AhoCorasick:match(str, simpleMode)
         return
     end
 
-    local array = toCharArray(str)
+    local array = to_char_array(str)
     if isempty(array) then
         return
     end
@@ -316,7 +316,7 @@ function _AhoCorasick:match(str, simpleMode)
             if children then
                 local isArray = current.isChildrenArray
                 if isArray then
-                    local pos = arrays.binarySearch(children, 1, nkeys(children), _TrieNode:new(word))
+                    local pos = arrays.binary_search(children, 1, nkeys(children), _TrieNode:new(word))
                     if pos > 0 then
                         current = children[pos]
                         break

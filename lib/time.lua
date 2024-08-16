@@ -7,7 +7,7 @@ local tonumber = tonumber
 
 local _M = {}
 
-function _M.calculateSecondsToNextMidnight()
+function _M.calculate_seconds_to_next_midnight()
     local localtime = ngx.localtime()
 
     local m, err = ngxmatch(localtime, "(\\d+):(\\d+):(\\d+)", "jo")
@@ -19,13 +19,13 @@ function _M.calculateSecondsToNextMidnight()
     return 86400 - tonumber(m[1]) * 3600 - tonumber(m[2]) * 60 - tonumber(m[3])
 end
 
-function _M.getDateHour()
+function _M.get_date_hour()
     local localtime = ngx.localtime()
     local hour = sub(localtime, 1, 13)
     return hour
 end
 
-function _M.getHours()
+function _M.get_hours()
     local hours = {}
     local today = ngx.today()
     local hour = nil

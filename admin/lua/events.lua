@@ -4,10 +4,11 @@
 local cjson = require "cjson"
 local user = require "user"
 local pager = require "lib.pager"
-local mysql = require "mysqlCli"
+local mysql = require "mysql_cli"
 
 local tonumber = tonumber
 local quote_sql_str = ngx.quote_sql_str
+local cjson_encode = cjson.encode
 
 local _M = {}
 
@@ -33,7 +34,7 @@ local function listLogs()
     if args then
         local page = tonumber(args['page'])
         local limit = tonumber(args['limit'])
-        local offset = pager.getBegin(page, limit)
+        local offset = pager.get_begin(page, limit)
 
         local serverName = args['serverName']
         local ip = args['ip']
@@ -118,15 +119,15 @@ local function getLog()
     return response
 end
 
-function _M.doRequest()
+function _M.do_request()
     local response = {code = 200, data = {}, msg = ""}
     local uri = ngx.var.uri
 
-    if user.checkAuthToken() == false then
+    if user.check_auth_token() == false then
         response.code = 401
         response.msg = 'User not logged in'
         ngx.status = 401
-        ngx.say(cjson.encode(response))
+        ngx.say(cjson_encode(response))
         ngx.exit(401)
         return
     end
@@ -139,9 +140,9 @@ function _M.doRequest()
         response = getLog()
     end
 
-    ngx.say(cjson.encode(response))
+    ngx.say(cjson_encode(response))
 end
 
-_M.doRequest()
+_M.do_request()
 
 return _M

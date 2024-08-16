@@ -2,35 +2,31 @@
 -- Copyright (c) 2023 bukale bukale2022@163.com
 
 local cjson = require "cjson"
-local fileUtils = require "file"
-local ipUtils = require "ip"
+local file_utils = require "file_utils"
+local ip_utils = require "ip_utils"
 local constants = require "constants"
 local stringutf8 = require "stringutf8"
 local nkeys = require "table.nkeys"
 local ffi = require "ffi"
 local ipmatcher = require "resty.ipmatcher"
 
-local readRule = fileUtils.readRule
-local readFileToString = fileUtils.readFileToString
-local readFileToTable = fileUtils.readFileToTable
-local writeStringToFile = fileUtils.writeStringToFile
-local is_file_exists = fileUtils.is_file_exists
-local is_directory = fileUtils.is_directory
-local mkdir = fileUtils.mkdir
-
-local ngxsub = ngx.re.sub
+local read_rule = file_utils.read_rule
+local read_file_to_string = file_utils.read_file_to_string
+local read_file_to_table = file_utils.read_file_to_table
+local write_string_to_file = file_utils.write_string_to_file
+local is_file_exists = file_utils.is_file_exists
+local is_directory = file_utils.is_directory
+local mkdir = file_utils.mkdir
 
 local sub = string.sub
-local defaultIfBlank = stringutf8.defaultIfBlank
+local default_if_blank = stringutf8.default_if_blank
 
-local concat = table.concat
 local cjson_decode = cjson.decode
 local cjson_encode = cjson.encode
 
 local pairs = pairs
 local ipairs = ipairs
 local tonumber = tonumber
-local type = type
 
 local _M = {}
 
@@ -48,7 +44,7 @@ function _M.is_system_option_on(option)
 end
 
 function _M.is_site_option_on(option)
-    local server_name = ngx.ctx.server_name or defaultIfBlank(ngx.var.server_name, 'unknown')
+    local server_name = ngx.ctx.server_name or default_if_blank(ngx.var.server_name, 'unknown')
     if not config[server_name] then
         return _M.is_global_option_on(option)
     end
@@ -70,7 +66,7 @@ function _M.get_global_config(option)
 end
 
 function _M.get_site_config(option)
-    local server_name = ngx.ctx.server_name or defaultIfBlank(ngx.var.server_name, 'unknown')
+    local server_name = ngx.ctx.server_name or default_if_blank(ngx.var.server_name, 'unknown')
     if not config[server_name] then
         return _M.get_global_config(option)
     end
@@ -88,7 +84,7 @@ function _M.get_global_security_modules(module)
 end
 
 function _M.get_site_security_modules(module)
-    local server_name = ngx.ctx.server_name or defaultIfBlank(ngx.var.server_name, 'unknown')
+    local server_name = ngx.ctx.server_name or default_if_blank(ngx.var.server_name, 'unknown')
     if not config[server_name] then
         return _M.get_global_security_modules(module)
     end
@@ -109,7 +105,7 @@ function _M.get_site_config_file(site_id)
             config_file = _M.CONF_PATH .. '/global.json'
         end
     end
-    return config_file, readFileToString(config_file)
+    return config_file, read_file_to_string(config_file)
 end
 
 function _M.update_site_config_file(site_id, str)
@@ -124,7 +120,7 @@ function _M.update_site_config_file(site_id, str)
             mkdir(site_dir)
         end
     end
-    return writeStringToFile(config_file, str)
+    return write_string_to_file(config_file, str)
 end
 
 function _M.get_site_module_rule_file(site_id, module_id)
@@ -140,7 +136,7 @@ function _M.get_site_module_rule_file(site_id, module_id)
         end
     end
 
-    return rule_file, readFileToString(rule_file)
+    return rule_file, read_file_to_string(rule_file)
 end
 
 function _M.update_site_module_rule_file(site_id, module_id, str)
@@ -163,15 +159,15 @@ function _M.update_site_module_rule_file(site_id, module_id, str)
         rule_file = rules_dir .. '/' .. file_name
     end
 
-    return writeStringToFile(rule_file, str)
+    return write_string_to_file(rule_file, str)
 end
 
 -- Load the ip blacklist in the configuration file and log file to the ngx.shared.dict_blackip or Redis
-local function loadIPBlackList(blacklist)
+local function load_ip_blacklist(blacklist)
     if _M.is_global_option_on("blackIP") and blacklist and nkeys(blacklist) > 0 then
-        local redisCli = require "redisCli"
+        local redis_cli = require "redis_cli"
         if _M.is_system_option_on("redis") then
-            redisCli.redisBathSet(blacklist, 0, constants.KEY_BLACKIP_PREFIX)
+            redis_cli.bath_set(blacklist, 0, constants.KEY_BLACKIP_PREFIX)
         else
             local blackip = ngx.shared.dict_blackip
 
@@ -199,18 +195,18 @@ end
 
 local function load_security_modules(rulePath, site_config)
     local security_modules = {}
-    security_modules.blackUrl = readRule(rulePath, "blackUrl")
-    security_modules.args = readRule(rulePath, "args")
-    security_modules.whiteUrl = readRule(rulePath, "whiteUrl")
-    security_modules.post = readRule(rulePath, "post")
-    security_modules.cookie = readRule(rulePath, "cookie")
-    security_modules.headers = readRule(rulePath, "headers")
-    security_modules.httpMethod = readRule(rulePath, "httpMethod")
-    security_modules.fileExt = readRule(rulePath, "fileExt")
-    security_modules.cc = readRule(rulePath, "cc")
-    security_modules.acl = readRule(rulePath, "acl")
-    security_modules.sensitive = readRule(rulePath, "sensitive")
-    security_modules["user-agent"] = readRule(rulePath, "user-agent")
+    security_modules.blackUrl = read_rule(rulePath, "blackUrl")
+    security_modules.args = read_rule(rulePath, "args")
+    security_modules.whiteUrl = read_rule(rulePath, "whiteUrl")
+    security_modules.post = read_rule(rulePath, "post")
+    security_modules.cookie = read_rule(rulePath, "cookie")
+    security_modules.headers = read_rule(rulePath, "headers")
+    security_modules.httpMethod = read_rule(rulePath, "httpMethod")
+    security_modules.fileExt = read_rule(rulePath, "fileExt")
+    security_modules.cc = read_rule(rulePath, "cc")
+    security_modules.acl = read_rule(rulePath, "acl")
+    security_modules.sensitive = read_rule(rulePath, "sensitive")
+    security_modules["user-agent"] = read_rule(rulePath, "user-agent")
 
     security_modules.sqli = { moduleName = "SQL注入检测", rules = {{ attackType = "sqli", rule = "sqli", action = "DENY", severityLevel="high" }}}
     security_modules.xss = { moduleName = "XSS检测",  rules = {{ attackType = "xss", rule = "xss", action = "DENY", severityLevel="low" }}}
@@ -236,7 +232,7 @@ end
 
 local function load_system_config()
     local system_path = _M.CONF_PATH .. '/system.json'
-    local json = readFileToString(system_path)
+    local json = read_file_to_string(system_path)
     local system = {}
     if json then
         system = cjson_decode(json)
@@ -252,7 +248,7 @@ local function load_system_config()
 
     _M.LOG_PATH = log_path or _M.ZHONGKUI_PATH .. "/logs/hack/"
     system.attackLog.logPath = _M.LOG_PATH
-    system.html = readFileToString(_M.ZHONGKUI_PATH .. "/redirect.html")
+    system.html = read_file_to_string(_M.ZHONGKUI_PATH .. "/redirect.html")
 
     config.system = system
 end
@@ -261,7 +257,7 @@ local function load_global_config()
     local global_path = _M.CONF_PATH .. '/global.json'
     local global_config = {}
     local security_modules = {}
-    local json = readFileToString(global_path)
+    local json = read_file_to_string(global_path)
 
     if json then
         global_config = cjson_decode(json)
@@ -273,17 +269,17 @@ local function load_global_config()
 
     config.global = {config = global_config, security_modules = security_modules}
 
-    local ipBlackList_cidr, ip_blacklist = ipUtils.filterIPList(readFileToTable(_M.CONF_PATH .. "/global_rules/ipBlackList"))
-    local ipWhiteList = readFileToTable(_M.CONF_PATH .. "/global_rules/ipWhiteList")
-    add_ip_group(constants.KEY_IP_GROUPS_BLACKLIST, ipBlackList_cidr)
-    add_ip_group(constants.KEY_IP_GROUPS_WHITELIST, ipWhiteList)
+    local ip_blacklist_cidr, ip_blacklist = ip_utils.filter_ip_list(read_file_to_table(_M.CONF_PATH .. "/global_rules/ipBlackList"))
+    local ip_whitelist = read_file_to_table(_M.CONF_PATH .. "/global_rules/ipWhiteList")
+    add_ip_group(constants.KEY_IP_GROUPS_BLACKLIST, ip_blacklist_cidr)
+    add_ip_group(constants.KEY_IP_GROUPS_WHITELIST, ip_whitelist)
 
-    loadIPBlackList(ip_blacklist)
+    load_ip_blacklist(ip_blacklist)
 end
 
 local function load_site_config()
     local website_path = _M.CONF_PATH .. '/website.json'
-    local json = readFileToString(website_path)
+    local json = read_file_to_string(website_path)
     if json then
         local global = config.global
         local global_config = global.config
@@ -297,7 +293,7 @@ local function load_site_config()
                 local id = site.id
                 local site_dir = _M.CONF_PATH .. '/sites/' .. tostring(id)
                 local config_file = site_dir .. '/config.json'
-                local config_str = readFileToString(config_file)
+                local config_str = read_file_to_string(config_file)
                 if config_str then
                     site_config = cjson_decode(config_str)
                 end
@@ -331,10 +327,10 @@ end
 
 local function load_ip_groups()
     local path = _M.CONF_PATH .. '/ipgroup.json'
-    local json = readFileToString(path)
+    local json = read_file_to_string(path)
     if json then
-        local ruleTable = cjson_decode(json)
-        local groups = ruleTable.rules
+        local table_rule = cjson_decode(json)
+        local groups = table_rule.rules
 
         if groups then
             for _, g in pairs(groups) do
@@ -345,63 +341,36 @@ local function load_ip_groups()
 end
 
 -- 加载配置文件
-function _M.loadConfigFile()
+function _M.load_config_file()
     load_system_config()
     load_global_config()
     load_site_config()
     load_ip_groups()
 end
 
--- 修改配置文件
-function _M.updateConfigFile(configTable)
-    if not configTable or nkeys(configTable) == 0 then
-        return
-    end
-
-    local fileName = _M.ZHONGKUI_PATH .. "/conf/zhongkui.conf"
-    local newContent = readFileToString(fileName)
-    if not newContent then
-        ngx.log(ngx.ERR, "failed to read config file ")
-        return
-    end
-
-    for key, value in pairs(configTable) do
-        if type(value) == "table" then
-            if nkeys(value) > 0 then
-                value = "\"" .. concat(value, "\",\"") .. "\""
-            else
-                value = ""
-            end
-        end
-        newContent = ngxsub(newContent, key .. "\\s?=\\s?(\"|\\[)?.*?(\"|])?\r?\n", key .. " = ${1}" .. value .. "${2}\n", "jo")
-    end
-
-    writeStringToFile(fileName, newContent)
-end
-
 -- 获取nginx安装目录
-local function getNginxCommandPath()
+local function get_nginx_command_path()
     local path = ''
     -- 获取当前 Lua 脚本的文件路径
-    local scriptPath = debug.getinfo(1, "S").source:sub(2)
+    local script_path = debug.getinfo(1, "S").source:sub(2)
     -- 获取 OpenResty 安装目录（假设 OpenResty 在 "/usr/local/openresty" 目录下）
-    local openrestyPath = scriptPath:match("(.*/openresty/)")
-    if openrestyPath then
-        path = openrestyPath .. 'nginx/sbin/'
+    local openresty_path = script_path:match("(.*/openresty/)")
+    if openresty_path then
+        path = openresty_path .. 'nginx/sbin/'
     end
     return path
 end
 
 -- 是否Linux系统
-local function isLinux()
+local function is_linux()
     return ffi.os == "Linux"
 end
 
 -- 重新加载nginx配置
-function _M.reloadNginx()
+function _M.reload_nginx()
     -- Nginx重新加载配置文件的系统命令
-    local command = getNginxCommandPath() .. "nginx -s reload"
-    if isLinux() then
+    local command = get_nginx_command_path() .. "nginx -s reload"
+    if is_linux() then
         command = "sudo " .. command
     end
 
@@ -414,8 +383,8 @@ function _M.reloadNginx()
 end
 
 -- 如果配置文件正确，则重载nginx
-function _M.reloadConfigFile()
-    _M.reloadNginx()
+function _M.reload_config_file()
+    _M.reload_nginx()
 end
 
 return _M

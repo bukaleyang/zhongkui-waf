@@ -3,7 +3,7 @@
 
 local geo = require "resty.maxminddb"
 local config = require "config"
-local ipUtils = require "ip"
+local ip_utils = require "ip_utils"
 
 local _M = {}
 
@@ -13,6 +13,7 @@ local ipairs = ipairs
 
 local get_site_config = config.get_site_config
 local get_system_config = config.get_system_config
+local is_private_ip = ip_utils.is_private_ip
 
 local db_file = get_system_config().geoip.file
 
@@ -28,7 +29,7 @@ local intranet = {is_allowed = true, longitude = 0, latitude = 0,
                 city = {names = {['iso_code'] = '', en = 'intranet', ['zh-CN'] = '内网'}}}
 
 function _M.lookup(ip)
-    if ipUtils.isPrivateIP(ip) then
+    if is_private_ip(ip) then
         return intranet
     end
 

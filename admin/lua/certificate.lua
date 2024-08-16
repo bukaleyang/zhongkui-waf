@@ -3,11 +3,10 @@
 
 local cjson = require "cjson"
 local config = require "config"
-local fileUtils = require "file"
+local file_utils = require "file_utils"
 local user = require "user"
 local request = require "request"
-local ruleUtils = require "lib.ruleUtils"
-
+local rule_utils = require "lib.rule_utils"
 local x509 = require "openssl.x509"
 
 local pairs = pairs
@@ -15,6 +14,12 @@ local tostring = tostring
 local tabinsert = table.insert
 local ngxfind = ngx.re.find
 local date = os.date
+local get_upload_files = request.get_upload_files
+local read_file_to_string = file_utils.read_file_to_string
+local remove_file = file_utils.remove_file
+
+local cjson_decode = cjson.decode
+local cjson_encode = cjson.encode
 
 local _M = {}
 
@@ -25,26 +30,26 @@ local REGEX_CERT_PATH = "^" .. CERTS_PATH .. "\\S+\\.(?:pem|crt)$"
 local REGEX_KEY_PATH = "^" .. CERTS_PATH .. "\\S+\\.key$"
 
 
-function _M.doRequest()
+function _M.do_request()
     local response = {code = 200, data = {}, msg = ""}
     local uri = ngx.var.uri
     local reload = false
 
-    if user.checkAuthToken() == false then
+    if user.check_auth_token() == false then
         response.code = 401
         response.msg = "User not logged in"
         ngx.status = 401
-        ngx.say(cjson.encode(response))
+        ngx.say(cjson_encode(response))
         ngx.exit(401)
         return
     end
 
     if uri == "/common/certificate/list" then
         -- 查询证书列表
-        response = ruleUtils.listRules(CERTIFICATE_PATH)
+        response = rule_utils.list_rules(CERTIFICATE_PATH)
     elseif uri == "/common/certificate/save" then
         -- 修改或新增证书
-        local newRule = ruleUtils.getRuleFromRequest()
+        local newRule = rule_utils.get_rule_from_request()
         if not newRule then
             response.code = 500
             return
@@ -54,7 +59,7 @@ function _M.doRequest()
 
         if not publicKey or not privateKey then
             response.code = 500
-            ngx.say(cjson.encode(response))
+            ngx.say(cjson_encode(response))
             return
         end
 
@@ -114,8 +119,8 @@ function _M.doRequest()
         local keyPath = fileName.. ".key"
 
         -- 保存证书和私钥文件
-        fileUtils.writeStringToFile(certPath, publicKey)
-        fileUtils.writeStringToFile(keyPath, privateKey)
+        file_utils.write_string_to_file(certPath, publicKey)
+        file_utils.write_string_to_file(keyPath, privateKey)
 
         newRule.certPath = certPath
         newRule.keyPath = keyPath
@@ -124,16 +129,16 @@ function _M.doRequest()
         newRule.privateKey = nil
         newRule.file = nil
 
-        response.data = cjson.encode(newRule)
+        response.data = cjson_encode(newRule)
 
-        response = ruleUtils.saveOrUpdateRule(CERTIFICATE_PATH, newRule)
+        response = rule_utils.save_or_update_rule(CERTIFICATE_PATH, newRule)
         reload = true
     elseif uri == "/common/certificate/remove" then
-        response = ruleUtils.getRule(CERTIFICATE_PATH)
+        response = rule_utils.get_rule(CERTIFICATE_PATH)
         local cert = response.data
         if cert then
             -- 删除证书
-            response = ruleUtils.deleteRule(CERTIFICATE_PATH)
+            response = rule_utils.delete_rule(CERTIFICATE_PATH)
 
             -- 如果配置删除成功则删除证书和密钥文件
             if response and response.code == 200 then
@@ -142,11 +147,11 @@ function _M.doRequest()
 
                 -- 删除前检查文件路径是否正确，避免删错造成严重后果
                 if ngxfind(certPath, REGEX_CERT_PATH, "jo") then
-                    fileUtils.removeFile(certPath)
+                    remove_file(certPath)
                 end
 
                 if ngxfind(keyPath, REGEX_KEY_PATH, "jo") then
-                    fileUtils.removeFile(keyPath)
+                    remove_file(keyPath)
                 end
             end
 
@@ -157,12 +162,12 @@ function _M.doRequest()
         end
     elseif uri == "/common/certificate/get" then
         -- 查询证书
-        response = ruleUtils.getRule(CERTIFICATE_PATH)
+        response = rule_utils.get_rule(CERTIFICATE_PATH)
         if response.code == 200 then
             local cert = response.data
             if cert then
-                local publicKey = fileUtils.readFileToString(cert.certPath)
-                local privateKey = fileUtils.readFileToString(cert.keyPath)
+                local publicKey = read_file_to_string(cert.certPath)
+                local privateKey = read_file_to_string(cert.keyPath)
 
                 response.data = {id = cert.id, publicKey = publicKey, privateKey = privateKey}
             end
@@ -170,7 +175,7 @@ function _M.doRequest()
     elseif uri == "/common/certificate/readfile" then
         -- 读取证书或私钥文件中的内容
 
-        local files, err = request.getUploadFiles()
+        local files, err = get_upload_files()
         if files then
             local file = files["file"]
             if file then
@@ -182,9 +187,9 @@ function _M.doRequest()
             ngx.log(ngx.ERR, err)
         end
     elseif uri == "/common/certificate/listcerts" then
-        local json = fileUtils.readFileToString(CERTIFICATE_PATH)
+        local json = read_file_to_string(CERTIFICATE_PATH)
         if json then
-            local ruleTable = cjson.decode(json)
+            local ruleTable = cjson_decode(json)
             local rules = ruleTable.rules
 
             local certs = {}
@@ -201,14 +206,14 @@ function _M.doRequest()
         end
     end
 
-    ngx.say(cjson.encode(response))
+    ngx.say(cjson_encode(response))
 
     -- 如果没有错误且需要重载配置文件则重载配置文件
     if response.code == 200 and reload == true then
-        config.reloadConfigFile()
+        config.reload_config_file()
     end
 end
 
-_M.doRequest()
+_M.do_request()
 
 return _M

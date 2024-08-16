@@ -4,7 +4,7 @@
 local cjson = require "cjson"
 local config = require "config"
 local user = require "user"
-local ruleUtils = require "lib.ruleUtils"
+local rule_utils = require "lib.rule_utils"
 
 local tonumber = tonumber
 local gsub = string.gsub
@@ -20,12 +20,12 @@ local _M = {}
 
 local MODULE_ID = 'user-agent'
 
-function _M.doRequest()
+function _M.do_request()
     local response = {code = 200, data = {}, msg = ""}
     local uri = ngx.var.uri
     local reload = false
 
-    if user.checkAuthToken() == false then
+    if user.check_auth_token() == false then
         response.code = 401
         response.msg = 'User not logged in'
         ngx.status = 401
@@ -102,7 +102,7 @@ function _M.doRequest()
 
             if site_id then
                 local file_path = get_site_module_rule_file(site_id, MODULE_ID)
-                response = ruleUtils.listRules(file_path)
+                response = rule_utils.list_rules(file_path)
             else
                 response.code = 500
                 response.msg = 'param error'
@@ -119,7 +119,7 @@ function _M.doRequest()
         if args then
             local site_id = tostring(args['siteId'])
             if site_id then
-                local rule_new = ruleUtils.getRuleFromRequest()
+                local rule_new = rule_utils.get_rule_from_request()
                 if rule_new then
                     rule_new.id = tonumber(rule_new.id)
                     rule_new.ipBlockTimeout = tonumber(rule_new.ipBlockTimeout)
@@ -132,7 +132,7 @@ function _M.doRequest()
                         rule = gsub(rule, '\n', '|')
                     end
                     rule_new.rule = rule
-                    response = ruleUtils.save_or_update_site_rule(site_id, MODULE_ID, rule_new)
+                    response = rule_utils.save_or_update_site_rule(site_id, MODULE_ID, rule_new)
                     reload = true
                 else
                     response.code = 500
@@ -156,7 +156,7 @@ function _M.doRequest()
             local rule_id = tonumber(args['ruleId'])
             local state = tostring(args['state'])
 
-            response = ruleUtils.update_site_rule_state(site_id, MODULE_ID, rule_id, state)
+            response = rule_utils.update_site_rule_state(site_id, MODULE_ID, rule_id, state)
             if response and response.code == 200 then
                 reload = true
             end
@@ -170,10 +170,10 @@ function _M.doRequest()
 
     -- 如果没有错误且需要重载配置文件则重载配置文件
     if (response.code == 200 or response.code == 0) and reload == true then
-        config.reloadConfigFile()
+        config.reload_config_file()
     end
 end
 
-_M.doRequest()
+_M.do_request()
 
 return _M

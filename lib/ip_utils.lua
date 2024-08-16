@@ -15,7 +15,7 @@ local ngxmatch = ngx.re.match
 
 local insert = table.insert
 
-function _M.getClientIP()
+function _M.get_client_ip()
     local var = ngx.var
     local ips = {
         var.http_x_forwarded_for,
@@ -41,7 +41,7 @@ function _M.getClientIP()
 end
 
 -- 是否内网IP
-function _M.isPrivateIP(ip)
+function _M.is_private_ip(ip)
     if not ip then
         return false
     end
@@ -60,17 +60,22 @@ function _M.isPrivateIP(ip)
         elseif a == 192 and b == 168 then
             return true
         end
+    else
+        if err then
+            ngx.log(ngx.ERR, "error: ", err)
+            return
+        end
     end
 
     return false
 end
 
--- 把配置中混合在一起的单ip和ip网段区分开，{ip网段table},{ipList}
-function _M.filterIPList(ipList)
+-- 把配置中混合在一起的单ip和ip网段区分开，{ip网段table},{ips}
+function _M.filter_ip_list(ips)
     local t1, t2 = {}, {}
 
-    if ipList and #ipList > 0 then
-        for _, v in ipairs(ipList) do
+    if ips and #ips > 0 then
+        for _, v in ipairs(ips) do
             if find(v, '/') then
                 insert(t1, v)
             else

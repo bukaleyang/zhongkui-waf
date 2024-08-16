@@ -36,7 +36,7 @@ end
 
 --local filterName = "blackIpFilter"
 
-function _M.getRedisConn()
+function _M.get_connection()
     local red, err1 = redis:new()
     if not red then
         ngx.log(ngx.ERR, "failed to new redis:", err1)
@@ -68,7 +68,7 @@ function _M.getRedisConn()
     return red, err
 end
 
-function _M.closeRedisConn(red)
+function _M.close_connection(red)
     -- put it into the connection pool of size 100,
     -- with 10 seconds max idle time
     local ok, err = red:set_keepalive(10000, 100)
@@ -79,35 +79,35 @@ function _M.closeRedisConn(red)
     return ok, err
 end
 
-function _M.redisSet(key, value, expireTime)
-    local red, _ = _M.getRedisConn()
+function _M.set(key, value, expire_time)
+    local red, _ = _M.get_connection()
     local ok, err = nil, nil
     if red then
         ok, err = red:set(key, value)
         if not ok then
             ngx.log(ngx.ERR, "failed to set key: " .. key .. " ", err)
-        elseif expireTime and expireTime > 0 then
-            red:expire(key, expireTime)
+        elseif expire_time and expire_time > 0 then
+            red:expire(key, expire_time)
         end
 
-        _M.closeRedisConn(red)
+        _M.close_connection(red)
     end
 
     return ok, err
 end
 
-function _M.redisBathSet(keyTable, value, keyPrefix)
-    local red, _ = _M.getRedisConn()
+function _M.bath_set(key_table, value, key_prefix)
+    local red, _ = _M.get_connection()
     local results, err = nil, nil
     if red then
         red:init_pipeline()
 
-        if keyPrefix then
-            for _, ip in ipairs(keyTable) do
-                red:set(keyPrefix .. ip, value)
+        if key_prefix then
+            for _, ip in ipairs(key_table) do
+                red:set(key_prefix .. ip, value)
             end
         else
-            for _, ip in ipairs(keyTable) do
+            for _, ip in ipairs(key_table) do
                 red:set(ip, value)
             end
         end
@@ -117,14 +117,14 @@ function _M.redisBathSet(keyTable, value, keyPrefix)
             ngx.log(ngx.ERR, "failed to set keys: ", err)
         end
 
-        _M.closeRedisConn(red)
+        _M.close_connection(red)
     end
 
     return results, err
 end
 
-function _M.redisGet(key)
-    local red, err = _M.getRedisConn()
+function _M.get(key)
+    local red, err = _M.get_connection()
     local value = nil
     if red then
         value, err = red:get(key)
@@ -136,31 +136,31 @@ function _M.redisGet(key)
             value = nil
         end
 
-        _M.closeRedisConn(red)
+        _M.close_connection(red)
     end
 
     return value, err
 end
 
-function _M.redisIncr(key, expireTime)
-    local red, err = _M.getRedisConn()
+function _M.incr(key, expire_time)
+    local red, err = _M.get_connection()
     local res = nil
     if red then
         res, err = red:incr(key)
         if not res then
             ngx.log(ngx.ERR, "failed to incr key: " .. key, err)
-        elseif res == 1 and expireTime and expireTime > 0 then
-            red:expire(key, expireTime)
+        elseif res == 1 and expire_time and expire_time > 0 then
+            red:expire(key, expire_time)
         end
 
-        _M.closeRedisConn(red)
+        _M.close_connection(red)
     end
 
     return res, err
 end
 
-function _M.redisDel(key)
-    local red, err = _M.getRedisConn()
+function _M.del(key)
+    local red, err = _M.get_connection()
     local res = nil
     if red then
         res, err = red:del(key)
@@ -168,15 +168,15 @@ function _M.redisDel(key)
             ngx.log(ngx.ERR, "failed to delete key: " .. key, err)
         end
 
-        _M.closeRedisConn(red)
+        _M.close_connection(red)
     end
 
     return res, err
 end
 
 --[[
-function _M.redisBFAdd(value)
-    local red, err = _M.getRedisConn()
+function _M.bf_add(value)
+    local red, err = _M.get_connection()
     local res = nil
     if red then
         -- call BF.ADD command with the prefix 'bf'
@@ -186,13 +186,13 @@ function _M.redisBFAdd(value)
             return res, err
         end
 
-        _M.closeRedisConn(red)
+        _M.close_connection(red)
     end
     return res, err
 end
 
-function _M.redisBFExists(value)
-    local red, err = _M.getRedisConn()
+function _M.bf_exists(value)
+    local red, err = _M.get_connection()
     local res = nil
     if red then
         -- call BF.EXISTS command
@@ -201,10 +201,10 @@ function _M.redisBFExists(value)
             ngx.log(ngx.ERR, "bf():exists value: " .. value, err)
             return res, err
         elseif res == 1 then
-            _M.closeRedisConn(red)
+            _M.close_connection(red)
             return true
         else
-            _M.closeRedisConn(red)
+            _M.close_connection(red)
             return false
         end
     end

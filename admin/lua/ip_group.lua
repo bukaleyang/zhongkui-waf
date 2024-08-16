@@ -3,38 +3,41 @@
 
 local cjson = require "cjson"
 local config = require "config"
-local fileUtils = require "file"
+local file_utils = require "file_utils"
 local user = require "user"
-local ruleUtils = require "lib.ruleUtils"
+local rule_utils = require "lib.rule_utils"
 
 local tonumber = tonumber
 local insert = table.insert
+
+local cjson_decode = cjson.decode
+local cjson_encode = cjson.encode
 
 local _M = {}
 
 local IP_GROUP_PATH = config.CONF_PATH .. '/ipgroup.json'
 local ACL_PATH = config.CONF_PATH .. '/global_rules/acl.json'
 
-function _M.doRequest()
+function _M.do_request()
     local response = {code = 200, data = {}, msg = ""}
     local uri = ngx.var.uri
     local reload = false
 
-    if user.checkAuthToken() == false then
+    if user.check_auth_token() == false then
         response.code = 401
         response.msg = 'User not logged in'
         ngx.status = 401
-        ngx.say(cjson.encode(response))
+        ngx.say(cjson_encode(response))
         return ngx.exit(401)
     end
 
     if uri == "/common/ipgroups/list" then
         -- ip组列表
-        response = ruleUtils.listRules(IP_GROUP_PATH)
+        response = rule_utils.list_rules(IP_GROUP_PATH)
     elseif uri == "/common/ipgroups/listnames" then
-        local json = fileUtils.readFileToString(IP_GROUP_PATH)
+        local json = file_utils.read_file_to_string(IP_GROUP_PATH)
         if json then
-            local ruleTable = cjson.decode(json)
+            local ruleTable = cjson_decode(json)
             local rules = ruleTable.rules
 
             local groups = {}
@@ -54,7 +57,7 @@ function _M.doRequest()
         if args then
             local id = tonumber(args['id'])
             if id then
-                response = ruleUtils.getRule(IP_GROUP_PATH, id)
+                response = rule_utils.get_rule(IP_GROUP_PATH, id)
             end
         else
             response.code = 500
@@ -63,7 +66,7 @@ function _M.doRequest()
         end
     elseif uri == "/common/ipgroups/update" then
         -- 修改ip组内容
-        local newRule = ruleUtils.getRuleFromRequest()
+        local newRule = rule_utils.get_rule_from_request()
         if newRule then
             newRule.id = tonumber(newRule.id)
             local ips = newRule.ips
@@ -73,7 +76,7 @@ function _M.doRequest()
                 response.msg = 'param content is empty'
             end
 
-            response = ruleUtils.saveOrUpdateRule(IP_GROUP_PATH, newRule)
+            response = rule_utils.save_or_update_rule(IP_GROUP_PATH, newRule)
             reload = true
         else
             response.code = 500
@@ -88,9 +91,9 @@ function _M.doRequest()
             local id = tonumber(args['id'])
             if id then
                 local flag = false
-                local json = fileUtils.readFileToString(ACL_PATH)
+                local json = file_utils.read_file_to_string(ACL_PATH)
                 if json then
-                    local ruleTable = cjson.decode(json)
+                    local ruleTable = cjson_decode(json)
                     local rules = ruleTable.rules
 
                     if rules then
@@ -114,7 +117,7 @@ function _M.doRequest()
                     response.code = 500
                     response.msg = '该IP组被其他规则引用，不能删除'
                 else
-                    response = ruleUtils.deleteRule(IP_GROUP_PATH)
+                    response = rule_utils.delete_rule(IP_GROUP_PATH)
                     reload = true
                 end
             end
@@ -124,14 +127,14 @@ function _M.doRequest()
         end
     end
 
-    ngx.say(cjson.encode(response))
+    ngx.say(cjson_encode(response))
 
     -- 如果没有错误且需要重载配置文件则重载配置文件
     if (response.code == 200 or response.code == 0) and reload == true then
-        config.reloadConfigFile()
+        config.reload_config_file()
     end
 end
 
-_M.doRequest()
+_M.do_request()
 
 return _M

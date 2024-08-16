@@ -15,7 +15,7 @@ local database = mysql_config.database
 local poolSize = mysql_config.poolSize
 local timeout = mysql_config.timeout or 1000
 
-function _M.getConnection()
+function _M.get_connection()
     local db, err = mysql:new()
     if not db then
         ngx.log(ngx.ERR, "failed to instantiate mysql: ", err)
@@ -24,7 +24,7 @@ function _M.getConnection()
 
     db:set_timeout(timeout)
 
-    local ok, err, errcode, sqlstate = db:connect{
+    local ok, err, errcode, sql_state = db:connect{
         host = host,
         port = port or 3306,
         database = database,
@@ -36,7 +36,7 @@ function _M.getConnection()
     }
 
     if not ok then
-        ngx.log(ngx.ERR, "failed to connect: ", err, ": ", errcode, " ", sqlstate)
+        ngx.log(ngx.ERR, "failed to connect: ", err, ": ", errcode, " ", sql_state)
         return nil, err
     end
 
@@ -44,23 +44,23 @@ function _M.getConnection()
 end
 
 function _M.query(sql, rows)
-    local res, err, errcode, sqlstate
-    local db = _M.getConnection()
+    local res, err, errcode, sql_state
+    local db = _M.get_connection()
     if db then
-        res, err, errcode, sqlstate = db:query(sql, rows)
+        res, err, errcode, sql_state = db:query(sql, rows)
         if not res then
-            ngx.log(ngx.ERR, "bad result: ", err, ": ", errcode, ": ", sqlstate, ".")
+            ngx.log(ngx.ERR, "bad result: ", err, ": ", errcode, ": ", sql_state, ".")
             return
         end
 
-        _M.closeConnection(db)
+        _M.close_connection(db)
     end
 
     return res
 end
 
 
-function _M.closeConnection(db)
+function _M.close_connection(db)
     -- put it into the connection pool of size 100,
     -- with 10 seconds max idle timeout
     local ok, err = db:set_keepalive(10000, poolSize or 10)

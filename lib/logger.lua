@@ -5,6 +5,7 @@ local concat = table.concat
 local newtab = table.new
 local timerat = ngx.timer.at
 local setmetatable = setmetatable
+local io_open = io.open
 
 local _M = {}
 
@@ -29,7 +30,7 @@ function _M:new(logPath, host, rolling)
     return t
 end
 
-local function needFlush(self)
+local function need_flush(self)
     if self.buffered_size > 0 then
         return true
     end
@@ -37,7 +38,7 @@ local function needFlush(self)
     return false
 end
 
-local function flushLock(self)
+local function flush_lock(self)
     local dic_lock = ngx.shared.dict_locks
     local locked = dic_lock:get(self.host)
     if not locked then
@@ -50,7 +51,7 @@ local function flushLock(self)
     return false
 end
 
-local function flushUnlock(self)
+local function flush_unlock(self)
     local dic_lock = ngx.shared.dict_locks
     local succ, err = dic_lock:set(self.host, false)
     if not succ then
@@ -59,15 +60,15 @@ local function flushUnlock(self)
     return succ
 end
 
-local function writeFile(self, value)
-    local fileName = ''
+local function write_file(self, value)
+    local file_name = ''
     if self.rolling then
-        fileName = self.prefix .. ngx.today() .. ".log"
+        file_name = self.prefix .. ngx.today() .. ".log"
     else
-        fileName = self.logPath
+        file_name = self.logPath
     end
 
-	local file = io.open(fileName, "a+")
+	local file = io_open(file_name, "a+")
 
 	if file == nil or value == nil then
 		return
@@ -80,31 +81,31 @@ local function writeFile(self, value)
 	return
 end
 
-local function flushBuffer(self)
-    if not needFlush(self) then
+local function flush_buffer(self)
+    if not need_flush(self) then
         return true
     end
 
-    if not flushLock(self) then
+    if not flush_lock(self) then
         return true
     end
 
     local buffer = concat(self.buffer_data, "", 1, self.buffer_index)
-    writeFile(self, buffer)
+    write_file(self, buffer)
 
     self.buffered_size = 0
     self.buffer_index = 0
     self.buffer_data = newtab(20000, 0)
 
-    flushUnlock(self)
+    flush_unlock(self)
 end
 
 local function flushPeriod(premature, self)
-    flushBuffer(self)
+    flush_buffer(self)
     self.timer = false
 end
 
-local function writeBuffer(self, msg, msg_len)
+local function write_buffer(self, msg, msg_len)
     self.buffer_index = self.buffer_index + 1
 
     self.buffer_data[self.buffer_index] = msg
@@ -114,7 +115,7 @@ local function writeBuffer(self, msg, msg_len)
     return self.buffered_size
 end
 
-local function startTimer(self)
+local function start_timer(self)
     if not self.timer then
         local ok, err = timerat(self.flush_timeout, flushPeriod, self)
         if not ok then
@@ -137,11 +138,11 @@ function _M:log(msg)
     local len = msg_len + self.buffered_size
 
     if len < self.flush_limit then
-        writeBuffer(self, msg, msg_len)
-        startTimer(self)
+        write_buffer(self, msg, msg_len)
+        start_timer(self)
     elseif len >= self.flush_limit then
-        writeBuffer(self, msg, msg_len)
-        flushBuffer(self)
+        write_buffer(self, msg, msg_len)
+        flush_buffer(self)
     end
 end
 

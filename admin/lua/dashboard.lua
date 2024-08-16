@@ -13,12 +13,13 @@ local ipairs = ipairs
 local concat = table.concat
 local ngxfind = ngx.re.find
 
+local cjson_encode = cjson.encode
 local is_system_option_on = config.is_system_option_on
 
 local _M = {}
 
 local function getRequestTraffic()
-    local hours = time.getHours()
+    local hours = time.get_hours()
     local dict = ngx.shared.dict_req_count
     local dataStr = '[["hour", "traffic","attack_traffic"],'
     for _, hour in ipairs(hours) do
@@ -58,15 +59,15 @@ local function getAttackTypeTraffic()
     return dataStr
 end
 
-function _M.doRequest()
+function _M.do_request()
     local response = {code = 200, data = {}, msg = ""}
     local uri = ngx.var.uri
 
-    if user.checkAuthToken() == false then
+    if user.check_auth_token() == false then
         response.code = 401
         response.msg = 'User not logged in'
         ngx.status = 401
-        ngx.say(cjson.encode(response))
+        ngx.say(cjson_encode(response))
         ngx.exit(401)
         return
     end
@@ -84,21 +85,21 @@ function _M.doRequest()
         local china = {}
 
         if is_system_option_on("mysql") then
-            local res, err = sql.getTodayWafStatus()
+            local res, err = sql.get_today_waf_status()
             if res then
                 wafStatus = res[1]
             else
                 ngx.log(ngx.ERR, err)
             end
 
-            res, err = sql.get30DaysWorldTrafficStats()
+            res, err = sql.get_30days_world_traffic_stats()
             if res then
                 world = res
             else
                 ngx.log(ngx.ERR, err)
             end
 
-            res, err = sql.get30DaysChinaTrafficStats()
+            res, err = sql.get_30days_china_traffic_stats()
             if res then
                 china = res
             else
@@ -107,11 +108,11 @@ function _M.doRequest()
         else
             local dict = ngx.shared.dict_req_count
 
-            local http4xx = utils.dictGet(dict, constants.KEY_HTTP_4XX)
-            local http5xx = utils.dictGet(dict, constants.KEY_HTTP_5XX)
-            local request_times = utils.dictGet(dict, constants.KEY_REQUEST_TIMES)
-            local attack_times = utils.dictGet(dict, constants.KEY_ATTACK_TIMES)
-            local block_times = utils.dictGet(dict, constants.KEY_BLOCK_TIMES)
+            local http4xx = utils.dict_get(dict, constants.KEY_HTTP_4XX)
+            local http5xx = utils.dict_get(dict, constants.KEY_HTTP_5XX)
+            local request_times = utils.dict_get(dict, constants.KEY_REQUEST_TIMES)
+            local attack_times = utils.dict_get(dict, constants.KEY_ATTACK_TIMES)
+            local block_times = utils.dict_get(dict, constants.KEY_BLOCK_TIMES)
 
             wafStatus = {http4xx = http4xx, http5xx = http5xx, request_times = request_times,
                         attack_times = attack_times, block_times = block_times}
@@ -122,9 +123,9 @@ function _M.doRequest()
         response.data = data
     end
 
-    ngx.say(cjson.encode(response))
+    ngx.say(cjson_encode(response))
 end
 
-_M.doRequest()
+_M.do_request()
 
 return _M

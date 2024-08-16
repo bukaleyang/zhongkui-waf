@@ -3,14 +3,16 @@
 
 local cjson = require "cjson"
 local config = require "config"
-local file = require "file"
+local file = require "file_utils"
 local user = require "user"
-local ruleUtils = require "lib.ruleUtils"
+local rule_utils = require "lib.rule_utils"
 local nkeys = require "table.nkeys"
 
 local pairs = pairs
 local concat = table.concat
 local format = string.format
+local write_string_to_file = file.write_string_to_file
+local cjson_encode = cjson.encode
 
 local _M = {}
 
@@ -48,8 +50,8 @@ local SSL_CERT_CONFIG = [[
 ]]
 
 -- 生成站点配置文件
-function _M.generateNginxConfigFile()
-    local response = ruleUtils.listRules(WEBSITES_PATH)
+local function generate_nginx_config_file()
+    local response = rule_utils.list_rules(WEBSITES_PATH)
     local sites = response.data
     local ngxConfig = ''
 
@@ -78,7 +80,7 @@ function _M.generateNginxConfigFile()
             if isSSL then
                 local certId = site.certId
                 if certId then
-                    local resp = ruleUtils.getRule(CERTIFICATE_PATH, certId)
+                    local resp = rule_utils.get_rule(CERTIFICATE_PATH, certId)
                     if resp.code == 200 and resp.data then
                         local cert = resp.data
                         if cert then
@@ -94,48 +96,48 @@ function _M.generateNginxConfigFile()
         end
     end
 
-    file.writeStringToFile(SITES_CONF_PATH, ngxConfig)
+    write_string_to_file(SITES_CONF_PATH, ngxConfig)
 end
 
-function _M.doRequest()
+function _M.do_request()
     local response = {code = 200, data = {}, msg = ""}
     local uri = ngx.var.uri
     local reload = false
 
-    if user.checkAuthToken() == false then
+    if user.check_auth_token() == false then
         response.code = 401
         response.msg = 'User not logged in'
         ngx.status = 401
-        ngx.say(cjson.encode(response))
+        ngx.say(cjson_encode(response))
         ngx.exit(401)
         return
     end
 
     if uri == "/sites/list" then
         -- 查询站点列表
-        response = ruleUtils.listRules(WEBSITES_PATH)
+        response = rule_utils.list_rules(WEBSITES_PATH)
     elseif uri == "/sites/save" then
         -- 修改或新增站点
-        local newRule = ruleUtils.getRuleFromRequest()
+        local newRule = rule_utils.get_rule_from_request()
         newRule.mode = 'protection'
 
-        response = ruleUtils.saveOrUpdateRule(WEBSITES_PATH, newRule)
+        response = rule_utils.save_or_update_rule(WEBSITES_PATH, newRule)
         reload = true
     elseif uri == "/sites/remove" then
         -- 删除站点
-        response = ruleUtils.deleteRule(WEBSITES_PATH)
+        response = rule_utils.delete_rule(WEBSITES_PATH)
         reload = true
     end
 
-    ngx.say(cjson.encode(response))
+    ngx.say(cjson_encode(response))
 
     -- 如果没有错误且需要重载配置文件则重载配置文件
     if response.code == 200 and reload == true then
-        _M.generateNginxConfigFile()
-        config.reloadConfigFile()
+        generate_nginx_config_file()
+        config.reload_config_file()
     end
 end
 
-_M.doRequest()
+_M.do_request()
 
 return _M

@@ -4,7 +4,7 @@
 local config = require "config"
 local ahocorasick = require "ahocorasick"
 local stringutf8 = require "stringutf8"
-local file = require "file"
+local file = require "file_utils"
 local nkeys = require "table.nkeys"
 local cjson = require "cjson"
 
@@ -27,10 +27,10 @@ local rep = string.rep
 local lower = string.lower
 local utf8len = stringutf8.len
 local utf8trim = stringutf8.trim
-local toCharArray = stringutf8.toCharArray
+local to_char_array = stringutf8.to_char_array
 
-local readFileToTable = file.readFileToTable
-local readFileToString = file.readFileToString
+local read_file_to_table = file.read_file_to_table
+local read_file_to_string = file.read_file_to_string
 
 local get_site_security_modules = config.get_site_security_modules
 local is_global_option_on = config.is_global_option_on
@@ -47,7 +47,7 @@ local CODING_RANGE_DOLLAR_REGEX = "\\$(\\d+)"
 local acs = {}
 
 local function init_ac(file_path)
-    local words = readFileToTable(file_path) or {}
+    local words = read_file_to_table(file_path) or {}
     if words and nkeys(words) > 0 then
         local ac = ahocorasick:new()
         ac:add(words)
@@ -57,7 +57,7 @@ end
 
 local function load_site_sensitive_words_ac()
     local website_path = config.CONF_PATH .. '/website.json'
-    local json = readFileToString(website_path)
+    local json = read_file_to_string(website_path)
     if json then
         local ac_global = nil
         if is_global_option_on('sensitiveDataFilter') then
@@ -73,7 +73,7 @@ local function load_site_sensitive_words_ac()
 
                 local site_dir = config.CONF_PATH .. '/sites/' .. tostring(site.id)
                 local config_file = site_dir .. '/config.json'
-                local config_str = readFileToString(config_file)
+                local config_str = read_file_to_string(config_file)
                 if config_str then
                     local site_config = cjson_decode(config_str)
                     if site_config and site_config.sensitiveDataFilter.state == 'on' then
@@ -236,7 +236,7 @@ function _M.data_filter(content)
             if t and #t > 0 then
                 sort(t)
                 for _, value in ipairs(t) do
-                    local array = toCharArray(value)
+                    local array = to_char_array(value)
                     local regex = concat(array, STR_PREPROCESSING_REGEX)
 
                     content = ngxgsub(content, regex, codingString, "isj")

@@ -4,15 +4,17 @@
 local cjson = require "cjson"
 local lfs = require "lfs"
 
-local toLower = string.lower
+local lower = string.lower
 local insert = table.insert
 local pairs = pairs
 local pcall = pcall
+local cjson_decode = cjson.decode
+local io_open = io.open
 
 local _M = {}
 
-function _M.readRule(filePath, fileName)
-	local file, err = io.open(filePath .. fileName .. ".json", "r")
+function _M.read_rule(file_path, file_name)
+	local file, err = io_open(file_path .. file_name .. ".json", "r")
     if not file then
    --     ngx.log(ngx.ERR, "Failed to open file ", err)
         return
@@ -20,41 +22,41 @@ function _M.readRule(filePath, fileName)
 
     local moduleName = nil
     local modules = {}
-    local rulesTable = {}
-    local otherTable = {}
+    local table_rules = {}
+    local table_other = {}
     local text = file:read('*a')
 
 	file:close()
 
     if #text > 0 then
-        local result = cjson.decode(text)
+        local result = cjson_decode(text)
 
         if result then
             moduleName = result.moduleName
             for key, value in pairs(result) do
                 if key == "rules" then
                     for _, r in pairs(value) do
-                        if toLower(r.state) == 'on' then
+                        if lower(r.state) == 'on' then
                             r.hits = 0
                             r.totalHits = 0
-                            insert(rulesTable, r)
+                            insert(table_rules, r)
                         end
                     end
                 else
-                    otherTable[key] = value
+                    table_other[key] = value
                 end
             end
         end
     end
 
     modules.moduleName = moduleName or ''
-    modules.rules = rulesTable
+    modules.rules = table_rules
 
-	return modules, otherTable
+	return modules, table_other
 end
 
-function _M.readFileToTable(filePath)
-	local file, err = io.open(filePath, "r")
+function _M.read_file_to_table(file_path)
+	local file, err = io_open(file_path, "r")
     if not file then
         ngx.log(ngx.ERR, "Failed to open file ", err)
         return
@@ -72,9 +74,9 @@ function _M.readFileToTable(filePath)
 	return t
 end
 
-function _M.readFileToString(filePath, binary)
-    if not filePath then
-        ngx.log(ngx.ERR, "No file found ", filePath)
+function _M.read_file_to_string(file_path, binary)
+    if not file_path then
+        ngx.log(ngx.ERR, "No file found ", file_path)
         return
     end
 
@@ -83,7 +85,7 @@ function _M.readFileToString(filePath, binary)
         mode = "rb"
     end
 
-    local file, err = io.open(filePath, mode)
+    local file, err = io_open(file_path, mode)
     if not file then
 --        ngx.log(ngx.ERR, "Failed to open file ", err)
         return
@@ -103,7 +105,7 @@ function _M.readFileToString(filePath, binary)
     return content
 end
 
-function _M.writeStringToFile(filePath, str, append)
+function _M.write_string_to_file(file_path, str, append)
     if str == nil then
         return
 	end
@@ -112,7 +114,7 @@ function _M.writeStringToFile(filePath, str, append)
     if append == true then
         mode = 'a'
     end
-	local file, err = io.open(filePath, mode)
+	local file, err = io_open(file_path, mode)
     if not file then
         ngx.log(ngx.ERR, "Failed to open file ", err)
         return
@@ -123,17 +125,17 @@ function _M.writeStringToFile(filePath, str, append)
 	file:close()
 end
 
-function _M.removeFile(filePath)
-    if not filePath then
-        ngx.log(ngx.ERR, "No file found ", filePath)
+function _M.remove_file(file_path)
+    if not file_path then
+        ngx.log(ngx.ERR, "No file found ", file_path)
         return
     end
 
-    local success, err = os.remove(filePath)
+    local success, err = os.remove(file_path)
     if success then
-        ngx.log(ngx.INFO, filePath .. " has been successfully removed.")
+        ngx.log(ngx.INFO, file_path .. " has been successfully removed.")
     else
-        ngx.log(ngx.ERR, "failed to remove file " .. filePath .. " " .. err)
+        ngx.log(ngx.ERR, "failed to remove file " .. file_path .. " " .. err)
     end
 end
 
@@ -164,7 +166,7 @@ function _M.rmdir(path)
             if mode == "directory" then
                 _M.rmdir(e)
             else
-                _M.removeFile(e)
+                _M.remove_file(e)
             end
         end
     end
@@ -177,12 +179,12 @@ function _M.rmdir(path)
     return res, err
 end
 
-function _M.is_file_exists(filePath)
-    if not filePath then
+function _M.is_file_exists(file_path)
+    if not file_path then
         return false
     end
 
-    local res, attr = pcall(lfs.attributes, filePath)
+    local res, attr = pcall(lfs.attributes, file_path)
     if res and attr then
         return true
     end

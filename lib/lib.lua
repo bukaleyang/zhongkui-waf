@@ -2,7 +2,7 @@
 -- Copyright (c) 2023 bukale bukale2022@163.com
 
 local config = require "config"
-local redisCli = require "redisCli"
+local redis_cli = require "redis_cli"
 local decoder = require "decoder"
 local action = require "action"
 local cc = require "cc"
@@ -13,8 +13,8 @@ local libinjection = require "resty.libinjection"
 local nkeys = require "table.nkeys"
 local constants = require "constants"
 
-local blockIp = action.blockIp
-local doAction = action.doAction
+local block_ip = action.block_ip
+local do_action = action.do_action
 local ipairs, pairs = ipairs, pairs
 local type = type
 
@@ -22,7 +22,9 @@ local lower = string.lower
 local upper = string.upper
 local sub = string.sub
 local trim = stringutf8.trim
-local unescapeUri = decoder.unescapeUri
+local unescape_uri = decoder.unescape_uri
+local get_request_body = request.get_request_body
+local get_boundary = request.get_boundary
 
 local concat = table.concat
 local ngxgmatch = ngx.re.gmatch
@@ -51,7 +53,7 @@ local function matches(input, regex, options, ctx, nth)
 end
 
 
-local function matchRule(ruleTab, str, options)
+local function match_rule(ruleTab, str, options)
     if str == nil or next(ruleTab) == nil then
         return false
     end
@@ -65,7 +67,7 @@ local function matchRule(ruleTab, str, options)
     return false
 end
 
-local function ipGroupMatch(group, ip)
+local function is_group_match(group, ip)
     local matcher = config.ipgroups[group]
     if matcher then
         return matcher:match(ip)
@@ -74,7 +76,7 @@ local function ipGroupMatch(group, ip)
     return false
 end
 
-function _M.isWhiteIp()
+function _M.is_white_ip()
     if is_site_option_on("whiteIP") then
         local ip = ngx.ctx.ip
         if ip == "unknown" then
@@ -82,8 +84,8 @@ function _M.isWhiteIp()
         end
 
         --local module = get_site_security_modules("whiteIp")
-        if ipGroupMatch(constants.KEY_IP_GROUPS_WHITELIST, ip) then
-            -- doAction(module.moduleName, module.rules[1])
+        if is_group_match(constants.KEY_IP_GROUPS_WHITELIST, ip) then
+            -- do_action(module.moduleName, module.rules[1])
             ngx.status = ngx.OK
             return ngx.exit(ngx.status)
         end
@@ -91,7 +93,7 @@ function _M.isWhiteIp()
 end
 
 -- Returns true if the client ip is in the blackList,otherwise false
-function _M.isBlackIp()
+function _M.is_black_ip()
     if is_site_option_on("blackIP") then
         local ip = ngx.ctx.ip
         if ip == "unknown" then
@@ -104,7 +106,7 @@ function _M.isBlackIp()
             exists = true
         else
             if is_system_option_on("redis") then
-                exists = redisCli.redisGet(constants.KEY_BLACKIP_PREFIX .. ip)
+                exists = redis_cli.get(constants.KEY_BLACKIP_PREFIX .. ip)
             else
                 local blackip = ngx.shared.dict_blackip
                 exists = blackip:get(ip)
@@ -112,35 +114,35 @@ function _M.isBlackIp()
         end
 
         if not exists then
-            if ipGroupMatch(constants.KEY_IP_GROUPS_BLACKLIST, ip) then
+            if is_group_match(constants.KEY_IP_GROUPS_BLACKLIST, ip) then
                 exists = true
             end
         end
 
         if exists then
             local module = get_site_security_modules("blackIp")
-            doAction(module.moduleName, module.rules[1])
+            do_action(module.moduleName, module.rules[1])
         end
     end
 end
 
-function _M.isUnsafeHttpMethod()
+function _M.is_unsafe_http_method()
     if is_site_option_on("httpMethod") then
         local method_name = upper(ngx.req.get_method())
 
         local module = get_site_security_modules("httpMethod")
         for _, r in pairs(module.rules) do
             if method_name == r.rule then
-                doAction(module.moduleName, r, method_name)
+                do_action(module.moduleName, r, method_name)
                 break
             end
         end
     end
 end
 
-function _M.isBot()
+function _M.is_bot()
     if is_site_option_on("bot") then
-        if cc.checkAccessToken() then
+        if cc.check_access_token() then
             return false
         end
 
@@ -153,8 +155,8 @@ function _M.isBot()
             if uri == trap.uri or ruri == trap.uri then
                 local module = get_site_security_modules("botTrap")
                 local ruleTab = module.rules[1]
-                blockIp(ip, ruleTab)
-                doAction(module.moduleName, ruleTab)
+                block_ip(ip, ruleTab)
+                do_action(module.moduleName, ruleTab)
                 return true
             end
         end
@@ -162,10 +164,10 @@ function _M.isBot()
         local ua = ngx.ctx.ua
 
         local module = get_site_security_modules("user-agent")
-        local m, ruleTable = matchRule(module.rules, ua)
+        local m, ruleTable = match_rule(module.rules, ua)
         if m then
-            blockIp(ip, ruleTable)
-            doAction(module.moduleName, ruleTable)
+            block_ip(ip, ruleTable)
+            do_action(module.moduleName, ruleTable)
             return true
         end
     end
@@ -173,7 +175,7 @@ end
 
 function _M.isCC()
     if is_site_option_on("cc") then
-        if cc.checkAccessToken() then
+        if cc.check_access_token() then
             return false
         end
 
@@ -205,14 +207,14 @@ function _M.isCC()
             if match then
                 if is_system_option_on("redis") then
                     key = "cc_req_count:" .. key
-                    local count, _ = redisCli.redisIncr(key, ruleTab.duration)
+                    local count, _ = redis_cli.incr(key, ruleTab.duration)
                     if not count then
-                        redisCli.redisSet(key, 1, ruleTab.duration)
+                        redis_cli.set(key, 1, ruleTab.duration)
                     elseif count > ruleTab.threshold then
                         if count >= (get_site_config("cc").maxFailTimes + ruleTab.threshold) then
-                            blockIp(ip, ruleTab)
+                            block_ip(ip, ruleTab)
                         end
-                        doAction(module.moduleName, ruleTab, nil, ruleTab.rule, 503)
+                        do_action(module.moduleName, ruleTab, nil, ruleTab.rule, 503)
 
                         return true
                     end
@@ -223,9 +225,9 @@ function _M.isCC()
                         limit:set(key, 1, ruleTab.duration)
                     elseif count > ruleTab.threshold then
                         if count >= (get_site_config("cc").maxFailTimes + ruleTab.threshold) then
-                            blockIp(ip, ruleTab)
+                            block_ip(ip, ruleTab)
                         end
-                        doAction(module.moduleName, ruleTab, nil, ruleTab.rule, 503)
+                        do_action(module.moduleName, ruleTab, nil, ruleTab.rule, 503)
 
                         return true
                     end
@@ -235,7 +237,7 @@ function _M.isCC()
     end
 end
 
-function _M.isACL()
+function _M.is_acl()
     if is_site_option_on("acl") then
         local module = get_site_security_modules("acl")
         local rules = module.rules
@@ -248,65 +250,65 @@ function _M.isACL()
             local match = true
             for _, condition in pairs(conditions) do
                 local field = condition.field
-                local fieldName = condition.name
+                local field_name = condition.name
                 local pattern = condition.pattern
-                local matchValue = ''
+                local match_value = ''
                 if field == 'URL' then
-                    matchValue = ngx.var.request_uri
+                    match_value = ngx.var.request_uri
                 elseif field == 'Cookie' then
-                    if fieldName ~= nil and fieldName ~= '' then
+                    if field_name ~= nil and field_name ~= '' then
                         local cookies = ck:new()
                         if not cookies then
                             match = false
                             break
                         else
-                            matchValue = cookies:get(fieldName)
+                            match_value = cookies:get(field_name)
                         end
                     else
-                        matchValue = ngx.var.http_cookie
+                        match_value = ngx.var.http_cookie
                     end
                 elseif field == 'Header' then
                     local headers = ngx.req.get_headers()
                     if headers then
-                        if fieldName ~= nil and fieldName ~= '' then
-                            matchValue = headers[fieldName]
+                        if field_name ~= nil and field_name ~= '' then
+                            match_value = headers[field_name]
                         else
-                            matchValue = concat(headers, '')
+                            match_value = concat(headers, '')
                         end
                     else
                         match = false
                         break
                     end
                 elseif field == 'Referer' then
-                    matchValue = ngx.var.http_referer
+                    match_value = ngx.var.http_referer
                 elseif field == 'User-Agent' then
-                    matchValue = ngx.var.http_user_agent
+                    match_value = ngx.var.http_user_agent
                 elseif field == 'IP' then
                     local ip = ngx.ctx.ip
                     local operator = condition.operator
                     local ipGroupId = condition.ipGroupId
                     if operator == 'in' then
-                        if ipGroupMatch(ipGroupId, ip) == false then
+                        if is_group_match(ipGroupId, ip) == false then
                             match = false
                             break
                         end
                     elseif operator == 'notin' then
-                        if ipGroupMatch(ipGroupId, ip) then
+                        if is_group_match(ipGroupId, ip) then
                             match = false
                             break
                         end
                     elseif operator == 'equal' then
-                        matchValue = ip
+                        match_value = ip
                     end
                 end
 
                 if pattern == '' then
-                    if matchValue ~= nil and matchValue ~= '' then
+                    if match_value ~= nil and match_value ~= '' then
                         match = false
                         break
                     end
                 else
-                    if not matches(matchValue, pattern) then
+                    if not matches(match_value, pattern) then
                         match = false
                         break
                     end
@@ -315,8 +317,8 @@ function _M.isACL()
 
             if match then
                 local ip = ngx.ctx.ip
-                blockIp(ip, ruleTab)
-                doAction(module.moduleName, ruleTab)
+                block_ip(ip, ruleTab)
+                do_action(module.moduleName, ruleTab)
                 return true
             end
         end
@@ -324,16 +326,16 @@ function _M.isACL()
 end
 
 -- Returns true if the whiteURL rule is matched, otherwise false
-function _M.isWhiteURL()
+function _M.is_white_url()
     if is_site_option_on("whiteUrl") then
         local url = ngx.var.uri
         if url == nil or url == "" then
             return false
         end
         local module = get_site_security_modules("whiteUrl")
-        local m, ruleTable = matchRule(module.rules, url)
+        local m, ruleTable = match_rule(module.rules, url)
         if m then
-            doAction(module.moduleName, ruleTable)
+            do_action(module.moduleName, ruleTable)
             return true
         end
         return false
@@ -341,7 +343,7 @@ function _M.isWhiteURL()
 end
 
 -- Returns true if the url rule is matched, otherwise false
-function _M.isBlackURL()
+function _M.is_black_url()
     if is_site_option_on("blackUrl") then
         local url = ngx.var.uri
         if url == nil or url == "" then
@@ -349,16 +351,16 @@ function _M.isBlackURL()
         end
 
         local module = get_site_security_modules("blackUrl")
-        local m, ruleTable = matchRule(module.rules, url)
+        local m, ruleTable = match_rule(module.rules, url)
         if m then
-            doAction(module.moduleName, ruleTable)
+            do_action(module.moduleName, ruleTable)
             return true
         end
     end
     return false
 end
 
-function _M.isEvilArgs()
+function _M.is_evil_args()
     if is_site_option_on("args") then
         local args = ngx.req.get_uri_args()
         if args then
@@ -369,11 +371,11 @@ function _M.isEvilArgs()
                 end
 
                 if vals and type(vals) ~= "boolean" and vals ~= "" then
-                    vals = unescapeUri(vals)
+                    vals = unescape_uri(vals)
                     local module = get_site_security_modules("args")
-                    local m, ruleTable = matchRule(module.rules, vals)
+                    local m, ruleTable = match_rule(module.rules, vals)
                     if m then
-                        doAction(module.moduleName, ruleTable)
+                        do_action(module.moduleName, ruleTable)
                         return true
                     end
                     _M.isSqliOrXss(vals)
@@ -383,23 +385,23 @@ function _M.isEvilArgs()
     end
 end
 
-function _M.isEvilHeaders()
+function _M.is_evil_headers()
     if is_site_option_on("headers") then
         local module = get_site_security_modules("headers")
         local referer = ngx.var.http_referer
         if referer and referer ~= "" then
-            local m, ruleTable = matchRule(module.rules, referer)
+            local m, ruleTable = match_rule(module.rules, referer)
             if m then
-                doAction(module.moduleName, ruleTable, referer)
+                do_action(module.moduleName, ruleTable, referer)
                 return true
             end
         end
 
         local ua = ngx.ctx.ua
         if ua and ua ~= "" then
-            local m, ruleTable = matchRule(module.rules, ua)
+            local m, ruleTable = match_rule(module.rules, ua)
             if m then
-                doAction(module.moduleName, ruleTable)
+                do_action(module.moduleName, ruleTable)
                 return true
             end
         end
@@ -419,7 +421,7 @@ function _M.isBlackFileExt(ext, line)
                 if is_system_option_on("attackLog") and get_system_config("attackLog").jsonFormat.state == "off" then
                     line = "[" ..  line .. "]"
                 end
-                doAction(module.moduleName, r, line)
+                do_action(module.moduleName, r, line)
                 break
             end
         end
@@ -428,9 +430,9 @@ end
 
 function _M.isEvilFile(body)
     local module = get_site_security_modules("post")
-    local m, ruleTable = matchRule(module.rules, body)
+    local m, ruleTable = match_rule(module.rules, body)
     if m then
-        doAction(module.moduleName, ruleTable)
+        do_action(module.moduleName, ruleTable)
         return true
     end
 
@@ -439,31 +441,31 @@ end
 
 function _M.isEvilBody(body)
     local module = get_site_security_modules("post")
-    local m, ruleTable = matchRule(module.rules, body)
+    local m, ruleTable = match_rule(module.rules, body)
     if m then
-        doAction(module.moduleName, ruleTable)
+        do_action(module.moduleName, ruleTable)
         return true
     end
 
     return false
 end
 
-function _M.isEvilReqBody()
+function _M.is_evil_request_body()
     if is_site_option_on("post") then
        -- local method = ngx.req.get_method()
 
         local contentType = ngx.var.http_content_type
-        local boundary = request.getBoundary()
+        local boundary = get_boundary()
 
         -- form-data
         if boundary then
             local delimiter = '--' .. boundary
-            local delimiterEnd = '--' .. boundary .. '--'
+            local delimiter_end = '--' .. boundary .. '--'
 
             local body = ''
-            local isFile = false
+            local is_file = false
 
-            local bodyRaw = request.getRequestBody()
+            local bodyRaw = get_request_body()
             local it, err = ngxgmatch(bodyRaw, ".+?(?:\n|$)", "isjo")
             if not it then
                 ngx.log(ngx.ERR, "error: ", err)
@@ -486,17 +488,17 @@ function _M.isEvilReqBody()
                     break
                 end
 
-                if line == delimiter or line == delimiterEnd then
+                if line == delimiter or line == delimiter_end then
                     if body ~= '' then
                         body = sub(body, 1, -2)
-                        if isFile then
+                        if is_file then
                             if is_site_option_on("fileContentCheck") then
                                 -- 文件内容检查
                                 if _M.isEvilFile(body) then
                                     return true
                                 end
                             end
-                            isFile = false
+                            is_file = false
                         else
                             if _M.isEvilBody(body) then
                                 return true
@@ -505,7 +507,7 @@ function _M.isEvilReqBody()
                         body = ''
                     end
                 elseif line ~= '' then
-                    if isFile then
+                    if is_file then
                         if body == '' then
                             local fr = matches(line, "Content-Type:\\s*\\S+/\\S+", "ijo")
                             if fr == nil then
@@ -524,7 +526,7 @@ function _M.isEvilReqBody()
                                 return true
                             end
 
-                            isFile = true
+                            is_file = true
                         else
                             local fr = matches(line, "Content-Disposition:\\s*form-data;\\s*name=", "ijo")
                             if fr == nil then
@@ -555,7 +557,7 @@ function _M.isEvilReqBody()
                 end
             end
         else
-            local bodyRaw = request.getRequestBody()
+            local bodyRaw = get_request_body()
             if bodyRaw and bodyRaw ~= "" then
                 if _M.isEvilBody(bodyRaw) then
                     return true
@@ -566,13 +568,13 @@ function _M.isEvilReqBody()
     end
 end
 
-function _M.isEvilCookies()
+function _M.is_evil_cookies()
     local cookie = ngx.var.http_cookie
     if is_site_option_on("cookie") and cookie then
         local module = get_site_security_modules("cookie")
-        local m, ruleTable = matchRule(module.rules, cookie)
+        local m, ruleTable = match_rule(module.rules, cookie)
         if m then
-            doAction(module.moduleName, ruleTable)
+            do_action(module.moduleName, ruleTable)
             return true
         end
     end
@@ -604,7 +606,7 @@ function _M.isSqliOrXss(data)
                 if is_sqli_on then
                     local is_sqli = libinjection.sqli(v)
                     if is_sqli then
-                        doAction(module_sqli.moduleName, rule_sqli)
+                        do_action(module_sqli.moduleName, rule_sqli)
                         return true
                     end
                 end
@@ -612,7 +614,7 @@ function _M.isSqliOrXss(data)
                 if is_xss_on then
                     local is_xss = libinjection.xss(v)
                     if is_xss then
-                        doAction(module_xss.moduleName, rule_xss)
+                        do_action(module_xss.moduleName, rule_xss)
                         return true
                     end
                 end

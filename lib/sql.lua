@@ -1,7 +1,7 @@
 -- Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
 -- Copyright (c) 2024 bukale bukale2022@163.com
 
-local mysql = require "mysqlCli"
+local mysql = require "mysql_cli"
 local config = require "config"
 local utils = require "utils"
 local constants = require "constants"
@@ -12,9 +12,9 @@ local newtab = table.new
 local concat = table.concat
 local insert = table.insert
 local ngxmatch = ngx.re.match
+local quote_sql_str = ngx.quote_sql_str
 local floor = math.floor
 local format = string.format
-local quote_sql_str = ngx.quote_sql_str
 local get_system_config = config.get_system_config
 
 local _M = {}
@@ -185,7 +185,7 @@ local SQL_INSERT_IP_BLOCK_LOG = [[
     VALUES
 ]]
 
-function _M.checkTable(premature)
+function _M.check_table(premature)
     if premature then
         return
     end
@@ -211,12 +211,12 @@ function _M.checkTable(premature)
     end
 end
 
-function _M.updateTrafficStats()
+function _M.update_traffic_stats()
     local dict = ngx.shared.dict_req_count_citys
     local keys = dict:get_keys()
 
     if keys then
-        local keyTable = {}
+        local key_table = {}
 
         for _, key in ipairs(keys) do
             local m, err = ngxmatch(key, '(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?):', 'isjo')
@@ -235,7 +235,7 @@ function _M.updateTrafficStats()
                 local cityCN = m[8] or ''
                 local cityEN = m[9] or ''
 
-                insert(keyTable, {
+                insert(key_table, {
                     prefix = prefix,
                     countryCode = countryCode,
                     countryCN = countryCN,
@@ -250,17 +250,17 @@ function _M.updateTrafficStats()
             end
         end
 
-        for _, t in pairs(keyTable) do
+        for _, t in pairs(key_table) do
             local prefix = t.prefix
 
-            local request_times = utils.dictGet(dict, prefix .. constants.KEY_REQUEST_TIMES) or 0
-            local attack_times = utils.dictGet(dict, prefix .. constants.KEY_ATTACK_TIMES) or 0
-            local block_times = utils.dictGet(dict, prefix .. constants.KEY_BLOCK_TIMES) or 0
+            local request_times = utils.dict_get(dict, prefix .. constants.KEY_REQUEST_TIMES) or 0
+            local attack_times = utils.dict_get(dict, prefix .. constants.KEY_ATTACK_TIMES) or 0
+            local block_times = utils.dict_get(dict, prefix .. constants.KEY_BLOCK_TIMES) or 0
 
             if request_times > 0 or attack_times > 0 or block_times > 0 then
-                utils.dictSet(dict, prefix .. constants.KEY_REQUEST_TIMES, 0, constants.TTL_KEY_COUNT_CITYS)
-                utils.dictSet(dict, prefix .. constants.KEY_ATTACK_TIMES, 0, constants.TTL_KEY_COUNT_CITYS)
-                utils.dictSet(dict, prefix .. constants.KEY_BLOCK_TIMES, 0, constants.TTL_KEY_COUNT_CITYS)
+                utils.dict_set(dict, prefix .. constants.KEY_REQUEST_TIMES, 0, constants.TTL_KEY_COUNT_CITYS)
+                utils.dict_set(dict, prefix .. constants.KEY_ATTACK_TIMES, 0, constants.TTL_KEY_COUNT_CITYS)
+                utils.dict_set(dict, prefix .. constants.KEY_BLOCK_TIMES, 0, constants.TTL_KEY_COUNT_CITYS)
 
                 local sql = format(SQL_INSERT_TRAFFIC_STATS,
                     quote_sql_str(t.countryCode), quote_sql_str(t.countryCN), quote_sql_str(t.countryEN),
@@ -274,43 +274,43 @@ function _M.updateTrafficStats()
     end
 end
 
-function _M.updateWafStatus()
+function _M.update_waf_status()
     local dict = ngx.shared.dict_req_count
 
-    local http4xx = utils.dictGet(dict, constants.KEY_HTTP_4XX) or 0
-    local http5xx = utils.dictGet(dict, constants.KEY_HTTP_5XX) or 0
-    local request_times = utils.dictGet(dict, constants.KEY_REQUEST_TIMES) or 0
-    local attack_times = utils.dictGet(dict, constants.KEY_ATTACK_TIMES) or 0
-    local block_times = utils.dictGet(dict, constants.KEY_BLOCK_TIMES) or 0
+    local http4xx = utils.dict_get(dict, constants.KEY_HTTP_4XX) or 0
+    local http5xx = utils.dict_get(dict, constants.KEY_HTTP_5XX) or 0
+    local request_times = utils.dict_get(dict, constants.KEY_REQUEST_TIMES) or 0
+    local attack_times = utils.dict_get(dict, constants.KEY_ATTACK_TIMES) or 0
+    local block_times = utils.dict_get(dict, constants.KEY_BLOCK_TIMES) or 0
 
     if http4xx == 0 and http5xx == 0 and request_times == 0 and attack_times == 0 and block_times == 0 then
         return
     end
 
-    utils.dictSet(dict, constants.KEY_HTTP_4XX, 0)
-    utils.dictSet(dict, constants.KEY_HTTP_5XX, 0)
-    utils.dictSet(dict, constants.KEY_REQUEST_TIMES, 0)
-    utils.dictSet(dict, constants.KEY_ATTACK_TIMES, 0)
-    utils.dictSet(dict, constants.KEY_BLOCK_TIMES, 0)
+    utils.dict_set(dict, constants.KEY_HTTP_4XX, 0)
+    utils.dict_set(dict, constants.KEY_HTTP_5XX, 0)
+    utils.dict_set(dict, constants.KEY_REQUEST_TIMES, 0)
+    utils.dict_set(dict, constants.KEY_ATTACK_TIMES, 0)
+    utils.dict_set(dict, constants.KEY_BLOCK_TIMES, 0)
 
     local sql = format(SQL_INSERT_WAF_STATUS, http4xx, http5xx, request_times, attack_times, block_times, quote_sql_str(ngx.today()))
 
     mysql.query(sql)
 end
 
-function _M.getTodayWafStatus()
+function _M.get_today_waf_status()
     return mysql.query(SQL_GET_TODAY_WAF_STATUS)
 end
 
-function _M.get30DaysWorldTrafficStats()
+function _M.get_30days_world_traffic_stats()
     return mysql.query(SQL_GET_30DAYS_WORLD_TRAFFIC_STATS)
 end
 
-function _M.get30DaysChinaTrafficStats()
+function _M.get_30days_china_traffic_stats()
     return mysql.query(SQL_GET_30DAYS_CHINA_TRAFFIC_STATS)
 end
 
-function _M.writeSqlQueueToMysql(premature, key)
+function _M.write_sql_queue_to_mysql(premature, key)
     if premature or not key then
         return
     end
@@ -322,22 +322,22 @@ function _M.writeSqlQueueToMysql(premature, key)
         return
     end
 
-    local sqlStr = ''
+    local sql_str = ''
     if key == constants.KEY_ATTACK_LOG then
-        sqlStr = SQL_INSERT_ATTACK_LOG
+        sql_str = SQL_INSERT_ATTACK_LOG
     elseif key == constants.KEY_IP_BLOCK_LOG then
-        sqlStr = SQL_INSERT_IP_BLOCK_LOG
+        sql_str = SQL_INSERT_IP_BLOCK_LOG
     end
 
-    local insertTimeTotal = floor(len / BATCH_SIZE) + 1
-    local insertTime = 0
+    local insert_time_total = floor(len / BATCH_SIZE) + 1
+    local insert_time = 0
 
     local buffer = newtab(BATCH_SIZE, 0)
 
     local index = 1
     local value = dict_sql_queue:lpop(key)
 
-    while (insertTime <= insertTimeTotal and value) do
+    while (insert_time <= insert_time_total and value) do
         buffer[index] = value
         value = dict_sql_queue:lpop(key)
 
@@ -345,8 +345,8 @@ function _M.writeSqlQueueToMysql(premature, key)
             local sql_values = concat(buffer, ',')
 
             if sql_values then
-                mysql.query(sqlStr .. sql_values)
-                insertTime = insertTime + 1
+                mysql.query(sql_str .. sql_values)
+                insert_time = insert_time + 1
             end
 
             index = 1
@@ -357,7 +357,7 @@ function _M.writeSqlQueueToMysql(premature, key)
     end
 end
 
-function _M.writeSqlToQueue(key, sql)
+function _M.write_sql_to_queue(key, sql)
     local dict_sql_queue = ngx.shared.dict_sql_queue
     dict_sql_queue:rpush(key, sql)
 end

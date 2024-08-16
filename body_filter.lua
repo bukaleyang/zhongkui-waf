@@ -8,7 +8,7 @@ local stringutf8 = require "stringutf8"
 local ngxfind = ngx.re.find
 local gsub = string.gsub
 local format = string.format
-local defaultIfBlank = stringutf8.defaultIfBlank
+local default_if_blank = stringutf8.default_if_blank
 
 local get_site_config = config.get_site_config
 local is_site_option_on = config.is_site_option_on
@@ -22,10 +22,10 @@ local content = ngx.arg[1]
 if is_site_option_on("waf") then
     if get_site_config("waf").mode == "protection" then
         if ngx.status ~= 403 then
-            local contentType = ngx.header.content_type or ''
+            local content_type = ngx.header.content_type or ''
             if is_site_option_on("sensitiveDataFilter") then
-                if contentType then
-                    local from = ngxfind(contentType, CONTENT_TYPE_REGEX, "isjo")
+                if content_type then
+                    local from = ngxfind(content_type, CONTENT_TYPE_REGEX, "isjo")
                     if from then
                         if content then
                             content = sensitive.data_filter(content)
@@ -38,8 +38,8 @@ if is_site_option_on("waf") then
                 local trap = get_site_config("bot").trap
                 local trap_uri = trap.uri or ''
                 if trap.state == "on" then
-                    if contentType then
-                        local from = ngxfind(contentType, HTML_CONTENT_TYPE_REGEX, "isjo")
+                    if content_type then
+                        local from = ngxfind(content_type, HTML_CONTENT_TYPE_REGEX, "isjo")
                         if from then
                             if content then
                                 content = gsub(content, '</body>', format(TRAP_HTML, trap_uri))
@@ -51,11 +51,11 @@ if is_site_option_on("waf") then
         end
     end
 
-    local isAttack = ngx.ctx.isAttack
-    if isAttack then
+    local is_attack = ngx.ctx.is_attack
+    if is_attack then
         local response_body = ngx.ctx.response_body
         if content then
-            ngx.ctx.response_body = defaultIfBlank(response_body, "") .. content
+            ngx.ctx.response_body = default_if_blank(response_body, "") .. content
         end
     end
 

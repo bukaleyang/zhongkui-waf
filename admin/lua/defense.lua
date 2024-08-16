@@ -4,7 +4,7 @@
 local cjson = require "cjson"
 local config = require "config"
 local user = require "user"
-local ruleUtils = require "lib.ruleUtils"
+local rule_utils = require "lib.rule_utils"
 
 local get_site_config_file = config.get_site_config_file
 local get_site_module_rule_file = config.get_site_module_rule_file
@@ -18,12 +18,12 @@ local cjson_encode = cjson.encode
 local _M = {}
 
 
-function _M.doRequest()
+function _M.do_request()
     local response = {code = 200, data = {}, msg = ""}
     local uri = ngx.var.uri
     local reload = false
 
-    if user.checkAuthToken() == false then
+    if user.check_auth_token() == false then
         response.code = 401
         response.msg = 'User not logged in'
         ngx.status = 401
@@ -80,7 +80,7 @@ function _M.doRequest()
 
             local file_path = get_site_module_rule_file(site_id, module_id)
 
-            response = ruleUtils.listRules(file_path)
+            response = rule_utils.list_rules(file_path)
         else
             response.code = 500
             response.msg = err
@@ -132,10 +132,10 @@ function _M.doRequest()
 
     -- 如果没有错误且需要重载配置文件则重载配置文件
     if (response.code == 200 or response.code == 0) and reload == true then
-        config.reloadConfigFile()
+        config.reload_config_file()
     end
 end
 
-_M.doRequest()
+_M.do_request()
 
 return _M

@@ -3,16 +3,16 @@
 
 local cjson = require "cjson"
 local config = require "config"
-local file = require "file"
+local file = require "file_utils"
 local user = require "user"
-local ruleUtils = require "lib.ruleUtils"
+local rule_utils = require "lib.rule_utils"
 
 local get_site_config_file = config.get_site_config_file
 local get_site_module_rule_file = config.get_site_module_rule_file
 local update_site_config_file = config.update_site_config_file
 
-local readFileToString = file.readFileToString
-local writeStringToFile = file.writeStringToFile
+local read_file_to_string = file.read_file_to_string
+local write_string_to_file = file.write_string_to_file
 local is_file_exists = file.is_file_exists
 local is_directory = file.is_directory
 local mkdir = file.mkdir
@@ -35,7 +35,7 @@ local function get_site_sensitive_words_file(site_id)
         end
     end
 
-    return rule_file, readFileToString(rule_file)
+    return rule_file, read_file_to_string(rule_file)
 end
 
 local function update_site_sensitive_words_file(site_id, str)
@@ -56,19 +56,19 @@ local function update_site_sensitive_words_file(site_id, str)
         rule_file = rules_dir .. '/sensitiveWords'
     end
 
-    return writeStringToFile(rule_file, str)
+    return write_string_to_file(rule_file, str)
 end
 
-function _M.doRequest()
+function _M.do_request()
     local response = {code = 200, data = {}, msg = ""}
     local uri = ngx.var.uri
     local reload = false
 
-    if user.checkAuthToken() == false then
+    if user.check_auth_token() == false then
         response.code = 401
         response.msg = 'User not logged in'
         ngx.status = 401
-        ngx.say(cjson.encode(response))
+        ngx.say(cjson_encode(response))
         ngx.exit(401)
         return
     end
@@ -130,7 +130,7 @@ function _M.doRequest()
             local site_id = tostring(args['siteId'])
             if site_id then
                 local file_path = get_site_module_rule_file(site_id, MODULE_ID)
-                response = ruleUtils.listRules(file_path)
+                response = rule_utils.list_rules(file_path)
             else
                 response.code = 500
                 response.msg = 'param error'
@@ -146,12 +146,12 @@ function _M.doRequest()
         if args then
             local site_id = tostring(args['siteId'])
             if site_id then
-                local rule_new = ruleUtils.getRuleFromRequest()
+                local rule_new = rule_utils.get_rule_from_request()
                 if rule_new then
                     rule_new.id = tonumber(rule_new.id)
                     rule_new.action = 'coding'
 
-                    response = ruleUtils.save_or_update_site_rule(site_id, MODULE_ID, rule_new)
+                    response = rule_utils.save_or_update_site_rule(site_id, MODULE_ID, rule_new)
                     reload = true
                 else
                     response.code = 500
@@ -174,7 +174,7 @@ function _M.doRequest()
             local rule_id = tonumber(args['ruleId'])
             local state = tostring(args['state'])
 
-            response = ruleUtils.update_site_rule_state(site_id, MODULE_ID, rule_id, state)
+            response = rule_utils.update_site_rule_state(site_id, MODULE_ID, rule_id, state)
             if response and response.code == 200 then
                 reload = true
             end
@@ -204,7 +204,7 @@ function _M.doRequest()
         if not body_raw then
             local body_file = ngx.req.get_body_file()
             if body_file then
-                body_raw = readFileToString(body_file)
+                body_raw = read_file_to_string(body_file)
             end
         end
 
@@ -222,14 +222,14 @@ function _M.doRequest()
         end
     end
 
-    ngx.say(cjson.encode(response))
+    ngx.say(cjson_encode(response))
 
     -- 如果没有错误且需要重载配置文件则重载配置文件
     if response.code == 200 and reload == true then
-        config.reloadConfigFile()
+        config.reload_config_file()
     end
 end
 
-_M.doRequest()
+_M.do_request()
 
 return _M

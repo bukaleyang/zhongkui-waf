@@ -6,7 +6,7 @@ local every = ngx.timer.every
 
 local _M = {}
 
-function _M.startTimer(delay, callback, ...)
+function _M.start_timer(delay, callback, ...)
     local ok, err = timerat(delay, callback, ...)
     if not ok then
         ngx.log(ngx.ERR, "failed to create timer: ", err)
@@ -16,7 +16,7 @@ function _M.startTimer(delay, callback, ...)
     return ok, err
 end
 
-function _M.startTimerEvery(delay, callback, ...)
+function _M.start_timer_every(delay, callback, ...)
     local ok, err = every(delay, callback, ...)
     if not ok then
         ngx.log(ngx.ERR, "failed to create the timer: ", err)
@@ -26,7 +26,7 @@ function _M.startTimerEvery(delay, callback, ...)
     return ok, err
 end
 
-function _M.dictIncr(dict, key, ttl)
+function _M.dict_incr(dict, key, ttl)
     local newval, err = dict:incr(key, 1)
     if not newval then
         if ttl then
@@ -46,11 +46,11 @@ function _M.dictIncr(dict, key, ttl)
     return newval, err
 end
 
-function _M.dictSet(dict, key, value, ttl)
+function _M.dict_set(dict, key, value, ttl)
     return dict:set(key, value, ttl)
 end
 
-function _M.dictGet(dict, key)
+function _M.dict_get(dict, key)
     return dict:get(key)
 end
 

@@ -4,18 +4,19 @@
 local geoip = require "geoip"
 local config = require "config"
 local lib = require "lib"
-local ipUtils = require "ip"
+local ip_utils = require "ip_utils"
 local request = require "request"
 local stringutf8 = require "stringutf8"
 
-local defaultIfBlank = stringutf8.defaultIfBlank
-local generateId = request.generateId
+local default_if_blank = stringutf8.default_if_blank
+local generate_id = request.generate_id
 local is_site_option_on = config.is_site_option_on
+local get_client_ip = ip_utils.get_client_ip
 
 local function init()
     local ctx = ngx.ctx
 
-    local ip = ipUtils.getClientIP()
+    local ip = get_client_ip()
     ctx.ip = ip
 
     local ua = ngx.var.http_user_agent
@@ -27,39 +28,37 @@ local function init()
 
     ctx.geoip = geoip.lookup(ip)
 
-    ctx.requestId = generateId()
+    ctx.request_id = generate_id()
 
-    ctx.server_name = defaultIfBlank(ngx.var.server_name, 'unknown')
+    ctx.server_name = default_if_blank(ngx.var.server_name, 'unknown')
 end
 
 if is_site_option_on("waf") then
 
     init()
 
-    if lib.isWhiteIp() then
+    lib.is_white_ip()
 
-    elseif lib.isBlackIp() then
+    lib.is_black_ip()
 
-    elseif lib.isUnsafeHttpMethod() then
+    lib.is_unsafe_http_method()
 
-    elseif lib.isACL() then
+    lib.is_acl()
 
-    elseif lib.isBot() then
+    lib.is_bot()
 
-    elseif lib.isCC() then
+    lib.isCC()
 
-    elseif lib.isWhiteURL() then
+    lib.is_white_url()
 
-    elseif lib.isBlackURL() then
+    lib.is_black_url()
 
-    elseif lib.isEvilArgs() then
+    lib.is_evil_args()
 
-    elseif lib.isEvilHeaders() then
+    lib.is_evil_headers()
 
-    elseif lib.isEvilCookies() then
+    lib.is_evil_cookies()
 
-    elseif lib.isEvilReqBody() then
-
-    end
+    lib.is_evil_request_body()
 
 end

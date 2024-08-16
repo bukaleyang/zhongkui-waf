@@ -3,34 +3,34 @@
 
 local _M = {}
 
-function _M.decodeBase64(str)
-    local newStr = str
+function _M.decode_base64(str)
+    local str_new = str
     for t = 1, 2 do
-        local temp = ngx.decode_base64(newStr)
+        local temp = ngx.decode_base64(str_new)
         if not temp then
             break
         end
-        newStr = temp
+        str_new = temp
     end
-    return newStr
+    return str_new
 end
 
-function _M.unescapeUri(str)
-    local newStr = str
+function _M.unescape_uri(str)
+    local str_new = str
     for t = 1, 2 do
-        local temp = ngx.unescape_uri(newStr)
+        local temp = ngx.unescape_uri(str_new)
         if not temp then
             break
         end
-        newStr = temp
+        str_new = temp
     end
-    return newStr
+    return str_new
 end
 
-function _M.removeComment(str)
+function _M.remove_comment(str)
     if str == nil then return nil end
-    local newStr, n, err = ngx.re.gsub(str, "/\\*[\\s\\S]*\\*/", " ", "ijo")
-    return newStr
+    local str_new, n, err = ngx.re.gsub(str, "/\\*[\\s\\S]*\\*/", " ", "ijo")
+    return str_new
 end
 
 

@@ -3,7 +3,7 @@
 
 local cjson = require "cjson"
 local config = require "config"
-local file = require "file"
+local file = require "file_utils"
 local pager = require "lib.pager"
 local nkeys = require "table.nkeys"
 
@@ -16,20 +16,20 @@ local cjson_encode = cjson.encode
 
 local update_site_module_rule_file = config.update_site_module_rule_file
 local get_site_module_rule_file = config.get_site_module_rule_file
-local readFileToString = file.readFileToString
-local writeStringToFile = file.writeStringToFile
+local read_file_to_string = file.read_file_to_string
+local write_string_to_file = file.write_string_to_file
 
 local _M = {}
 
 -- 查询规则列表
-function _M.listRules(filePath, list_key)
-    local response = {code = 200, data = {}, msg = ""}
+function _M.list_rules(file_path, list_key)
+    local response = { code = 200, data = {}, msg = "" }
 
-    if filePath then
-        local json = readFileToString(filePath)
+    if file_path then
+        local json = read_file_to_string(file_path)
         if json then
-            local ruleTable = cjson_decode(json)
-            local rules = ruleTable[list_key or 'rules']
+            local rule_table = cjson_decode(json)
+            local rules = rule_table[list_key or 'rules']
             local data = {}
 
             local args, err = ngx.req.get_uri_args()
@@ -37,8 +37,8 @@ function _M.listRules(filePath, list_key)
                 local page = tonumber(args['page'])
                 local limit = tonumber(args['limit'])
 
-                local begin = pager.getLuaBegin(page, limit)
-                local endPage = pager.getLuaEnd(page, limit)
+                local begin = pager.get_lua_begin(page, limit)
+                local endPage = pager.get_lua_end(page, limit)
                 local k = 1
 
                 for i = begin, endPage do
@@ -51,12 +51,12 @@ function _M.listRules(filePath, list_key)
             end
 
             response.code = 0
-            response.count = nkeys(ruleTable[list_key or 'rules'])
+            response.count = nkeys(rule_table[list_key or 'rules'])
             response.data = data
         end
     else
         response.code = 500
-        response.msg = 'filePath error'
+        response.msg = 'file_path error'
     end
 
     if response.code ~= 0 then
@@ -67,14 +67,14 @@ function _M.listRules(filePath, list_key)
 end
 
 -- 根据id查询规则
-function _M.getRule(filePath, id)
-    local response = {code = 200, data = {}, msg = ""}
+function _M.get_rule(file_path, id)
+    local response = { code = 200, data = {}, msg = "" }
 
-    if filePath then
-        local json = readFileToString(filePath)
+    if file_path then
+        local json = read_file_to_string(file_path)
         if json then
-            local ruleTable = cjson_decode(json)
-            local rules = ruleTable.rules
+            local rule_table = cjson_decode(json)
+            local rules = rule_table.rules
             local rule = nil
 
             if not id then
@@ -106,14 +106,14 @@ function _M.getRule(filePath, id)
         end
     else
         response.code = 500
-        response.msg = 'filePath error'
+        response.msg = 'file_path error'
     end
 
     return response
 end
 
-function _M.getRuleFromRequest()
-    local newRule = nil
+function _M.get_rule_from_request()
+    local rule_new = nil
     local args = nil
     ngx.req.read_body()
 
@@ -121,7 +121,7 @@ function _M.getRuleFromRequest()
     if not body_raw then
         local body_file = ngx.req.get_body_file()
         if body_file then
-            body_raw = readFileToString(body_file)
+            body_raw = read_file_to_string(body_file)
         end
     end
 
@@ -130,42 +130,42 @@ function _M.getRuleFromRequest()
     end
 
     if args then
-        local ruleStr = args['rule']
-        if ruleStr then
-            newRule = cjson_decode(ruleStr)
+        local rule_str = args['rule']
+        if rule_str then
+            rule_new = cjson_decode(rule_str)
         end
     end
 
-    return newRule
+    return rule_new
 end
 
 -- 修改规则
-function _M.saveOrUpdateRule(filePath, newRule)
-    local response = {code = 200, data = {}, msg = ""}
+function _M.save_or_update_rule(file_path, rule_new)
+    local response = { code = 200, data = {}, msg = "" }
 
-    if filePath and newRule and nkeys(newRule) > 0 then
-        local json = readFileToString(filePath)
+    if file_path and rule_new and nkeys(rule_new) > 0 then
+        local json = read_file_to_string(file_path)
         if json then
-            local ruleTable = cjson.decode(json)
-            local rules = ruleTable.rules
+            local rule_table = cjson_decode(json)
+            local rules = rule_table.rules
 
-            newRule.id = tonumber(newRule.id)
+            rule_new.id = tonumber(rule_new.id)
             -- 有id则是修改，否则是新增
-            if newRule.id then
+            if rule_new.id then
                 for k, v in pairs(rules) do
-                    if tonumber(v.id) == newRule.id then
-                        rules[k] = newRule
+                    if tonumber(v.id) == rule_new.id then
+                        rules[k] = rule_new
                         break
                     end
                 end
             else
-                local nextId = tonumber(ruleTable.nextId) or nkeys(rules) + 1
-                newRule.id = nextId
-                insert(rules, newRule)
-                ruleTable.nextId = nextId + 1
+                local nextId = tonumber(rule_table.nextId) or nkeys(rules) + 1
+                rule_new.id = nextId
+                insert(rules, rule_new)
+                rule_table.nextId = nextId + 1
             end
 
-            writeStringToFile(filePath, cjson.encode(ruleTable))
+            write_string_to_file(file_path, cjson_encode(rule_table))
         end
     else
         local msg = 'param error'
@@ -181,21 +181,21 @@ function _M.saveOrUpdateRule(filePath, newRule)
 end
 
 -- 删除规则
-function _M.deleteRule(filePath)
-    local response = {code = 200, data = {}, msg = ""}
+function _M.delete_rule(file_path)
+    local response = { code = 200, data = {}, msg = "" }
 
-    if filePath then
+    if file_path then
         ngx.req.read_body()
         local args, err = ngx.req.get_post_args()
 
         if args then
             local id = tonumber(args['id'])
             if id then
-                local json = readFileToString(filePath)
+                local json = read_file_to_string(file_path)
 
                 if json then
-                    local ruleTable = cjson.decode(json)
-                    local rules = ruleTable.rules
+                    local rule_table = cjson_decode(json)
+                    local rules = rule_table.rules
 
                     if rules then
                         for k, v in pairs(rules) do
@@ -206,7 +206,7 @@ function _M.deleteRule(filePath)
                         end
                     end
 
-                    writeStringToFile(filePath, cjson.encode(ruleTable))
+                    write_string_to_file(file_path, cjson_encode(rule_table))
                 end
             else
                 response.code = 500
@@ -218,7 +218,7 @@ function _M.deleteRule(filePath)
         end
     else
         response.code = 500
-        response.msg = 'filePath error'
+        response.msg = 'file_path error'
     end
 
     if response.code ~= 200 then
@@ -228,10 +228,9 @@ function _M.deleteRule(filePath)
     return response
 end
 
-
 -- 修改站点规则开关状态
 function _M.update_site_rule_state(site_id, module_id, rule_id, state)
-    local response = {code = 200, data = {}, msg = ""}
+    local response = { code = 200, data = {}, msg = "" }
     rule_id = tonumber(rule_id)
 
     if site_id and module_id and rule_id and state then
@@ -268,7 +267,7 @@ end
 
 -- 保存或修改站点规则
 function _M.save_or_update_site_rule(site_id, module_id, rule_new)
-    local response = {code = 200, data = {}, msg = ""}
+    local response = { code = 200, data = {}, msg = "" }
 
     if site_id and module_id and rule_new and nkeys(rule_new) > 0 then
         local _, json = get_site_module_rule_file(site_id, module_id)
@@ -309,7 +308,7 @@ end
 
 -- 删除站点规则
 function _M.delete_site_rule(site_id, module_id, rule_id)
-    local response = {code = 200, data = {}, msg = ""}
+    local response = { code = 200, data = {}, msg = "" }
     rule_id = tonumber(rule_id)
 
     if site_id and module_id and rule_id then

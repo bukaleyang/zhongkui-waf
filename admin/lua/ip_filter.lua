@@ -3,7 +3,7 @@
 
 local cjson = require "cjson"
 local config = require "config"
-local file = require "file"
+local file = require "file_utils"
 local user = require "user"
 local nkeys = require "table.nkeys"
 local stringutf8 = require "stringutf8"
@@ -11,9 +11,9 @@ local request = require "lib.request"
 
 local tonumber = tonumber
 local trim = stringutf8.trim
-local readFileToString = file.readFileToString
-local readFileToTable = file.readFileToTable
-local writeStringToFile = file.writeStringToFile
+local read_file_to_string = file.read_file_to_string
+local read_file_to_table = file.read_file_to_table
+local write_string_to_file = file.write_string_to_file
 
 local get_site_config = config.get_site_config
 local get_site_config_file = config.get_site_config_file
@@ -22,18 +22,20 @@ local update_site_config_file = config.update_site_config_file
 local cjson_decode = cjson.decode
 local cjson_encode = cjson.encode
 
+local get_request_body = request.get_request_body
+
 local _M = {}
 
 local IP_WHITELIST_PATH = config.CONF_PATH .. '/global_rules/ipWhiteList'
 local IP_BLACKLIST_PATH = config.CONF_PATH .. '/global_rules/ipBlackList'
 
 
-function _M.doRequest()
+function _M.do_request()
     local response = {code = 200, data = {}, msg = ""}
     local uri = ngx.var.uri
     local reload = false
 
-    if user.checkAuthToken() == false then
+    if user.check_auth_token() == false then
         response.code = 401
         response.msg = 'User not logged in'
         ngx.status = 401
@@ -98,7 +100,7 @@ function _M.doRequest()
         local data = {}
         local content = ''
 
-        local ip_white_list = readFileToTable(IP_WHITELIST_PATH)
+        local ip_white_list = read_file_to_table(IP_WHITELIST_PATH)
         if ip_white_list then
             local len = nkeys(ip_white_list)
             if len > 1 then
@@ -111,7 +113,7 @@ function _M.doRequest()
         data[1] = {id = 1, state = get_site_config("whiteIP").state, content = content}
 
         content = ''
-        local ip_black_list = readFileToTable(IP_BLACKLIST_PATH)
+        local ip_black_list = read_file_to_table(IP_BLACKLIST_PATH)
         if ip_black_list then
             local len = nkeys(ip_black_list)
             if len > 1 then
@@ -134,9 +136,9 @@ function _M.doRequest()
             if id then
                 local content = ''
                 if id == 1 then
-                    content = readFileToString(IP_WHITELIST_PATH) or ''
+                    content = read_file_to_string(IP_WHITELIST_PATH) or ''
                 elseif id == 2 then
-                    content = readFileToString(IP_BLACKLIST_PATH) or ''
+                    content = read_file_to_string(IP_BLACKLIST_PATH) or ''
                 end
                 response.data = {id = id, content = content}
             end
@@ -150,7 +152,7 @@ function _M.doRequest()
         local content = nil
         local args = nil
 
-        local body_raw = request.getRequestBody()
+        local body_raw = get_request_body
 
         if body_raw and body_raw ~= "" then
             args = ngx.decode_args(body_raw, 0)
@@ -162,9 +164,9 @@ function _M.doRequest()
 
             if id and content then
                 if id == 1 then
-                    writeStringToFile(IP_WHITELIST_PATH, trim(content))
+                    write_string_to_file(IP_WHITELIST_PATH, trim(content))
                 elseif id == 2 then
-                    writeStringToFile(IP_BLACKLIST_PATH, trim(content))
+                    write_string_to_file(IP_BLACKLIST_PATH, trim(content))
                 end
                 reload = true
             end
@@ -202,10 +204,10 @@ function _M.doRequest()
 
     -- 如果没有错误且需要重载配置文件则重载配置文件
     if (response.code == 200 or response.code == 0) and reload == true then
-        config.reloadConfigFile()
+        config.reload_config_file()
     end
 end
 
-_M.doRequest()
+_M.do_request()
 
 return _M
