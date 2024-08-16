@@ -33,7 +33,7 @@
 
 ### 安装
 
-可以执行安装脚本`install.sh`，自动安装`OpenResty`、`ZhongKui`、`libmaxminddb`和`geoipupdate`。也可以自行逐个安装。
+可以执行安装脚本`install.sh`，自动安装`OpenResty`、`ZhongKui`、`libmaxminddb`、`luafilesystem`和`geoipupdate`。也可以自行逐个安装。
 
 #### OpenResty
 
@@ -52,9 +52,9 @@
 修改`nginx.conf`，在`http`模块下添加`zhongkui-waf`相关配置：
 
 ```nginx
-include /usr/local/openresty/zhongkui-waf/conf/waf.conf;
-include /usr/local/openresty/zhongkui-waf/conf/admin.conf;
-include /usr/local/openresty/zhongkui-waf/conf/sites.conf;
+include /usr/local/openresty/zhongkui-waf/admin/conf/waf.conf;
+include /usr/local/openresty/zhongkui-waf/admin/conf/admin.conf;
+include /usr/local/openresty/zhongkui-waf/admin/conf/sites.conf;
 ```
 
 可根据访问量大小适当调整`waf.conf`文件中配置的字典内存大小。
@@ -106,6 +106,16 @@ wget -O /usr/local/src/luaossl-rel-20220711.tar.gz https://github.com/wahern/lua
 tar -zxf luaossl-rel-20220711.tar.gz
 cd ./luaossl-rel-20220711
 make all5.1 includedir=/usr/local/openresty/luajit/include/luajit-2.1 && make install5.1
+```
+
+#### LuaFileSystem库
+
+```shell
+wget -O /usr/local/src/luafilesystem-master.zip https://github.com/lunarmodules/luafilesystem/archive/refs/heads/master.zip
+unzip luafilesystem-master.zip
+cd ./luafilesystem-master
+make INCS=/usr/local/openresty/luajit/include/luajit-2.1
+mv ./src/lfs.so /usr/local/openresty/lualib/lfs.so
 ```
 
 安装完成后重启`OpenResty`，使用测试命令：
