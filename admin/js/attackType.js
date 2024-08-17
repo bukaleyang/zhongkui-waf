@@ -14,7 +14,8 @@ let attackTypeArray = [
     {"type":"codei","name_en":"Code Injection","name_cn":"代码注入"},
     {"type":"backdoor","name_en":"backdoor","name_cn":"后门"},
     {"type":"data_leak","name_en":"Data Leak","name_cn":"信息泄露"},
-    {"type":"read_file","name_en":"Read File","name_cn":"文件读取"}
+    {"type":"read_file","name_en":"Read File","name_cn":"文件读取"},
+    {"type":"unknown","name_en":"unknown","name_cn":"未知"}
 ]
 
 function initAttackTypeSelect(id, success) {

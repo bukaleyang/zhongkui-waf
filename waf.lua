@@ -47,7 +47,7 @@ if is_site_option_on("waf") then
 
     lib.is_bot()
 
-    lib.isCC()
+    lib.is_cc()
 
     lib.is_white_url()
 

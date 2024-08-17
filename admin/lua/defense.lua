@@ -126,6 +126,54 @@ function _M.do_request()
             response.code = 500
             response.msg = err
         end
+    elseif uri == "/defense/rule/save" then
+        -- 修改或新增防御规则
+        ngx.req.read_body()
+        local args, err = ngx.req.get_post_args()
+        if args then
+            local site_id = tostring(args['siteId'])
+            local module_id = tostring(args['moduleId'])
+            if site_id and module_id then
+                local rule_new = rule_utils.get_rule_from_request()
+                if rule_new then
+                    rule_new.id = tonumber(rule_new.id)
+                    rule_new.state = rule_new.state or 'off'
+                    rule_new.action = rule_new.action or 'deny'
+                    rule_new.attackType = rule_new.attackType or 'unknown'
+                    rule_new.severityLevel = 'medium'
+
+                    response = rule_utils.save_or_update_site_rule(site_id, module_id, rule_new)
+                    reload = true
+                else
+                    response.code = 500
+                    response.msg = 'param error'
+                end
+            else
+                response.code = 500
+                response.msg = 'param error'
+            end
+        else
+            response.code = 500
+            response.msg = err
+        end
+    elseif uri == "/defense/rule/remove" then
+        -- 删除防御规则
+        ngx.req.read_body()
+        local args, err = ngx.req.get_post_args()
+        if args then
+            local site_id = tostring(args['siteId'])
+            local rule_id = tonumber(args['ruleId'])
+            local module_id = tostring(args['moduleId'])
+            if site_id and rule_id and module_id then
+                response = rule_utils.delete_site_rule(site_id, module_id, rule_id)
+            else
+                response.code = 500
+                response.msg = 'param error'
+            end
+        else
+            response.code = 500
+            response.msg = err
+        end
     end
 
     ngx.say(cjson_encode(response))

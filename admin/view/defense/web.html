@@ -5,18 +5,11 @@
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
 		<title>网站防护</title>
 		<link href="../../component/pear/css/pear.css" rel="stylesheet">
+		<style>
+		    .layui-table-tool-temp {padding-right: 0px;}
+		</style>
 	</head>
 	<body class="pear-container">
-		<!-- <div class="layui-row layui-col-space10">
-			<div class="layui-col-md12">
-				<span class="layui-breadcrumb" lay-separator=">">
-					<a><cite>防护配置</cite></a>
-					<a><cite>网站防护</cite></a>
-				</span>
-			</div>
-		</div> -->
-		
-
 		<form class="layui-form" lay-filter="filter-form-sites">
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
@@ -33,6 +26,9 @@
 					</div>
 				</div>
 			</div>
+		</form>
+
+		<form class="layui-form" lay-filter="filter-form-config">
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
 					<div class="layui-card">
@@ -56,44 +52,44 @@
 					</div>
 				</div>
 			</div>
+		</form>
 
-			<div class="layui-row layui-col-space10">
-				<div class="layui-col-md12">
-					<div class="layui-card">
-						<div class="layui-card-header">规则引擎</div>
-						<div class="layui-card-body layui-row">
-							<div class="layui-col-md12">
-								<div class="layui-tab layui-tab-brief" id="id-tab-rules" lay-filter="filter-tab-rules">
-									<ul class="layui-tab-title">
-										<li class="layui-this" module-id="blackUrl">URL检测</li>
-										<li module-id="args">参数检测</li>
-										<li module-id="headers">Header检测</li>
-										<li module-id="cookie">Cookie检测</li>
-										<li module-id="post">Post检测</li>
-										<li module-id="httpMethod" description="如不允许某HTTP方法的请求，请设置该方法状态为开启状态">HTTP方法检测</li>
-										<li module-id="fileExt" description="如不允许上传某类型的文件，请设置该类型状态为开启状态">文件上传检测</li>
-										<li module-id="sqlixss">语义分析</li>
-									</ul>
-									<div class="layui-tab-content">
-										<div class="layui-tab-item layui-show" id="id-rules-common">
-											<div class="layui-row">
-												<div class="layui-col-md12">
-													<table id="id-table-rules" lay-filter="filter-table-rules"></table>
-												</div>
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">规则引擎</div>
+					<div class="layui-card-body layui-row">
+						<div class="layui-col-md12">
+							<div class="layui-tab layui-tab-brief" id="id-tab-rules" lay-filter="filter-tab-rules">
+								<ul class="layui-tab-title">
+									<li class="layui-this" module-id="blackUrl">URL检测</li>
+									<li module-id="args">参数检测</li>
+									<li module-id="headers">Header检测</li>
+									<li module-id="cookie">Cookie检测</li>
+									<li module-id="post">Post检测</li>
+									<li module-id="httpMethod" description="如不允许某HTTP方法的请求，请设置该方法状态为开启状态">HTTP方法检测</li>
+									<li module-id="fileExt" description="如不允许上传某类型的文件，请设置该类型状态为开启状态">文件上传检测</li>
+									<li module-id="sqlixss">语义分析</li>
+								</ul>
+								<div class="layui-tab-content">
+									<div class="layui-tab-item layui-show" id="id-rules-common">
+										<div class="layui-row">
+											<div class="layui-col-md12">
+												<table id="id-table-rules" lay-filter="filter-table-rules"></table>
 											</div>
 										</div>
-										<div class="layui-tab-item" id="id-rules-sqlixss">
-											<div class="layui-row layui-col-space10">
-												<div class="layui-col-md2">
-													<span class="layui-inline" style="padding-top: 8px; padding-right: 5px;">XSS攻击检测</span>
-													<input type="checkbox" name="xss" module-id="xss" lay-skin="switch" lay-filter="filter-rule-state" id="id-module-xss-state" title="ON|OFF" />
-												</div>
+									</div>
+									<div class="layui-tab-item layui-form" id="id-rules-sqlixss">
+										<div class="layui-row layui-col-space10">
+											<div class="layui-col-md2">
+												<span class="layui-inline" style="padding-top: 8px; padding-right: 5px;">XSS攻击检测</span>
+												<input type="checkbox" name="xss" module-id="xss" lay-skin="switch" lay-filter="filter-rule-state" id="id-module-xss-state" title="ON|OFF" />
 											</div>
-											<div class="layui-row layui-col-space10">
-												<div class="layui-col-md2">
-													<span class="layui-inline" style="padding-top: 8px; padding-right: 5px;">SQL注入检测</span>
-													<input type="checkbox" name="sqli" module-id="sqli" lay-skin="switch" lay-filter="filter-rule-state" id="id-module-sqli-state" title="ON|OFF" />
-												</div>
+										</div>
+										<div class="layui-row layui-col-space10">
+											<div class="layui-col-md2">
+												<span class="layui-inline" style="padding-top: 8px; padding-right: 5px;">SQL注入检测</span>
+												<input type="checkbox" name="sqli" module-id="sqli" lay-skin="switch" lay-filter="filter-rule-state" id="id-module-sqli-state" title="ON|OFF" />
 											</div>
 										</div>
 									</div>
@@ -103,28 +99,94 @@
 					</div>
 				</div>
 			</div>
-		</form>
+		</div>
 
-		<script type="text/html" id="id-toolbar">
+		<form class="layui-form" style="background-color:#fff;padding: 10px 15px 10px 0px;display: none;" lay-filter="filter-form-rule" id="id-form-rule">
+			<input type="hidden" name="id" />
+			
 			<div class="layui-row">
-				<div class="layui-col-lg1 layui-col-md2 layui-col-sm2">
-					状态&nbsp;&nbsp;<input type="checkbox" id="id-module-state" value="" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" />
-				</div>
-				<div class="layui-col-md7 layui-col-sm8" id="id-module-description"></div>
-				<div class="layui-col-md7 layui-col-sm7 layui-hide" id="id-file-content">
-					<div class="layui-input-group">
-						<div class="layui-input-prefix">上传文件内容检测</div>
-						<input type="checkbox" id="id-file-content-state" module-id="fileContentCheck" value="" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" />
-						<div class="layui-input-suffix">开启后将对上传的文件内容进行检查</div>
+				<div class="layui-col-md12">
+					<div class="layui-form-item">
+						<label class="layui-form-label">规则状态</label>
+						<div class="layui-input-block">
+							<input type="checkbox" id="id-rule-state" name="state" lay-skin="switch" title="ON|OFF" />
+						</div>
+					</div>
+					<div class="layui-form-item">
+						<label class="layui-form-label">规则正则</label>
+						<div class="layui-input-block">
+							<input type="text" name="rule" lay-verify="required" autocomplete="off" class="layui-input" />
+						</div>
+					</div>
+
+					<div class="layui-form-item">
+						<label class="layui-form-label">攻击类型</label>
+						<div class="layui-input-block">
+							<select id="id-attackType" name="attackType"></select>
+						</div>
+					</div>
+					
+					<div class="layui-form-item">
+						<label class="layui-form-label">危险级别</label>
+						<div class="layui-input-block">
+							<select id="id-severityLevel" name="severityLevel"></select>
+						</div>
+					</div>
+
+					<div class="layui-form-item">
+						<label class="layui-form-label">处置动作</label>
+						<div class="layui-input-block">
+							<select id="id-action" name="action"></select>
+						</div>
+					</div>
+					<div class="layui-form-item layui-form-text">
+						<label class="layui-form-label">规则描述</label>
+						<div class="layui-input-block">
+						  <textarea name="description" placeholder="规则描述" class="layui-textarea"></textarea>
+						</div>
 					</div>
 				</div>
 			</div>
+
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div style="float: right;">
+						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-rule-save">保存</button>
+						<button type="button" class="pear-btn" lay-on="ruleCancel">取消</button>
+					</div>
+				</div>
+			</div>
+		</form>
+
+		<script type="text/html" id="id-toolbar">
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-lg1 layui-col-md2 layui-col-sm2">
+					状态&nbsp;&nbsp;<input type="checkbox" id="id-module-state" value="" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" />
+				</div>
+				<div class="layui-col-lg10 layui-col-md8 layui-col-sm8">
+					<div id="id-module-description"></div>
+					<div class="layui-hide" id="id-file-content">
+						<div class="layui-input-group">
+							<div class="layui-input-prefix">上传文件内容检测</div>
+							<input type="checkbox" id="id-file-content-state" module-id="fileContentCheck" value="" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" />
+							<div class="layui-input-suffix">开启后将对上传的文件内容进行检查</div>
+						</div>
+					</div>
+				</div>
+				<div class="layui-col-lg1 layui-col-md2 layui-col-sm2">
+					<button class="pear-btn pear-btn-primary pear-btn-md" style="float: right;" lay-event="add">
+						<i class="layui-icon layui-icon-add-1"></i>
+						新增
+					</button>
+				</div>
+			</div>
 		</script>
-		<script type="text/html" id="rule_bar">
+
+		<script type="text/html" id="id-template-bar">
 			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i></button>
 			<button class="pear-btn pear-btn-danger pear-btn-xs" lay-event="remove"><i class="layui-icon layui-icon-delete"></i></button>
 		</script>
-		<script type="text/html" id="id-rule-state">
+		<script type="text/html" id="id-template-rule-state">
 			<input type="checkbox" name="state" value="{{= d.id }}" rule-id="{{= d.id }}" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" {{= d.state == "on" ? "checked" : "" }} />
 		</script>
 
@@ -132,16 +194,18 @@
 		<script src="../../component/pear/pear.js"></script>
 		<script src="../../js/action.js"></script>
 		<script src="../../js/attackType.js"></script>
+		<script src="../../js/severityLevel.js"></script>
 		<script>
 			var config = {};
 
-			layui.use(['form','table','tag','popup'], function() {
+			layui.use(['form','table','util','tag','popup'], function() {
 				var $ = layui.jquery;
 				var form = layui.form;
 				var table = layui.table;
 				var element = layui.element;
 				var	tag = layui.tag;
 				var popup = layui.popup;
+				var util = layui.util;
 
 				table.render({
 					elem: '#id-table-rules',
@@ -151,27 +215,16 @@
 							return '<div>' + getAttackTypeText(d.attackType) + '</div>';
 						}},
 						{field: 'severityLevel', title: '危险级别', width: 100, templet: function(d) {
-							let levelStr = '';
-							switch (d.severityLevel) {
-								case 'low':
-									levelStr = '<span class="layui-badge layui-bg-blue">低危</span>';
-									break;
-								case 'medium':
-									levelStr = '<span class="layui-badge" style="background-color:#ffcc00;">中危</span>';
-									break;
-								case 'high':
-									levelStr = '<span class="layui-badge layui-bg-orange">高危</span>';
-									break;
-								case 'critical':
-									levelStr = '<span class="layui-badge layui-bg-red">严重</span>';
-									break;
-								default:
-									levelStr = '<span class="layui-badge layui-bg-blue">低危</span>';
-							}
-
-							return '<div>' + levelStr + '</div>';
+							return '<div>' + getSeverityLevelText(d.severityLevel) + '</div>';
 						}},
-						{field: 'state', title: '状态', width: 100, templet: '#id-rule-state'},
+						{field: 'action', title: '处置动作', width: 180, templet: function(d) {
+							return '<div>' + getActionText(d.action) + '</div>';
+						}},
+						{field: 'description', title: '规则描述', minWidth: 180, templet: function(d) {
+							return '<div>' + (d.description ? d.description : '') + '</div>';
+						}},
+						{field: 'state', title: '状态', width: 100, templet: '#id-template-rule-state'},
+						{fixed: 'right', title:'操作', width: 110, minWidth: 110, toolbar: '#id-template-bar'}
 					]],
 					toolbar: '#id-toolbar',
 					defaultToolbar: [],
@@ -241,10 +294,8 @@
 					var id = this.value;
 					var name = this.name;
 					var state = this.checked ? 'on' : 'off';
-
 					var ruleId = $(this).attr('rule-id');
 
-				//	var moduleId = $('#id-tab-rules li.layui-this').attr('module-id');
 					var moduleId = $(this).attr('module-id');
 					if (!moduleId) {
 						moduleId = $('#id-tab-rules li.layui-this').attr('module-id');
@@ -260,13 +311,102 @@
 							if (!ruleId) {
 								config[moduleId].state = state;
 							}
-						//	table.reload('id-table-rules');
 							return true;
 						} else {
 							popup.failure(res.msg);
 							return false;
 						}
 					}, "json");
+				});
+
+				function openLayer(title) {
+					layer.open({
+						type: 1,
+						title: title,
+						shade: 0.6,
+						shadeClose: true,
+						area: ['520px', 'auto'],
+						content: $('#id-form-rule'),
+						end: function() {
+							$("#id-form-rule").trigger("reset");
+							$("#id-form-rule").find("input[type='hidden']").val("");
+						}
+					});
+				}
+
+				// 规则提交保存事件
+				form.on('submit(filter-rule-save)', function(data) {
+					var field = data.field; // 获取表单字段值
+
+					if (field.state != 'on') {
+						field.state = 'off';
+					}
+
+					var param = {};
+					param.siteId = $('#site').val();
+					param.moduleId = $('#id-tab-rules li.layui-this').attr('module-id');
+					param.rule = JSON.stringify(field);
+					
+					$.post('/defense/rule/save',  param, function(res) {
+						if (res && res.code == 200) {
+							table.reloadData('id-table-rules');
+							layer.closeLast('page');
+							popup.success("已保存");
+							return true;
+						} else {
+							popup.failure(res.msg);
+							return false;
+						}
+					}, "json");
+
+					return false; // 阻止默认 form 跳转
+				});
+
+				// 触发单元格工具事件
+				table.on('tool(filter-table-rules)', function(obj) {
+					var data = obj.data; // 获得当前行数据
+
+					if(obj.event === 'edit') {
+						openLayer('编辑规则');
+						var state = data.state == 'on' ? true : false;
+						data.state = state;
+						form.val('filter-form-rule', data);
+					} else if(obj.event === 'remove') {
+						layer.confirm('确定删除该规则吗？', {
+							icon: 3,
+							title: '提示'
+						},
+						function(index) {
+							var param = {};
+							param.siteId = $('#site').val();
+							param.moduleId = $('#id-tab-rules li.layui-this').attr('module-id');
+							param.ruleId = data.id;
+
+							$.post('/defense/rule/remove',  param, function(res) {
+								if (res && res.code == 200) {
+									obj.del();
+									table.reloadData('id-table-rules');
+									layer.close(index);
+									return true;
+								} else {
+									popup.failure(res.msg);
+									return false;
+								}
+							}, "json");
+						});
+					}
+				});
+
+				table.on('toolbar(filter-table-rules)', function(obj) {
+					if (obj.event === 'add') {
+						openLayer('添加规则');
+					}
+				});
+
+				util.on('lay-on', {
+					ruleCancel: function() {
+						layer.closeLast('page');
+					}
 				});
 
 				element.on('tab(filter-tab-rules)', function(data) {
@@ -331,6 +471,18 @@
 							reloadTableData();
 						}
 					}, "json");
+
+					initAttackTypeSelect('id-attackType', function() {
+						form.render($('#id-attackType'));
+					});
+
+					initSeverityLevelSelect('id-severityLevel', function() {
+						form.render($('#id-severityLevel'));
+					});
+
+					initActionSelect('id-action', 'coding', function() {
+						form.render($('#id-action'));
+					});
 
 					// 阻止回车触发表单提交
 					$('input').on('keydown', function (e) {
