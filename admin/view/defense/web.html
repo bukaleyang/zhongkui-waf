@@ -62,11 +62,11 @@
 						<div class="layui-col-md12">
 							<div class="layui-tab layui-tab-brief" id="id-tab-rules" lay-filter="filter-tab-rules">
 								<ul class="layui-tab-title">
-									<li class="layui-this" module-id="blackUrl">URL检测</li>
-									<li module-id="args">参数检测</li>
-									<li module-id="headers">Header检测</li>
-									<li module-id="cookie">Cookie检测</li>
-									<li module-id="post">Post检测</li>
+									<li class="layui-this" module-id="blackUrl" description="开启后将对请求的URL进行检测">URL检测</li>
+									<li module-id="args" description="开启后将对GET请求的参数进行检测">参数检测</li>
+									<li module-id="headers" description="开启后将对请求头进行检测">Header检测</li>
+									<li module-id="cookie" description="开启后将对请求所携带的Cookie进行检测">Cookie检测</li>
+									<li module-id="post" description="开启后将对请求体进行检测">Post检测</li>
 									<li module-id="httpMethod" description="如不允许某HTTP方法的请求，请设置该方法状态为开启状态">HTTP方法检测</li>
 									<li module-id="fileExt" description="如不允许上传某类型的文件，请设置该类型状态为开启状态">文件上传检测</li>
 									<li module-id="sqlixss">语义分析</li>
@@ -164,7 +164,7 @@
 					状态&nbsp;&nbsp;<input type="checkbox" id="id-module-state" value="" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" />
 				</div>
 				<div class="layui-col-lg10 layui-col-md8 layui-col-sm8">
-					<div id="id-module-description"></div>
+					<div id="id-module-description">开启后将对请求的URL进行检测</div>
 					<div class="layui-hide" id="id-file-content">
 						<div class="layui-input-group">
 							<div class="layui-input-prefix">上传文件内容检测</div>
