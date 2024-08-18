@@ -7,10 +7,11 @@ local file_utils = require "file_utils"
 local user = require "user"
 local request = require "request"
 local rule_utils = require "lib.rule_utils"
-local x509 = require "openssl.x509"
+local has_x509, x509 = pcall(require, "openssl.x509")
 
 local pairs = pairs
 local tostring = tostring
+local error = error
 local tabinsert = table.insert
 local ngxfind = ngx.re.find
 local date = os.date
@@ -49,18 +50,22 @@ function _M.do_request()
         response = rule_utils.list_rules(CERTIFICATE_PATH)
     elseif uri == "/common/certificate/save" then
         -- 修改或新增证书
-        local newRule = rule_utils.get_rule_from_request()
-        if not newRule then
+        local rule_new = rule_utils.get_rule_from_request()
+        if not rule_new then
             response.code = 500
             return
         end
-        local publicKey = newRule.publicKey
-        local privateKey = newRule.privateKey
+        local publicKey = rule_new.publicKey
+        local privateKey = rule_new.privateKey
 
         if not publicKey or not privateKey then
             response.code = 500
             ngx.say(cjson_encode(response))
             return
+        end
+
+        if has_x509 then
+            error("certificate parsing failed because openssl.x509 is not installed", 2)
         end
 
         -- 解析证书
@@ -70,11 +75,11 @@ function _M.do_request()
         local issuer = cert:getIssuer()
         local subjectAlt = cert:getSubjectAlt()
         local serial = cert:getSerial()
-        local startTime, endTime = cert:getLifetime()
+        local start_time, end_time = cert:getLifetime()
 
-        newRule.serial = tostring(serial)
-        newRule.effectiveDate = date("%Y-%m-%d", startTime)
-        newRule.expirationDate = date("%Y-%m-%d", endTime)
+        rule_new.serial = tostring(serial)
+        rule_new.effectiveDate = date("%Y-%m-%d", start_time)
+        rule_new.expirationDate = date("%Y-%m-%d", end_time)
 
         local domainName = nil
 
@@ -94,7 +99,7 @@ function _M.do_request()
             end
         end
 
-        newRule.domainName = domainName
+        rule_new.domainName = domainName
 
         local issuerName = ""
         local issuerOrgName = ""
@@ -106,8 +111,8 @@ function _M.do_request()
             end
         end
 
-        newRule.issuerName = issuerName
-        newRule.issuerOrgName = issuerOrgName
+        rule_new.issuerName = issuerName
+        rule_new.issuerOrgName = issuerOrgName
 
         local ext = ".crt"
         if ngxfind(publicKey, "-----BEGIN CERTIFICATE-----", "jo") ~= nil then
@@ -122,16 +127,14 @@ function _M.do_request()
         file_utils.write_string_to_file(certPath, publicKey)
         file_utils.write_string_to_file(keyPath, privateKey)
 
-        newRule.certPath = certPath
-        newRule.keyPath = keyPath
+        rule_new.certPath = certPath
+        rule_new.keyPath = keyPath
 
-        newRule.publicKey = nil
-        newRule.privateKey = nil
-        newRule.file = nil
+        rule_new.publicKey = nil
+        rule_new.privateKey = nil
+        rule_new.file = nil
 
-        response.data = cjson_encode(newRule)
-
-        response = rule_utils.save_or_update_rule(CERTIFICATE_PATH, newRule)
+        response = rule_utils.save_or_update_rule(CERTIFICATE_PATH, rule_new)
         reload = true
     elseif uri == "/common/certificate/remove" then
         response = rule_utils.get_rule(CERTIFICATE_PATH)
@@ -189,9 +192,8 @@ function _M.do_request()
     elseif uri == "/common/certificate/listcerts" then
         local json = read_file_to_string(CERTIFICATE_PATH)
         if json then
-            local ruleTable = cjson_decode(json)
-            local rules = ruleTable.rules
-
+            local rule_table = cjson_decode(json)
+            local rules = rule_table.rules
             local certs = {}
 
             if rules then

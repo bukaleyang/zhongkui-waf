@@ -14,7 +14,7 @@
 					<div class="layui-card-body">
 						<div class="layui-row">
 							<div class="layui-col-md12">
-								<table id="table_rule" lay-filter="table_rule"></table>
+								<table id="id-table-rules" lay-filter="filter-table-rules"></table>
 							</div>
 						</div>
 					</div>
@@ -22,7 +22,7 @@
 			</div>
 		</div>
 
-		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="form_rule" id="form_rule">
+		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" lay-filter="filter-form-rule" id="id-form-rule">
 			<input type="hidden" name="id" />
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">域名</div>
@@ -41,12 +41,12 @@
 				<div class="layui-col-md12">
 					<div class="layui-row layui-col-space5 site-row">
 						<div class="layui-col-md8">
-							<input type="text" name="port" placeholder="80" lay-verify="required|number" lay-reqtext="监听端口不能为空" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+							<input type="text" name="port" placeholder="80" lay-verify="required|number" lay-reqtext="监听端口不能为空" autocomplete="off" class="layui-input" />
 						</div>
 						<div class="layui-col-md4">
 							<div class="layui-input-inline" style="width: 70%;">
 								<label class="layui-form-label" style="width: 30px;">SSL</label>
-								<input type="checkbox" name="ssl" lay-skin="switch" lay-filter="config_switch_ssl" title="ON|OFF" />
+								<input type="checkbox" name="ssl" lay-skin="switch" lay-filter="filter-switch-ssl" title="ON|OFF" />
 							</div>
 							<i class="layui-icon layui-icon-delete" style="cursor: pointer;vertical-align: middle;" lay-on="removeSite"></i>
 						</div>
@@ -66,7 +66,7 @@
 			</div>
 			<div class="layui-row layui-col-space10 cert" style="display: none;">
 				<div class="layui-col-md12">
-					<select id="certId" name="certId" lay-filter="rule_select" lay-verify="certId"></select>
+					<select id="certId" name="certId" lay-verify="certId"></select>
 				</div>
 			</div>
 
@@ -75,7 +75,7 @@
 			</div>
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
-					<input type="text" name="upstream" placeholder="http://192.168.0.1:8080" lay-verify="required|url" lay-reqtext="上游服务器地址不能为空" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+					<input type="text" name="upstream" placeholder="http://192.168.0.1:8080" lay-verify="required|url" lay-reqtext="上游服务器地址不能为空" autocomplete="off" class="layui-input" />
 				</div>
 			</div>
 
@@ -86,7 +86,7 @@
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
 					<div class="layui-form-text">
-						<textarea name="description" placeholder="请输入备注" lay-filter="rule_textarea" class="layui-textarea"></textarea>
+						<textarea name="description" placeholder="请输入备注" class="layui-textarea"></textarea>
 					</div>
 				</div>
 			</div>
@@ -94,7 +94,7 @@
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
 					<div style="float: right;">
-						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="rule_save">保存</button>
+						<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-rule-save">保存</button>
 						<button type="button" class="pear-btn" lay-on="ruleCancel">取消</button>
 					</div>
 				</div>
@@ -130,7 +130,7 @@
 				}
 
 				function listCerts(certId) {
-					$.get('/certificate/listcerts',  {}, function(res) {
+					$.get('/common/certificate/listcerts',  {}, function(res) {
 						if (res && res.code == 200) {
 							var html = '';
 							if (res.data) {
@@ -145,7 +145,7 @@
 								$(".cert").show();
 							}
 
-							form.render('select', 'form_rule');
+							form.render('select', 'filter-form-rule');
 						} else {
 							popup.failure(res.msg);
 						}
@@ -153,7 +153,7 @@
 				}
 
 				table.render({
-					elem: '#table_rule',
+					elem: '#id-table-rules',
 					url: '/sites/list',
 					cols: [[ //标题栏
 						{field: 'serverNames', title: '域名'},
@@ -180,15 +180,35 @@
 					]],
 					toolbar: '#user_toolbar',
 					css:'.layui-form{margin-top:0px;}',
-					//skin: 'line', // 表格风格
-					//even: true,
 					page: true, // 是否显示分页
 					limits: [5, 10, 15, 20, 25, 30],
 					limit: 10, // 每页默认显示的数量
 				});
 
+				function openLayer(title, certId) {
+					layer.open({
+						type: 1,
+						title: title,
+						shade: 0.6,
+						shadeClose: true,
+						area: ['620px', 'auto'],
+						content: $('#id-form-rule'),
+						success: function() {
+							listCerts(certId);
+						},
+						end: function() {
+							$("#id-form-rule").trigger("reset");
+							$("#id-form-rule").find("input[type='hidden']").val("");
+							$(".site-row:not(:first)").remove();
+							$('#serverNames').find('button:not(:last)').remove();
+							tagRender();
+							$(".cert").hide();
+						}
+					});
+				}
+
 				// 触发单元格工具事件
-				table.on('tool(table_rule)', function(obj) {
+				table.on('tool(filter-table-rules)', function(obj) {
 					var data = obj.data; // 获得当前行数据
 
 					if(obj.event === 'edit') {
@@ -224,29 +244,10 @@
 
 						var certId = data.certId;
 
-						form.val('form_rule', data);
-						form.render(null, 'form_rule');
+						form.val('filter-form-rule', data);
+						form.render(null, 'filter-form-rule');
 						
-						layer.open({
-							type: 1,
-							title: '编辑站点',
-							shade: 0.6,
-							shadeClose: true,
-							area: ['620px', 'auto'],
-							content: $('#form_rule'),
-							success: function() {
-								listCerts(certId);
-							},
-							end: function() {
-								$("#form_rule").trigger("reset");
-								$("#form_rule").find("input[type='hidden']").val("");
-								$(".site-row:not(:first)").remove();
-								$('#serverNames').find('button:not(:last)').remove();
-								tagRender();
-								$(".cert").hide();
-							}
-						});
-
+						openLayer('编辑站点', certId);
 					} else if(obj.event === 'remove') {
 						layer.confirm('确定删除该站点吗？', {
 							icon: 3,
@@ -256,7 +257,7 @@
 							$.post('/sites/remove',  {id: data.id}, function(resData) {
 								if (resData && resData.code == 200) {
 									obj.del(); // 删除对应行（tr）的 DOM 结构，并更新缓存
-									table.reloadData('table_rule');
+									table.reloadData('id-table-rules');
 									layer.close(index);
 									return true;
 								} else {
@@ -268,29 +269,11 @@
 					}
 				});
 
-				table.on('toolbar(table_rule)', function(obj) {
+				table.on('toolbar(filter-table-rules)', function(obj) {
 					if (obj.event === 'add') {
-						layer.open({
-							type: 1,
-							title: '添加站点',
-							shade: 0.6,
-							shadeClose: true,
-							area: ['620px', 'auto'],
-							content: $('#form_rule'),
-							success: function() {
-								listCerts();
-							},
-							end: function() {
-								$("#form_rule").trigger("reset");
-								$("#form_rule").find("input[type='hidden']").val("");
-								$(".site-row:not(:first)").remove();
-								$('#serverNames').find('button:not(:last)').remove();
-								tagRender();
-								$(".cert").hide();
-							}
-						});
+						openLayer('添加站点');
 					} else if (obj.event === 'refresh') {
-						table.reload('table_rule');
+						table.reload('id-table-rules');
 					}
 				});
 
@@ -306,7 +289,7 @@
 							newSite.find(":text[name='port']").val("");
 							newSite.find(":checkbox[name='ssl']").prop("checked", false);
 							$('#addSiteRow').before(newSite);
-							form.render(null, 'form_rule');
+							form.render(null, 'filter-form-rule');
 						} else {
 							popup.failure("最多添加3个监听端口");
 						}
@@ -337,7 +320,7 @@
 					}
 				});
 
-				form.on('switch(config_switch_ssl)', function(data) {
+				form.on('switch(filter-switch-ssl)', function(data) {
 					if ($(":checkbox[name='ssl']:checked").length > 0) {
 						$(".cert").show();
 					} else {
@@ -346,7 +329,7 @@
 				});
 
 				// 提交事件
-				form.on('submit(rule_save)', function(data) {
+				form.on('submit(filter-rule-save)', function(data) {
 					var field = data.field;
 					delete field.port;
 					delete field.ssl;
@@ -376,7 +359,7 @@
 
 					$.post('/sites/save',  {rule: JSON.stringify(field)}, function(data) {
 						if (data && data.code == 200) {
-							table.reloadData('table_rule');
+							table.reloadData('id-table-rules');
 							layer.closeLast('page');
 							popup.success("已保存");
 							return true;
