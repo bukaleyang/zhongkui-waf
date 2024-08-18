@@ -64,7 +64,7 @@ function _M.do_request()
             return
         end
 
-        if has_x509 then
+        if not has_x509 then
             error("certificate parsing failed because openssl.x509 is not installed", 2)
         end
 
