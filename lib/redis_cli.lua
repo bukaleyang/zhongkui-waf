@@ -9,6 +9,7 @@ local config = require "config"
 local tonumber = tonumber
 local tostring = tostring
 local ipairs = ipairs
+local lower = string.lower
 local ngxmatch = ngx.re.match
 local get_system_config = config.get_system_config
 
@@ -19,7 +20,7 @@ local host = redis_config.host
 local port = redis_config.port
 local password = redis_config.password
 local poolSize = redis_config.poolSize
-local ssl = redis_config.ssl
+local ssl = lower(redis_config.ssl) == 'on' and true or false
 
 local redis_timeouts = redis_config.timeouts
 local connect_timeout, send_timeout, read_timeout = 1000, 1000, 1000

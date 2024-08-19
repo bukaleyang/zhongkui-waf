@@ -162,22 +162,6 @@ function _M.update_site_module_rule_file(site_id, module_id, str)
     return write_string_to_file(rule_file, str)
 end
 
--- Load the ip blacklist in the configuration file and log file to the ngx.shared.dict_blackip or Redis
-local function load_ip_blacklist(blacklist)
-    if _M.is_global_option_on("blackIP") and blacklist and nkeys(blacklist) > 0 then
-        local redis_cli = require "redis_cli"
-        if _M.is_system_option_on("redis") then
-            redis_cli.bath_set(blacklist, 0, constants.KEY_BLACKIP_PREFIX)
-        else
-            local blackip = ngx.shared.dict_blackip
-
-            for _, ip in ipairs(blacklist) do
-                blackip:set(ip, 1)
-            end
-        end
-    end
-end
-
 local function add_ip_group(group, ips)
     if ips and nkeys(ips) > 0 then
         local matcher, err = ipmatcher.new(ips)
@@ -273,8 +257,6 @@ local function load_global_config()
     local ip_whitelist = read_file_to_table(_M.CONF_PATH .. "/global_rules/ipWhiteList")
     add_ip_group(constants.KEY_IP_GROUPS_BLACKLIST, ip_blacklist_cidr)
     add_ip_group(constants.KEY_IP_GROUPS_WHITELIST, ip_whitelist)
-
-    load_ip_blacklist(ip_blacklist)
 end
 
 local function load_site_config()
