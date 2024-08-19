@@ -160,11 +160,14 @@
 
 		<script type="text/html" id="id-toolbar">
 			<div class="layui-row layui-col-space10">
-				<div class="layui-col-lg1 layui-col-md2 layui-col-sm2">
-					状态&nbsp;&nbsp;<input type="checkbox" id="id-module-state" value="" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" />
+				<div class="layui-col-lg4 layui-col-md6 layui-col-sm6">
+					<div class="layui-input-group">
+						<div class="layui-input-prefix" style="padding-left: 0px;">状态</div>
+						<input type="checkbox" id="id-module-state" value="" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" />
+						<div class="layui-input-suffix" id="id-module-description">开启后将对请求的URL进行检测</div>
+					</div>
 				</div>
-				<div class="layui-col-lg10 layui-col-md8 layui-col-sm8">
-					<div id="id-module-description">开启后将对请求的URL进行检测</div>
+				<div class="layui-col-lg7 layui-col-md5 layui-col-sm5">
 					<div class="layui-hide" id="id-file-content">
 						<div class="layui-input-group">
 							<div class="layui-input-prefix">上传文件内容检测</div>
@@ -173,7 +176,7 @@
 						</div>
 					</div>
 				</div>
-				<div class="layui-col-lg1 layui-col-md2 layui-col-sm2">
+				<div class="layui-col-lg1 layui-col-md1 layui-col-sm1">
 					<button class="pear-btn pear-btn-primary pear-btn-md" style="float: right;" lay-event="add">
 						<i class="layui-icon layui-icon-add-1"></i>
 						新增
