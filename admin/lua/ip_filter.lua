@@ -152,7 +152,7 @@ function _M.do_request()
         local content = nil
         local args = nil
 
-        local body_raw = get_request_body
+        local body_raw = get_request_body()
 
         if body_raw and body_raw ~= "" then
             args = ngx.decode_args(body_raw, 0)
