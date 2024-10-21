@@ -345,6 +345,7 @@
 				// 配置提交保存
 				form.on('submit(filter-cc-save)', function(data) {
 					var field = data.field;
+					field.state = field.state == 'on' ? 'on' : 'off';
 					field.actionTimeout = parseInt(field.actionTimeout);
 					field.maxFailTimes = parseInt(field.maxFailTimes);
 					field.accessTokenTimeout = parseInt(field.accessTokenTimeout);
