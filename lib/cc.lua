@@ -14,6 +14,7 @@ local sub = string.sub
 local md5 = ngx.md5
 local pairs = pairs
 local tonumber = tonumber
+local tostring = tostring
 local upper = string.upper
 
 local get_site_config = config.get_site_config
@@ -44,9 +45,9 @@ function _M.redirect_302()
         local sign = _M.get_sign(args, 'redirect302_sign', SECRET)
         local uri_new = ''
         if nkeys(args) > 1 then
-            uri_new = request_uri .. '&redirect302_sign=' .. sign .. '&redirect302_time=' .. time
+            uri_new = request_uri .. '&redirect302_sign=' .. sign .. '&redirect302_time=' .. tostring(time)
         else
-            uri_new = request_uri .. '?redirect302_sign=' .. sign .. '&redirect302_time=' .. time
+            uri_new = request_uri .. '?redirect302_sign=' .. sign .. '&redirect302_time=' .. tostring(time)
         end
 
         _M.clear_access_token()
@@ -76,9 +77,9 @@ function _M.redirect_js()
         local sign = _M.get_sign(args, 'redirectjs_sign', SECRET)
         local uri_new = ''
         if nkeys(args) > 1 then
-            uri_new = request_uri .. '&redirectjs_sign=' .. sign .. '&redirectjs_time=' .. time
+            uri_new = request_uri .. '&redirectjs_sign=' .. sign .. '&redirectjs_time=' .. tostring(time)
         else
-            uri_new = request_uri .. '?redirectjs_sign=' .. sign .. '&redirectjs_time=' .. time
+            uri_new = request_uri .. '?redirectjs_sign=' .. sign .. '&redirectjs_time=' .. tostring(time)
         end
 
         _M.clear_access_token()
@@ -155,7 +156,7 @@ function _M.get_sign(args, sign_key, secret)
                 if type(val) == "table" then
                     str = str .. '&' .. key .. '=' .. concat(val, ", ")
                 else
-                    str = str .. '&' .. key .. '=' .. val
+                    str = str .. '&' .. key .. '=' .. tostring(val)
                 end
             end
         end
