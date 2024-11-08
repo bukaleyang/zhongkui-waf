@@ -5,6 +5,10 @@
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
 		<title>Bot管理</title>
 		<link href="../../component/pear/css/pear.css" rel="stylesheet">
+		<style>
+			.layui-form-select .layui-input {padding-right: 15px; cursor: pointer;}
+			.layui-tab-content {padding-bottom: 0px;}
+		</style>
 	</head>
 	<body class="pear-container" >
 		<form class="layui-form" lay-filter="filter-form-sites">
@@ -26,65 +30,133 @@
 		</form>
 		<div class="layui-row layui-col-space10">
 			<div class="layui-col-md12">
-				<form class="layui-form" lay-filter="filter-form-bot">
-					<div class="layui-card">
-						<div class="layui-card-header">Bot管理设置</div>
-						<div class="layui-card-body layui-row">
+				<div class="layui-card">
+					<div class="layui-card-header">Bot管理设置</div>
+					<div class="layui-card-body">
+						<div class="layui-row">
 							<div class="layui-col-md12">
-								<div class="layui-form-item">
-									<label class="layui-form-label">Bot识别</label>
-									<div class="layui-input-block">
+								<form class="layui-form" lay-filter="filter-form-bot">
+									<div class="layui-input-group">
+										<div class="layui-input-prefix" style="padding: 9px 10px 9px 0;">状态</div>
 										<input type="checkbox" id="id-bot-state" name="bot" lay-skin="switch" lay-filter="filter-bot-module-state" title="ON|OFF" />
+										<div class="layui-input-suffix" style="padding: 9px 0px 9px 10px;"></div>
 									</div>
-								</div>
-								<div class="layui-form-item">
-									<label class="layui-form-label">Bot陷阱</label>
-									<div class="layui-input-block">
-										<input type="checkbox" id="id-trap-state" name="trap" lay-skin="switch" lay-filter="filter-bot-module-state" title="ON|OFF" />
+								</form>
+							</div>
+						</div>
+
+						<div class="layui-row">
+							<div class="layui-col-md12">
+								<div class="layui-tab layui-tab-brief">
+									<ul class="layui-tab-title">
+										<li class="layui-this">人机验证</li>
+										<li>Bot陷阱</li>
+									</ul>
+									<div class="layui-tab-content">
+										<div class="layui-tab-item layui-show">
+											<form class="layui-form" lay-filter="filter-form-captcha">
+												<div class="layui-form-item">
+													<label class="layui-form-label">状态</label>
+													<div class="layui-input-block">
+														<input type="checkbox" id="id-captcha-state" name="state" lay-filter="filter-bot-captcha-state" lay-skin="switch" title="ON|OFF" />
+													</div>
+												</div>
+												<div class="layui-form-item">
+													<label class="layui-form-label">验证方式</label>
+													<div class="layui-input-group">
+														<select name="type" id="id-captcha-type">
+															<option value="js_challenge">无感验证，JS质询</option>
+														</select>
+														<div class="layui-input-suffix"></div>
+													</div>
+												</div>
+												<div class="layui-form-item">
+													<label class="layui-form-label">验证失败</label>
+													<div class="layui-input-group">
+														<input type="text" id="id-captcha-maxFailTimes" name="maxFailTimes" lay-verify="required|number" autocomplete="off" class="layui-input" />
+														<div class="layui-input-suffix">次后自动拉黑IP地址（需要开启IP屏蔽）</div>
+													</div>
+												</div>
+												<div class="layui-form-item">
+													<label class="layui-form-label">IP屏蔽</label>
+													<div class="layui-input-group">
+														<input type="checkbox" name="autoIpBlock" id="id-captcha-autoIpBlock-state" lay-skin="switch" title="ON|OFF" />
+														<div class="layui-input-suffix">验证失败后屏蔽IP</div>
+													</div>
+												</div>
+												<div class="layui-form-item">
+													<label class="layui-form-label">IP屏蔽时长</label>
+													<div class="layui-input-group">
+														<input type="text" id="id-captcha-ipBlockExpireInSeconds" name="ipBlockExpireInSeconds" lay-verify="required|number" autocomplete="off" class="layui-input" />
+														<div class="layui-input-suffix">秒</div>
+													</div>
+												</div>
+												<div class="layui-form-item">
+													<label class="layui-form-label">验证通过后</label>
+													<div class="layui-input-group">
+														<input type="text" id="id-captcha-expireInSeconds" name="expireInSeconds" lay-verify="required|number" autocomplete="off" class="layui-input" />
+														<div class="layui-input-suffix">秒内有效</div>
+													</div>
+												</div>
+												<div class="layui-input-block">
+													<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-captcha-save">保存</button>
+													<button type="reset" class="pear-btn">重置</button>
+												</div>
+											</form>
+										</div>
+										<div class="layui-tab-item">
+											<form class="layui-form" lay-filter="filter-form-trap">
+												<div class="layui-form-item">
+													<label class="layui-form-label">状态</label>
+													<div class="layui-input-block">
+														<input type="checkbox" id="id-trap-state" name="state" lay-skin="switch" lay-filter="filter-bot-trap-state" title="ON|OFF" />
+													</div>
+												</div>
+												<div class="layui-form-item">
+													<label class="layui-form-label">陷阱URI</label>
+													<div class="layui-input-group">
+														<input type="text" id="id-trap-uri" name="uri" lay-verify="uriRule" autocomplete="off" class="layui-input" />
+														<div class="layui-input-suffix">隐藏在页面中，对普通正常用户不可见，访问此URI的请求被视为Bot</div>
+													</div>
+												</div>
+												<div class="layui-form-item">
+													<label class="layui-form-label">处置动作</label>
+													<div class="layui-input-group">
+														<select name="action" id="id-trap-action">
+															<option value="allow">允许访问</option>
+															<option value="deny">拒绝访问</option>
+															<option value="redirect">拒绝访问并返回拦截页面</option>
+															<option value="captcha">人机验证</option>
+														</select>
+														<div class="layui-input-suffix">被陷阱捕获后的处置动作</div>
+													</div>
+												</div>
+												<div class="layui-form-item">
+													<label class="layui-form-label">IP屏蔽</label>
+													<div class="layui-input-group">
+														<input type="checkbox" name="autoIpBlock" id="id-trap-autoIpBlock-state" lay-skin="switch" title="ON|OFF" />
+														<div class="layui-input-suffix">访问陷阱URI后屏蔽IP</div>
+													</div>
+												</div>
+												<div class="layui-form-item">
+													<label class="layui-form-label">IP屏蔽时长</label>
+													<div class="layui-input-group">
+														<input type="text" name="ipBlockExpireInSeconds" id="id-trap-ipBlockExpireInSeconds" lay-verify="required|number" autocomplete="off" class="layui-input" />
+														<div class="layui-input-suffix">秒，如果设置为0则永久禁止</div>
+													</div>
+												</div>
+												<div class="layui-input-block">
+													<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-trap-save">保存</button>
+													<button type="reset" class="pear-btn">重置</button>
+												</div>
+											</form>
+										</div>
 									</div>
-								</div>
-								<div class="layui-form-item">
-									<label class="layui-form-label">陷阱URI</label>
-									<div class="layui-input-group">
-										<input type="text" id="id-trap-uri" name="uri" lay-verify="uriRule" autocomplete="off" class="layui-input" />
-										<div class="layui-input-suffix">隐藏在页面中，对普通正常用户不可见，访问此URI的请求被视为Bot</div>
-									</div>
-								</div>
-								<div class="layui-form-item">
-									<label class="layui-form-label">处置动作</label>
-									<div class="layui-input-group">
-										<select name="action" id="id-trap-action" lay-filter="config_select">
-											<option value="deny">拒绝访问</option>
-											<option value="allow">允许访问</option>
-											<option value="redirect">拒绝访问并返回拦截页面</option>
-											<option value="redirect_js">浏览器验证，JS重定向</option>
-											<option value="redirect_302">浏览器验证，302重定向</option>
-										</select>
-										<div class="layui-input-suffix">被陷阱捕获后的处置动作</div>
-									</div>
-								</div>
-								<div class="layui-form-item">
-									<label class="layui-form-label">IP屏蔽</label>
-									<div class="layui-input-group">
-										<input type="checkbox" name="autoIpBlock" id="id-autoIpBlock-state" lay-skin="switch" lay-filter="filter-bot-module-state" title="ON|OFF" />
-										<div class="layui-input-suffix">访问陷阱URI后屏蔽IP</div>
-									</div>
-								</div>
-								<div class="layui-form-item">
-									<label class="layui-form-label">IP屏蔽时长</label>
-									<div class="layui-input-group">
-										<input type="text" name="ipBlockTimeout" id="id-trap-ip-block-timeout" lay-verify="required|number" autocomplete="off" class="layui-input" />
-										<div class="layui-input-suffix">秒，如果设置为0则永久禁止</div>
-									</div>
-								</div>
-								<div class="layui-input-block">
-									<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-bot-save">保存</button>
-									<button type="reset" class="pear-btn">重置</button>
 								</div>
 							</div>
 						</div>
 					</div>
-				</form>
+				</div>
 			</div>
 		</div>
 
@@ -115,7 +187,7 @@
 					<input type="checkbox" name="autoIpBlock" lay-skin="switch" lay-filter="rule_switch" title="ON|OFF" />
 				</div>
 				<div class="layui-col-md4 layui-col-sm4">
-					<input type="text" name="ipBlockTimeout" lay-verify="required|number" lay-filter="rule_input" autocomplete="off" class="layui-input" />
+					<input type="text" name="ipBlockExpireInSeconds" lay-verify="required|number" lay-filter="rule_input" autocomplete="off" class="layui-input" />
 				</div>
 			</div>
 			<div class="layui-row layui-col-space10">
@@ -175,19 +247,43 @@
 					reloadTableData();
 				});
 
+				function disableItems(id, disabled) {
+					$('#' + id).parents('form').find('input, select').each(function() {
+						if ($(this).attr('name') != 'state') {
+							$(this).prop('disabled', disabled);
+						}
+					});
+				}
+
 				function getSiteConfig() {
 					$.get('/bot/config/get', {siteId : $('#site').val()}, function(res) {
 						if (res && res.data) {
 							var bot = JSON.parse(res.data);
+							var captcha = bot.captcha;
 							var trap = bot.trap;
 
-							$('#id-bot-state').prop('checked', bot.state == 'on' ? true : false);
-							$('#id-trap-state').prop('checked', trap.state == 'on' ? true : false);
-							$('#id-autoIpBlock-state').prop('checked', trap.autoIpBlock == 'on' ? true : false);
+							$('#id-bot-state').prop('checked', bot.state == 'on');
+
+							$('#id-captcha-state').prop('checked', captcha.state == 'on');
+							$('#id-captcha-ipBlockExpireInSeconds').val(captcha.ipBlockExpireInSeconds);
+							$('#id-captcha-maxFailTimes').val(captcha.maxFailTimes);
+							$('#id-captcha-expireInSeconds').val(captcha.expireInSeconds);
+							$('#id-captcha-autoIpBlock-state').prop('checked', captcha.autoIpBlock == 'on');
+							$('#id-captcha-type').val(captcha.type);
+
+							disableItems('id-captcha-state', captcha.state != 'on');
+
+							$('#id-trap-state').prop('checked', trap.state == 'on');
+							$('#id-trap-autoIpBlock-state').prop('checked', trap.autoIpBlock == 'on');
 							$('#id-trap-uri').val(trap.uri);
-							$('#id-trap-ip-block-timeout').val(trap.ipBlockTimeout);
+							$('#id-trap-ipBlockExpireInSeconds').val(trap.ipBlockExpireInSeconds);
+							$('#id-trap-action').val(trap.action);
+
+							disableItems('id-trap-state',  trap.state != 'on');
 
 							form.render(null, 'filter-form-bot');
+							form.render(null, 'filter-form-captcha');
+							form.render(null, 'filter-form-trap');
 						}
 					}, "json");
 				}
@@ -226,11 +322,11 @@
 						{field: 'autoIpBlock', title: '自动屏蔽IP', width: 100, templet: function(d) {
 							return d.autoIpBlock == 'on' ? '是' : '否';
 						}},
-						{field: 'ipBlockTimeout', title: 'IP屏蔽时长', width: 100, templet: function(d) {
-							if (d.ipBlockTimeout == 0) {
+						{field: 'ipBlockExpireInSeconds', title: 'IP屏蔽时长', width: 100, templet: function(d) {
+							if (d.ipBlockExpireInSeconds == 0) {
 								return '永久';
 							} else {
-								return d.ipBlockTimeout + ' 秒';
+								return d.ipBlockExpireInSeconds + ' 秒';
 							}
 						}},
 						{field: 'description', title: '备注', minWidth: 200},
@@ -287,28 +383,49 @@
 					}
 				});
 
-				// 配置提交保存
-				form.on('submit(filter-bot-save)', function(data) {
+				// 陷阱配置提交保存
+				form.on('submit(filter-trap-save)', function(data) {
 					var field = data.field;
+					field.state = field.state == 'on' ? 'on' : 'off';
+				    field.autoIpBlock = (field.autoIpBlock == 'on' ? 'on' : 'off');
+					field.uri = field.uri.trim();
+					field.action = field.action;
+					field.ipBlockExpireInSeconds = parseInt(field.ipBlockExpireInSeconds);
+
 					var param = {siteId : $('#site').val()};
+					param.trap = JSON.stringify(field);
 
-					var bot = {};
-					bot.state = (field.bot == 'on' ? 'on' : 'off');
-					var trap = {};
-					trap.state = (field.trap == 'on' ? 'on' : 'off');
-					trap.autoIpBlock = (field.autoIpBlock == 'on' ? 'on' : 'off');
-					trap.uri = field.uri.trim();
-					trap.action = field.action;
-					trap.ipBlockTimeout = parseInt(field.ipBlockTimeout);
-					bot.trap = trap;
-					param.bot = JSON.stringify(bot);
-
-					$.post('/bot/config/update', param, function(res) {
+					$.post('/bot/config/trap/update', param, function(res) {
 						if (res && res.code == 200) {
 							popup.success('保存成功');
 							return true;
 						} else {
 							popup.failure(res.msg);
+							return false;
+						}
+					}, "json");
+
+					return false;
+				});
+
+				// 人机验证配置提交保存
+				form.on('submit(filter-captcha-save)', function(data) {
+					var field = data.field;
+					field.state = field.state == 'on' ? 'on' : 'off';
+					field.autoIpBlock = (field.autoIpBlock == 'on' ? 'on' : 'off');
+					field.ipBlockExpireInSeconds = parseInt(field.ipBlockExpireInSeconds);
+					field.maxFailTimes = parseInt(field.maxFailTimes);
+					field.expireInSeconds = parseInt(field.expireInSeconds);
+
+					var param = {siteId : $('#site').val()};
+					param.captcha = JSON.stringify(field);
+
+					$.post('/bot/config/captcha/update', param, function(data) {
+						if (data && data.code == 200) {
+							popup.success('保存成功');
+							return true;
+						} else {
+							popup.failure(data.msg);
 							return false;
 						}
 					}, "json");
@@ -356,6 +473,33 @@
 							return false;
 						}
 					}, "json");
+				});
+
+				form.on('switch(filter-bot-module-state)', function(obj) {
+					var state = this.checked ? 'on' : 'off';
+					var param = {siteId: $('#site').val(), state : state}
+					$.post('/bot/config/state/update', param, function(data) {
+						if (data && data.code == 200) {
+							return true;
+						} else {
+							popup.failure(data.msg);
+							return false;
+						}
+					}, "json");
+				});
+
+				form.on('switch(filter-bot-captcha-state)', function(obj) {
+					var checked = this.checked;
+					disableItems('id-captcha-state', !checked);
+
+					form.render(null, 'filter-form-captcha');
+				});
+
+				form.on('switch(filter-bot-trap-state)', function(obj) {
+					var checked = this.checked;
+					disableItems('id-trap-state', !checked);
+
+					form.render(null, 'filter-form-trap');
 				});
 
 				$(function() {

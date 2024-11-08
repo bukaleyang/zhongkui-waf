@@ -15,5 +15,6 @@ _M.KEY_IP_BLOCK_LOG = 'ip_block_log'
 _M.KEY_BLACKIP_PREFIX = 'black_ip:'
 _M.KEY_IP_GROUPS_WHITELIST = 'ipWhiteList'
 _M.KEY_IP_GROUPS_BLACKLIST = 'ipBlackList'
+_M.KEY_CAPTCHA_ACCESSTOKEN_REDIS_PREFIX = 'captcha_accesstoken:'
 
 return _M

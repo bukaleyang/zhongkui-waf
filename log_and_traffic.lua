@@ -147,13 +147,13 @@ local function write_ip_block_log()
     local ctx = ngx.ctx
     local rule_table = ctx.rule_table
     local attack_type = rule_table.attackType
-    local ip_block_timeout = rule_table.ipBlockTimeout
+    local ip_block_expire_in_seconds = rule_table.ipBlockExpireInSeconds
     local ip = ctx.ip
     local action = ctx.action
     local host_logger = logger_factory.get_logger(LOG_PATH .. "ipBlock.log", 'ipBlock', false)
-    host_logger:log(concat({ngx.localtime(), ip, attack_type, ip_block_timeout .. 's'}, ' ') .. "\n")
+    host_logger:log(concat({ngx.localtime(), ip, attack_type, ip_block_expire_in_seconds .. 's'}, ' ') .. "\n")
 
-    if ip_block_timeout == 0 then
+    if ip_block_expire_in_seconds == 0 then
         local ipBlackLogger = logger_factory.get_logger(config.CONF_PATH .. "ipBlackList", 'ipBlack', false)
         ipBlackLogger:log(ip .. "\n")
     end
@@ -168,8 +168,8 @@ local function write_ip_block_log()
         local latitude = geoip.latitude
         local start_time = ngx.localtime()
         local endTime = 'NULL'
-        if ip_block_timeout > 0 then
-            endTime = 'DATE_ADD(\'' .. start_time .. '\', INTERVAL ' .. ip_block_timeout .. ' SECOND)'
+        if ip_block_expire_in_seconds > 0 then
+            endTime = 'DATE_ADD(\'' .. start_time .. '\', INTERVAL ' .. ip_block_expire_in_seconds .. ' SECOND)'
         end
 
         local sql_str = '(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %.7f, %.7f, %s, %s, %u, %s, %s)'
@@ -179,7 +179,7 @@ local function write_ip_block_log()
             quote_sql_str(province.iso_code or ''), quote_sql_str(province.names['zh-CN'] or ''), quote_sql_str(province.names['en'] or ''),
             quote_sql_str(city.iso_code or ''), quote_sql_str(city.names['zh-CN'] or ''), quote_sql_str(city.names['en'] or ''),
             longitude, latitude,
-            quote_sql_str(attack_type), quote_sql_str(start_time), ip_block_timeout, endTime, quote_sql_str(action))
+            quote_sql_str(attack_type), quote_sql_str(start_time), ip_block_expire_in_seconds, endTime, quote_sql_str(action))
 
         write_sql_to_queue(constants.KEY_IP_BLOCK_LOG, sql_str)
     end

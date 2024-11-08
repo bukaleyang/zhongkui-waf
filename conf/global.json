@@ -21,15 +21,21 @@
             "state": "off",
             "action": "deny",
             "autoIpBlock": "off",
-            "ipBlockTimeout": "600",
+            "ipBlockExpireInSeconds": "600",
             "uri": "/zhongkuiwaf/honey/trap"
+        },
+        "captcha": {
+            "state": "off",
+            "verifyInSeconds": 60,
+            "maxFailTimes": 3,
+            "autoIpBlock": "off",
+            "ipBlockExpireInSeconds": 600,
+            "expireInSeconds": 1800,
+            "type": "js_challenge"
         }
     },
     "cc": {
-        "state": "off",
-        "actionTimeout": 60,
-        "maxFailTimes": 5,
-        "accessTokenTimeout": 1800
+        "state": "off"
     },
     "cookie": {
         "state": "on"

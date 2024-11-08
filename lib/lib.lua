@@ -5,7 +5,7 @@ local config = require "config"
 local redis_cli = require "redis_cli"
 local decoder = require "decoder"
 local action = require "action"
-local cc = require "cc"
+local captcha = require "captcha"
 local stringutf8 = require "stringutf8"
 local request = require "request"
 local ck = require "resty.cookie"
@@ -166,9 +166,7 @@ end
 
 function _M.is_bot()
     if is_site_option_on("bot") then
-        if cc.check_access_token() then
-            return false
-        end
+        captcha.check_captcha()
 
         local ip = ngx.ctx.ip
         local trap = get_site_config("bot").trap
@@ -199,10 +197,6 @@ end
 
 function _M.is_cc()
     if is_site_option_on("cc") then
-        if cc.check_access_token() then
-            return false
-        end
-
         local ip = ngx.ctx.ip
 
         local module = get_site_security_modules("cc")

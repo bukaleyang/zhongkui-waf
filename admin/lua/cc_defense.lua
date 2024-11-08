@@ -50,45 +50,27 @@ function _M.do_request()
             response.code = 500
             response.msg = err
         end
-    elseif uri == "/cc/config/update" then
+    elseif uri == "/cc/config/state/update" then
         -- 修改配置
         ngx.req.read_body()
         local args, err = ngx.req.get_post_args()
         if args then
-            local site_id = tostring(args['siteId'])
-            if site_id then
-                local _, content = get_site_config_file(site_id)
+           local site_id = tostring(args['siteId'])
+           local state = args.state
+           local _, content = get_site_config_file(site_id)
 
-                if content then
-                    local config_table = cjson_decode(content)
-                    local config_cc = config_table.cc
-                    local cc_json = args.cc
-
-                    if cc_json then
-                        local cc = cjson_decode(cc_json)
-                        cc.actionTimeout = tonumber(cc.actionTimeout);
-                        cc.maxFailTimes = tonumber(cc.maxFailTimes);
-                        cc.accesstokenTimeout = tonumber(cc.accesstokenTimeout);
-
-                        for key, _ in pairs(config_cc) do
-                            local v = cc[key]
-                            if v then
-                                config_cc[key] = v
-                            end
-                        end
-                    end
-
-                    local new_config_json = cjson_encode(config_table)
-                    update_site_config_file(site_id, new_config_json)
-                    reload = true
-                else
-                    response.code = 500
-                    response.msg = 'no config file found'
-                end
-            else
-                response.code = 500
-                response.msg = 'param error'
-            end
+           if state and content then
+               local config_table = cjson_decode(content)
+               if config_table then
+                   config_table.cc.state = state
+                   local new_config_json = cjson_encode(config_table)
+                   update_site_config_file(site_id, new_config_json)
+                   reload = true
+               end
+           else
+               response.code = 500
+               response.msg = 'param error'
+           end
         else
             response.code = 500
             response.msg = err
@@ -120,7 +102,7 @@ function _M.do_request()
                     rule_new.id = tonumber(rule_new.id)
                     rule_new.duration = tonumber(rule_new.duration)
                     rule_new.threshold = tonumber(rule_new.threshold)
-                    rule_new.ipBlockTimeout = tonumber(rule_new.ipBlockTimeout)
+                    rule_new.ipBlockExpireInSeconds = tonumber(rule_new.ipBlockExpireInSeconds)
                     rule_new.autoIpBlock = rule_new.autoIpBlock or 'off'
                     rule_new.attackType = 'cc-' .. rule_new.countType
                     rule_new.severityLevel = 'medium'

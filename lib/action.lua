@@ -3,7 +3,7 @@
 
 local config = require "config"
 local redis_cli = require "redis_cli"
-local cc = require "cc"
+local captcha = require "captcha"
 local constants = require "constants"
 
 local md5 = ngx.md5
@@ -60,7 +60,7 @@ function _M.block_ip(ip, rule_table)
         if is_system_option_on("redis") then
             local key = constants.KEY_BLACKIP_PREFIX .. ip
 
-            ok, err = redis_cli.set(key, 1, rule_table.ipBlockTimeout)
+            ok, err = redis_cli.set(key, 1, rule_table.ipBlockExpireInSeconds)
             if ok then
                 ngx.ctx.ip_blocked = true
             else
@@ -68,7 +68,7 @@ function _M.block_ip(ip, rule_table)
             end
         else
             local blackip = ngx.shared.dict_blackip
-            ok, err = blackip:set(ip, 1, rule_table.ipBlockTimeout)
+            ok, err = blackip:set(ip, 1, rule_table.ipBlockExpireInSeconds)
             if ok then
                 ngx.ctx.ip_blocked = true
             else
@@ -147,10 +147,8 @@ function _M.do_action(module_name, rule_table, data, attackType, status)
         deny(status)
     elseif action == "REDIRECT" then
         redirect()
-    elseif action == "REDIRECT_302" then
-        cc.redirect_302()
-    elseif action == "REDIRECT_JS" then
-        cc.redirect_js()
+    elseif action == "CAPTCHA" then
+        captcha.trigger_captcha()
     else
         redirect()
     end

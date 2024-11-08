@@ -5,9 +5,6 @@
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
 		<title>CC防护</title>
 		<link href="../../component/pear/css/pear.css" rel="stylesheet">
-		<style>
-			.layui-form-label {width: 112px;}
-		</style>
 	</head>
 	<body class="pear-container">
 		<form class="layui-form" lay-filter="filter-form-sites">
@@ -27,55 +24,22 @@
 				</div>
 			</div>
 		</form>
-		<form class="layui-form" lay-filter="filter-form-cc">
-			<div class="layui-row layui-col-space10">
-				<div class="layui-col-md12">
-					<div class="layui-card">
-						<div class="layui-card-header">CC防护设置</div>
-						<div class="layui-card-body layui-row">
-							<div class="layui-col-md12">
-								<div class="layui-form-item">
-									<label class="layui-form-label">CC攻击防护</label>
-									<div class="layui-input-block">
-										<input type="checkbox" id="id-cc-state" name="state" lay-skin="switch" title="ON|OFF" />
-									</div>
-								</div>
-								<div class="layui-form-item">
-									<label class="layui-form-label">验证失败次数</label>
-									<div class="layui-input-group">
-										<input type="text" id="id-cc-maxFailTimes" name="maxFailTimes" lay-verify="required|number" autocomplete="off" class="layui-input" />
-										<div class="layui-input-suffix">次，浏览器验证失败几次后自动拉黑IP地址，需要开启自动IP屏蔽</div>
-									</div>
-								</div>
-								<div class="layui-form-item">
-									<label class="layui-form-label">处置动作超时时间</label>
-									<div class="layui-input-group">
-										<input type="text" id="id-cc-actionTimeout" name="actionTimeout" lay-verify="required|number" autocomplete="off" class="layui-input" />
-										<div class="layui-input-suffix">秒，处置动作超时时间</div>
-									</div>
-								</div>
-								<div class="layui-form-item">
-									<label class="layui-form-label">令牌有效时间</label>
-									<div class="layui-input-group">
-										<input type="text" id="id-cc-accessTokenTimeout" name="accessTokenTimeout" lay-verify="required|number" autocomplete="off" class="layui-input" />
-										<div class="layui-input-suffix">秒，验证请求来自于真实浏览器后，浏览器Cookie携带的访问令牌有效时间</div>
-									</div>
-								</div>
-								<div class="layui-input-block">
-									<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-cc-save">保存</button>
-									<button type="reset" class="pear-btn">重置</button>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-		</form>
 		<div class="layui-row layui-col-space10">
 			<div class="layui-col-md12">
 				<div class="layui-card">
-					<div class="layui-card-header">CC防护规则</div>
+					<div class="layui-card-header">CC防护设置</div>
 					<div class="layui-card-body">
+						<div class="layui-row layui-col-space10">
+							<div class="layui-col-md12">
+								<form class="layui-form" lay-filter="filter-form-cc">
+									<div class="layui-input-group">
+										<div class="layui-input-prefix" style="padding: 9px 10px 9px 0;">CC防护</div>
+										<input type="checkbox" id="id-cc-state" name="state" lay-skin="switch" lay-filter="filter-cc-module-state" title="ON|OFF" />
+										<div class="layui-input-suffix" style="padding: 9px 0px 9px 10px;">开启后可对请求进行频率限制。</div>
+									</div>
+								</form>
+							</div>
+						</div>
 						<div class="layui-row layui-col-space10">
 							<div class="layui-col-md12">
 								<table id="id-table-rules" lay-filter="filter-table-rules"></table>
@@ -142,7 +106,7 @@
 					<input type="checkbox" name="autoIpBlock" lay-skin="switch" title="ON|OFF" />
 				</div>
 				<div class="layui-col-md4 layui-col-sm4">
-					<input type="text" name="ipBlockTimeout" lay-verify="required|number" autocomplete="off" class="layui-input" />
+					<input type="text" name="ipBlockExpireInSeconds" lay-verify="required|number" autocomplete="off" class="layui-input" />
 				</div>
 			</div>
 
@@ -204,12 +168,6 @@
 					$.get('/cc/config/get', {siteId : $('#site').val()}, function(res) {
 						if (res && res.data) {
 							var cc = JSON.parse(res.data);
-
-							$('#id-cc-state').prop('checked', cc.state == 'on' ? true : false);
-							$('#id-cc-actionTimeout').val(cc.actionTimeout);
-							$('#id-cc-maxFailTimes').val(cc.maxFailTimes);
-							$('#id-cc-accessTokenTimeout').val(cc.accessTokenTimeout);
-
 							form.render(null, 'filter-form-cc');
 						}
 					}, "json");
@@ -253,11 +211,11 @@
 						{field: 'autoIpBlock', title: '自动屏蔽IP', width: 100, templet: function(d) {
 							return d.autoIpBlock == 'on' ? '是' : '否';
 						}},
-						{field: 'ipBlockTimeout', title: 'IP屏蔽时长', width: 100, templet: function(d) {
-							if (d.ipBlockTimeout == 0) {
+						{field: 'ipBlockExpireInSeconds', title: 'IP屏蔽时长', width: 100, templet: function(d) {
+							if (d.ipBlockExpireInSeconds == 0) {
 								return '永久';
 							} else {
-								return d.ipBlockTimeout + ' 秒';
+								return d.ipBlockExpireInSeconds + ' 秒';
 							}
 						}},
 						{field: 'description', title: '备注', minWidth: 200},
@@ -342,30 +300,6 @@
 					}
 				});
 
-				// 配置提交保存
-				form.on('submit(filter-cc-save)', function(data) {
-					var field = data.field;
-					field.state = field.state == 'on' ? 'on' : 'off';
-					field.actionTimeout = parseInt(field.actionTimeout);
-					field.maxFailTimes = parseInt(field.maxFailTimes);
-					field.accessTokenTimeout = parseInt(field.accessTokenTimeout);
-
-					var param = {siteId : $('#site').val()};
-					param.cc = JSON.stringify(field);
-
-					$.post('/cc/config/update', param, function(data) {
-						if (data && data.code == 200) {
-							popup.success('保存成功');
-							return true;
-						} else {
-							popup.failure(data.msg);
-							return false;
-						}
-					}, "json");
-
-					return false;
-				});
-
 				// 规则提交保存事件
 				form.on('submit(filter-rule-save)', function(data) {
 					var field = data.field; // 获取表单字段值
@@ -406,6 +340,19 @@
 							return true;
 						} else {
 							popup.failure(res.msg);
+							return false;
+						}
+					}, "json");
+				});
+
+				form.on('switch(filter-cc-module-state)', function(obj) {
+					var state = this.checked ? 'on' : 'off';
+					var param = {siteId: $('#site').val(), state : state}
+					$.post('/cc/config/state/update', param, function(data) {
+						if (data && data.code == 200) {
+							return true;
+						} else {
+							popup.failure(data.msg);
 							return false;
 						}
 					}, "json");

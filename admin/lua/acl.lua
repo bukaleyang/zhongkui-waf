@@ -105,7 +105,7 @@ function _M.do_request()
                 local rule_new = rule_utils.get_rule_from_request()
                 if rule_new then
                     rule_new.id = tonumber(rule_new.id)
-                    rule_new.ipBlockTimeout = tonumber(rule_new.ipBlockTimeout)
+                    rule_new.ipBlockExpireInSeconds = tonumber(rule_new.ipBlockExpireInSeconds)
                     rule_new.autoIpBlock = rule_new.autoIpBlock or 'off'
                     rule_new.attackType = 'acl'
                     rule_new.severityLevel = 'medium'

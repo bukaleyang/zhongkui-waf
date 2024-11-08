@@ -52,7 +52,32 @@ function _M.do_request()
             response.code = 500
             response.msg = err
         end
-    elseif uri == "/bot/config/update" then
+    elseif uri == "/bot/config/state/update" then
+        -- 修改配置
+        ngx.req.read_body()
+        local args, err = ngx.req.get_post_args()
+        if args then
+           local site_id = tostring(args['siteId'])
+           local state = args.state
+           local _, content = get_site_config_file(site_id)
+
+           if state and content then
+               local config_table = cjson_decode(content)
+               if config_table then
+                   config_table.bot.state = state
+                   local new_config_json = cjson_encode(config_table)
+                   update_site_config_file(site_id, new_config_json)
+                   reload = true
+               end
+           else
+               response.code = 500
+               response.msg = 'param error'
+           end
+        else
+            response.code = 500
+            response.msg = err
+        end
+    elseif uri == "/bot/config/trap/update" then
         -- 修改配置
         ngx.req.read_body()
         local args, err = ngx.req.get_post_args()
@@ -65,17 +90,67 @@ function _M.do_request()
                 if content then
                     local config_table = cjson_decode(content)
                     local config_bot = config_table.bot
-                    local bot_json = args.bot
-                    if bot_json then
-                        local bot = cjson_decode(bot_json)
-                        if bot.state then
-                            config_bot.state = bot.state
-                        end
+                    local config_trap = config_bot.trap
+                    local trap_json = args.trap
 
-                        local trap = bot.trap
+                    if trap_json then
+                        local trap = cjson_decode(trap_json)
                         if trap then
-                            trap.ipBlockTimeout = tonumber(trap.ipBlockTimeout);
-                            config_bot.trap = trap
+                            trap.ipBlockExpireInSeconds = tonumber(trap.ipBlockExpireInSeconds)
+
+                            for key, _ in pairs(config_trap) do
+                                local v = trap[key]
+                                if v then
+                                    config_trap[key] = v
+                                end
+                            end
+                        end
+                    end
+
+                    local new_config_json = cjson_encode(config_table)
+                    update_site_config_file(site_id, new_config_json)
+                    reload = true
+                else
+                    response.code = 500
+                    response.msg = 'no config file found'
+                end
+            else
+                response.code = 500
+                response.msg = 'param error'
+            end
+        else
+            response.code = 500
+            response.msg = err
+        end
+    elseif uri == "/bot/config/captcha/update" then
+        -- 修改配置
+        ngx.req.read_body()
+        local args, err = ngx.req.get_post_args()
+        if args then
+            local site_id = tostring(args['siteId'])
+            if site_id then
+                local _, content = get_site_config_file(site_id)
+
+                if content then
+                    local config_table = cjson_decode(content)
+                    local config_bot = config_table.bot
+                    local config_captcha = config_bot.captcha
+                    local captcha_json = args.captcha
+
+                    if captcha_json then
+                        local captcha = cjson_decode(captcha_json)
+                        if captcha then
+                            captcha.verifyInSeconds = 180
+                            captcha.maxFailTimes = tonumber(captcha.maxFailTimes) or 3
+                            captcha.expireInSeconds = tonumber(captcha.expireInSeconds) or 1800
+                            captcha.ipBlockExpireInSeconds = tonumber(captcha.ipBlockExpireInSeconds) or 1800
+
+                            for key, _ in pairs(config_captcha) do
+                                local v = captcha[key]
+                                if v then
+                                    config_captcha[key] = v
+                                end
+                            end
                         end
                     end
 
@@ -122,7 +197,7 @@ function _M.do_request()
                 local rule_new = rule_utils.get_rule_from_request()
                 if rule_new then
                     rule_new.id = tonumber(rule_new.id)
-                    rule_new.ipBlockTimeout = tonumber(rule_new.ipBlockTimeout)
+                    rule_new.ipBlockExpireInSeconds = tonumber(rule_new.ipBlockExpireInSeconds)
                     rule_new.autoIpBlock = rule_new.autoIpBlock or 'off'
                     rule_new.attackType = 'bot'
                     rule_new.severityLevel = 'low'

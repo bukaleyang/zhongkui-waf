@@ -201,9 +201,19 @@ local function load_security_modules(rulePath, site_config)
     local rule_trap = { attackType = "bot_trap", rule = "bot_trap", severityLevel="low" }
     rule_trap.action = trap.action
     rule_trap.autoIpBlock = trap.autoIpBlock
-    rule_trap.ipBlockTimeout = tonumber(trap.ipBlockTimeout)
+    rule_trap.ipBlockExpireInSeconds = tonumber(trap.ipBlockExpireInSeconds)
     rule_trap.uri = trap.uri
     security_modules.botTrap = { moduleName = "Bot识别",  rules = {rule_trap}}
+
+    local captcha = site_config.bot.captcha
+    local rule_captcha = { attackType = "captcha", rule = "captcha", severityLevel="low" }
+    rule_captcha.autoIpBlock = captcha.autoIpBlock
+    rule_captcha.ipBlockExpireInSeconds = tonumber(captcha.ipBlockExpireInSeconds)
+    rule_captcha.verifyInSeconds = tonumber(captcha.verifyInSeconds)
+    rule_captcha.maxFailTimes = tonumber(captcha.maxFailTimes)
+    rule_captcha.expireInSeconds = tonumber(captcha.expireInSeconds)
+    rule_captcha.type = captcha.type
+    security_modules.captcha = { moduleName = "人机验证",  rules = {rule_captcha}}
 
     return security_modules
 end
@@ -232,7 +242,8 @@ local function load_system_config()
 
     _M.LOG_PATH = log_path or _M.ZHONGKUI_PATH .. "/logs/hack/"
     system.attackLog.logPath = _M.LOG_PATH
-    system.html = read_file_to_string(_M.ZHONGKUI_PATH .. "/redirect.html")
+    system.html = read_file_to_string(_M.ZHONGKUI_PATH .. "/html/redirect.html")
+    system.challenge_html = read_file_to_string(_M.ZHONGKUI_PATH .. "/html/challenge.html")
 
     config.system = system
 end

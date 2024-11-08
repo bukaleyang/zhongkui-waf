@@ -2,8 +2,7 @@ let action = {
     "deny": "拒绝访问",
     "allow": "允许访问",
     "redirect": "拒绝访问并返回拦截页面",
-    "redirect_js": "浏览器验证，JS重定向",
-    "redirect_302": "浏览器验证，302重定向",
+    "captcha": "人机验证",
     "coding": "打码"
 }
 

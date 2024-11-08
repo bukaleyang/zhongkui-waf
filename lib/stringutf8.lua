@@ -11,6 +11,8 @@ local insert = table.insert
 local newtab = table.new
 local abs = math.abs
 
+local ngxfind = ngx.re.find
+
 local error = error
 
 local _M = {}
@@ -145,6 +147,36 @@ function _M.default_if_blank(str, default_str)
     end
 
     return str
+end
+
+function _M.split(input_str, delimiter)
+    if not input_str then
+        return nil
+    end
+
+    local length = len(input_str)
+    local result = {}
+
+    if length == 0 then
+        return result
+    end
+
+    local ctx = { pos = 1 }
+    local start = 1
+
+    while ctx.pos < length do
+        local from = ngxfind(input_str, delimiter, "jo", ctx)
+
+        if from then
+            insert(result, sub(input_str, start, from - 1))
+            start = ctx.pos
+        else
+            insert(result, sub(input_str, start, length))
+            break
+        end
+    end
+
+    return result
 end
 
 return _M

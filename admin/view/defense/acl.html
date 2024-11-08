@@ -123,7 +123,7 @@
 					<input type="checkbox" name="autoIpBlock" lay-skin="switch" title="ON|OFF" />
 				</div>
 				<div class="layui-col-md4 layui-col-sm4">
-					<input type="text" name="ipBlockTimeout" lay-verify="required|number" autocomplete="off" class="layui-input" />
+					<input type="text" name="ipBlockExpireInSeconds" lay-verify="required|number" autocomplete="off" class="layui-input" />
 				</div>
 			</div>
 
@@ -256,11 +256,11 @@
 						{field: 'autoIpBlock', title: '自动屏蔽IP', width: 100, templet: function(d) {
 							return d.autoIpBlock == 'on' ? '是' : '否';
 						}},
-						{field: 'ipBlockTimeout', title: 'IP屏蔽时长', width: 100, templet: function(d) {
-							if (d.ipBlockTimeout == 0) {
+						{field: 'ipBlockExpireInSeconds', title: 'IP屏蔽时长', width: 100, templet: function(d) {
+							if (d.ipBlockExpireInSeconds == 0) {
 								return '永久';
 							} else {
-								return d.ipBlockTimeout + ' 秒';
+								return d.ipBlockExpireInSeconds + ' 秒';
 							}
 						}},
 						{field: 'description', title: '备注', minWidth: 200},
