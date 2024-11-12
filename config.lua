@@ -264,9 +264,9 @@ local function load_global_config()
 
     config.global = {config = global_config, security_modules = security_modules}
 
-    local ip_blacklist_cidr, ip_blacklist = ip_utils.filter_ip_list(read_file_to_table(_M.CONF_PATH .. "/global_rules/ipBlackList"))
+    local ip_blacklist = read_file_to_table(_M.CONF_PATH .. "/global_rules/ipBlackList")
     local ip_whitelist = read_file_to_table(_M.CONF_PATH .. "/global_rules/ipWhiteList")
-    add_ip_group(constants.KEY_IP_GROUPS_BLACKLIST, ip_blacklist_cidr)
+    add_ip_group(constants.KEY_IP_GROUPS_BLACKLIST, ip_blacklist)
     add_ip_group(constants.KEY_IP_GROUPS_WHITELIST, ip_whitelist)
 end
 

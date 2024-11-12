@@ -150,11 +150,9 @@ local function write_ip_block_log()
     local ip_block_expire_in_seconds = rule_table.ipBlockExpireInSeconds
     local ip = ctx.ip
     local action = ctx.action
-    local host_logger = logger_factory.get_logger(LOG_PATH .. "ipBlock.log", 'ipBlock', false)
-    host_logger:log(concat({ngx.localtime(), ip, attack_type, ip_block_expire_in_seconds .. 's'}, ' ') .. "\n")
 
     if ip_block_expire_in_seconds == 0 then
-        local ipBlackLogger = logger_factory.get_logger(config.CONF_PATH .. "ipBlackList", 'ipBlack', false)
+        local ipBlackLogger = logger_factory.get_logger(config.CONF_PATH .. "/global_rules/ipBlackList", 'ipBlack', false)
         ipBlackLogger:log(ip .. "\n")
     end
 
@@ -182,6 +180,9 @@ local function write_ip_block_log()
             quote_sql_str(attack_type), quote_sql_str(start_time), ip_block_expire_in_seconds, endTime, quote_sql_str(action))
 
         write_sql_to_queue(constants.KEY_IP_BLOCK_LOG, sql_str)
+    else
+        local host_logger = logger_factory.get_logger(LOG_PATH .. "ipBlock.log", 'ipBlock', true)
+        host_logger:log(concat({ngx.localtime(), ip, attack_type, ip_block_expire_in_seconds .. 's'}, ' ') .. "\n")
     end
 end
 

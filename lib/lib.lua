@@ -41,8 +41,6 @@ local read_file_to_table = file_utils.read_file_to_table
 
 local _M = {}
 
-local ip_blacklist_loaded = false
-
 -- whether or not the regular expression matches on the input
 local function matches(input, regex, options, ctx, nth)
     if not options then
@@ -96,29 +94,9 @@ function _M.is_white_ip()
     end
 end
 
--- Load the ip blacklist in the configuration file and log file to the ngx.shared.dict_blackip or Redis
-local function load_ip_blacklist()
-    local blacklist = read_file_to_table(config.CONF_PATH .. "/global_rules/ipBlackList")
-    if config.is_global_option_on("blackIP") and blacklist and nkeys(blacklist) > 0 then
-        if config.is_system_option_on("redis") then
-            redis_cli.bath_set(blacklist, 0, constants.KEY_BLACKIP_PREFIX)
-        else
-            local blackip = ngx.shared.dict_blackip
-            for _, ip in ipairs(blacklist) do
-                blackip:set(ip, 1)
-            end
-        end
-    end
-end
-
 -- Returns true if the client ip is in the blackList,otherwise false
 function _M.is_black_ip()
     if is_site_option_on("blackIP") then
-        if not ip_blacklist_loaded then
-            load_ip_blacklist()
-            ip_blacklist_loaded = true
-        end
-
         local ip = ngx.ctx.ip
         if ip == "unknown" then
             return false
