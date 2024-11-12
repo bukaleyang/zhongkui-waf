@@ -144,6 +144,18 @@
 				var element = layui.element
 				var $ = layui.$;
 
+				function getIPGeoName(data) {
+					if (data.ip_country_code == 'CN') {
+						if (d.ip_province_cn == d.ip_city_cn) {
+							return '(' + data.ip_country_cn + '-' + data.ip_city_cn + ')';
+						} else {
+							return '(' + data.ip_province_cn + '-' + data.ip_city_cn + ')';
+						}
+					} else {
+						return '(' + data.ip_country_cn + ')';
+					}
+				}
+
 				table.render({
 					elem: '#id-table-events',
 					url: '/events/list',
@@ -151,15 +163,7 @@
 						{field: 'server_name', title: '域名'},
 						{field: 'request_uri', title: '请求地址'},
 						{field: 'ip', title: '攻击者IP', templet: function(d) {
-							if (d.ip_country_code == 'CN') {
-								if (d.ip_province_cn == d.ip_city_cn) {
-									return '<div>' + d.ip + '(' + d.ip_country_cn + '-' + d.ip_city_cn + ')' + '</div>';
-								} else {
-									return '<div>' + d.ip + '(' + d.ip_province_cn + '-' + d.ip_city_cn + ')' + '</div>';
-								}
-							} else {
-								return '<div>' + d.ip + '(' + d.ip_country_cn + ')' + '</div>';
-							}
+							return '<div>' + d.ip + getIPGeoName(d) + '</div>';
 						}},
 						{field: 'attack_type', title: '攻击类型', width: 150, templet: function(d) {
 							return '<div>' + getAttackTypeText(d.attack_type) + '</div>';
@@ -219,12 +223,7 @@
 										$('#data_' + key).text(val);
 									});
 
-									var ip = '';
-									if (data.ip_country_code == 'CN') {
-										ip = data.ip + ' (' + data.ip_province_cn + '-' + data.ip_city_cn + ')';
-									} else {
-										ip = data.ip + ' (' + data.ip_country_cn + ')';
-									}
+									var ip = data.ip + getIPGeoName(data);
 
 									var ac = data.action.toLowerCase();
 									if (ac == 'deny') {
