@@ -247,12 +247,23 @@
 					reloadTableData();
 				});
 
-				function disableItems(id, disabled) {
-					$('#' + id).parents('form').find('input, select').each(function() {
-						if ($(this).attr('name') != 'state') {
-							$(this).prop('disabled', disabled);
+				function disableItems(id, disabled, all) {
+					let fm = $('#' + id).parents('form');
+
+					let botChecked = $("#id-bot-state").prop('checked');
+					let stateChecked = fm.find("input[name='state']").prop('checked');
+
+					fm.find('input, select').each(function() {
+						if (botChecked == false || stateChecked == false) {
+							$(this).prop('disabled', true);
+						} else {
+							$(this).prop('disabled', false);
 						}
 					});
+
+					fm.find("input[name='state']").prop('disabled', !botChecked);
+					fm.find("button").prop('disabled', !botChecked);
+					form.render(null, fm.attr('lay-filter'));
 				}
 
 				function getSiteConfig() {
@@ -271,7 +282,7 @@
 							$('#id-captcha-autoIpBlock-state').prop('checked', captcha.autoIpBlock == 'on');
 							$('#id-captcha-type').val(captcha.type);
 
-							disableItems('id-captcha-state', captcha.state != 'on');
+							disableItems('id-captcha-state', captcha.state != 'on', true);
 
 							$('#id-trap-state').prop('checked', trap.state == 'on');
 							$('#id-trap-autoIpBlock-state').prop('checked', trap.autoIpBlock == 'on');
@@ -279,11 +290,9 @@
 							$('#id-trap-ipBlockExpireInSeconds').val(trap.ipBlockExpireInSeconds);
 							$('#id-trap-action').val(trap.action);
 
-							disableItems('id-trap-state',  trap.state != 'on');
+							disableItems('id-trap-state',  trap.state != 'on', true);
 
 							form.render(null, 'filter-form-bot');
-							form.render(null, 'filter-form-captcha');
-							form.render(null, 'filter-form-trap');
 						}
 					}, "json");
 				}
@@ -478,6 +487,9 @@
 				form.on('switch(filter-bot-module-state)', function(obj) {
 					var state = this.checked ? 'on' : 'off';
 					var param = {siteId: $('#site').val(), state : state}
+					disableItems('id-captcha-state', !this.checked, true);
+					disableItems('id-trap-state', !this.checked, true);
+
 					$.post('/bot/config/state/update', param, function(data) {
 						if (data && data.code == 200) {
 							return true;
@@ -491,15 +503,11 @@
 				form.on('switch(filter-bot-captcha-state)', function(obj) {
 					var checked = this.checked;
 					disableItems('id-captcha-state', !checked);
-
-					form.render(null, 'filter-form-captcha');
 				});
 
 				form.on('switch(filter-bot-trap-state)', function(obj) {
 					var checked = this.checked;
 					disableItems('id-trap-state', !checked);
-
-					form.render(null, 'filter-form-trap');
 				});
 
 				$(function() {
