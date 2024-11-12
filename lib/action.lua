@@ -5,6 +5,7 @@ local config = require "config"
 local redis_cli = require "redis_cli"
 local captcha = require "captcha"
 local constants = require "constants"
+local request = require "request"
 
 local md5 = ngx.md5
 local ngxsub = ngx.re.sub
@@ -140,6 +141,8 @@ function _M.do_action(module_name, rule_table, data, attackType, status)
     ngx.ctx.action = action
     ngx.ctx.hit_data = data
     ngx.ctx.is_attack = true
+
+    request.get_request_body()
 
     if action == "ALLOW" then
         return ngx.exit(ngx.OK)
