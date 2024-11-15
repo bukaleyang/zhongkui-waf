@@ -146,7 +146,7 @@
 
 				function getIPGeoName(data) {
 					if (data.ip_country_code == 'CN') {
-						if (d.ip_province_cn == d.ip_city_cn) {
+						if (data.ip_province_cn == data.ip_city_cn) {
 							return '(' + data.ip_country_cn + '-' + data.ip_city_cn + ')';
 						} else {
 							return '(' + data.ip_province_cn + '-' + data.ip_city_cn + ')';
