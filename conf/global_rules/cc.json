@@ -12,7 +12,7 @@
             "pattern": "",
             "autoIpBlock": "on",
             "ipBlockExpireInSeconds": 600,
-            "action": "redirect_js",
+            "action": "captcha",
             "duration": 60,
             "threshold": 1000,
             "description": "统计单个IP访问单个URL次数"
@@ -27,7 +27,7 @@
             "pattern": "",
             "autoIpBlock": "on",
             "ipBlockExpireInSeconds": 600,
-            "action": "redirect_js",
+            "action": "captcha",
             "duration": 60,
             "threshold": 1000,
             "description": "统计单个IP访问次数"
