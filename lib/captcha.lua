@@ -47,7 +47,8 @@ function _M.check_access_token()
     local ctx = ngx.ctx
     local ip = ctx.ip
     local ua = ctx.ua
-    local key = md5(ip .. ua .. SECRET)
+    local host = ctx.server_name
+    local key = md5(ip .. ua .. host .. SECRET)
 
     local token = nil
     if is_system_option_on("redis") then
@@ -66,9 +67,11 @@ end
 
 -- 设置浏览器cookie:access_token
 function _M.set_access_token()
-    local ip = ngx.ctx.ip
-    local ua = ngx.ctx.ua
-    local key = md5(ip .. ua .. SECRET)
+    local ctx = ngx.ctx
+    local ip = ctx.ip
+    local ua = ctx.ua
+    local host = ctx.server_name
+    local key = md5(ip .. ua .. host .. SECRET)
     local time = ngx.time()
 
     local expireInSeconds = get_site_config("bot").captcha.expireInSeconds

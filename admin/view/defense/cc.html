@@ -168,6 +168,7 @@
 					$.get('/cc/config/get', {siteId : $('#site').val()}, function(res) {
 						if (res && res.data) {
 							var cc = JSON.parse(res.data);
+							$('#id-cc-state').prop('checked', cc.state == 'on' ? true : false);
 							form.render(null, 'filter-form-cc');
 						}
 					}, "json");
