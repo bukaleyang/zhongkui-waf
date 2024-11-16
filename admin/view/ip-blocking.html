@@ -28,8 +28,8 @@
 					<input type="text" name="ip" value="" placeholder="封禁IP" class="layui-input" lay-affix="clear" />
 				</div>
 				<div class="layui-col-md3">
-					<select name="action" id="action">
-						<option value="">处置动作-全部</option>
+					<select name="block_reason" id="block_reason">
+						<option value="">封禁原因-全部</option>
 					</select>
 				</div>
 				<div class="pear-btn-container layui-col-md2">
@@ -45,6 +45,7 @@
 		<script src="../component/layui/layui.js"></script>
 		<script src="../component/pear/pear.js"></script>
 		<script src="../js/action.js"></script>
+		<script src="../js/attackType.js"></script>
 		<script>
 			layui.use(['form','table','util','jquery','popup','tag'], function() {
 				var table = layui.table;
@@ -73,7 +74,7 @@
 						{field: 'action', title: '处置动作', templet: function(d) {
 							return '<div>' + getActionText(d.action) + '</div>';
 						}},
-						{field: 'start_time', title: '封禁开始时间', width: 160, minWidth: 160},
+						{field: 'start_time', title: '封禁开始时间'},
 						{field: 'block_duration', title: '封禁时长', templet: function(d) {
 							if (d.block_duration == 0) {
 								return '<div>永久</div>';
@@ -81,7 +82,7 @@
 								return '<div>' + d.block_duration + ' 秒</div>';
 							}
 						}},
-						{field: 'end_time', title: '封禁结束时间', width: 160, minWidth: 160},
+						{field: 'end_time', title: '封禁结束时间'},
 						{field: 'unblock_time', title: '状态', templet: function(d) {
 							if (d.unblock_time != null) {
 								return '<div>已解封</div>';
@@ -140,8 +141,8 @@
 				});
 
 				$(function(){
-					initActionSelect('action', 'coding', function() {
-						form.render($('#action'));
+					initAttackTypeSelect('block_reason', function() {
+						form.render($('#block_reason'));
 					});
 					// 阻止回车触发表单提交
 					$(document).on('keydown', function (e) {
