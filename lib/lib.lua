@@ -206,10 +206,8 @@ function _M.is_cc()
                     local count, _ = redis_cli.incr(key, rule_table.duration)
                     if not count then
                         redis_cli.set(key, 1, rule_table.duration)
-                    elseif count > rule_table.threshold then
-                        if count >= (get_site_config("cc").maxFailTimes + rule_table.threshold) then
-                            block_ip(ip, rule_table)
-                        end
+                    elseif count >= rule_table.threshold then
+                        block_ip(ip, rule_table)
                         do_action(module.moduleName, rule_table, nil, rule_table.rule, 503)
 
                         return true
@@ -219,10 +217,8 @@ function _M.is_cc()
                     local count, _ = limit:incr(key, 1, 0, rule_table.duration)
                     if not count then
                         limit:set(key, 1, rule_table.duration)
-                    elseif count > rule_table.threshold then
-                        if count >= (get_site_config("cc").maxFailTimes + rule_table.threshold) then
-                            block_ip(ip, rule_table)
-                        end
+                    elseif count >= rule_table.threshold then
+                        block_ip(ip, rule_table)
                         do_action(module.moduleName, rule_table, nil, rule_table.rule, 503)
 
                         return true
