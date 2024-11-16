@@ -26,6 +26,7 @@
         },
         "captcha": {
             "state": "off",
+            "action": "captcha",
             "verifyInSeconds": 60,
             "maxFailTimes": 3,
             "autoIpBlock": "off",

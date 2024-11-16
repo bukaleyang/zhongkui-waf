@@ -19,12 +19,7 @@ local function init()
     local ip = get_client_ip()
     ctx.ip = ip
 
-    local ua = ngx.var.http_user_agent
-    if ua == nil then
-        ua = ""
-    end
-
-    ctx.ua = ua
+    ctx.ua = default_if_blank(ngx.var.http_user_agent, '')
 
     ctx.geoip = geoip.lookup(ip)
 

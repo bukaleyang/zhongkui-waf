@@ -151,6 +151,7 @@ function _M.do_action(module_name, rule_table, data, attackType, status)
     elseif action == "REDIRECT" then
         redirect()
     elseif action == "CAPTCHA" then
+        ngx.ctx.is_attack = false
         captcha.trigger_captcha()
     else
         redirect()

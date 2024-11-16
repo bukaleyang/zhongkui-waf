@@ -207,6 +207,7 @@ local function load_security_modules(rulePath, site_config)
 
     local captcha = site_config.bot.captcha
     local rule_captcha = { attackType = "captcha", rule = "captcha", severityLevel="low" }
+    rule_captcha.action = captcha.action
     rule_captcha.autoIpBlock = captcha.autoIpBlock
     rule_captcha.ipBlockExpireInSeconds = tonumber(captcha.ipBlockExpireInSeconds)
     rule_captcha.verifyInSeconds = tonumber(captcha.verifyInSeconds)
