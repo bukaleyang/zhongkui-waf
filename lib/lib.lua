@@ -195,8 +195,10 @@ function _M.is_cc()
             end
 
             if pattern and pattern ~= "" then
-                if not matches(matchData, rule_table.pattern) then
+                if not matches(matchData, pattern) then
                     match = false
+                else
+                    key = ip .. md5(pattern)
                 end
             end
 
