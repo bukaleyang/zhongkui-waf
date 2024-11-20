@@ -38,9 +38,9 @@ if is_site_option_on("waf") then
 
     lib.is_unsafe_http_method()
 
-    lib.is_acl()
-
     lib.is_bot()
+
+    lib.is_acl()
 
     lib.is_cc()
 
