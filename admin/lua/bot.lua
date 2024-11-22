@@ -140,7 +140,7 @@ function _M.do_request()
                     if captcha_json then
                         local captcha = cjson_decode(captcha_json)
                         if captcha then
-                            captcha.verifyInSeconds = 180
+                            captcha.verifyInSeconds = 300
                             captcha.maxFailTimes = tonumber(captcha.maxFailTimes) or 3
                             captcha.expireInSeconds = tonumber(captcha.expireInSeconds) or 1800
                             captcha.ipBlockExpireInSeconds = tonumber(captcha.ipBlockExpireInSeconds) or 1800
