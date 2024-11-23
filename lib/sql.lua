@@ -32,7 +32,11 @@ local SQL_CREATE_TABLE_WAF_STATUS = [[
         `http5xx` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'http状态码5xx数',
         `request_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '请求数',
         `attack_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '攻击请求数',
-        `block_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '拦截数',
+        `block_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '总拦截数',
+        `block_times_attack` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '攻击拦截数',
+        `block_times_captcha` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '触发人机验证数',
+        `block_times_cc` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'cc拦截数',
+        `captcha_pass_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '人机验证通过数',
         `request_date` CHAR(10) NOT NULL COMMENT '日期',
 
         `update_time` datetime NULL,
@@ -43,10 +47,15 @@ local SQL_CREATE_TABLE_WAF_STATUS = [[
 ]]
 
 local SQL_INSERT_WAF_STATUS = [[
-    INSERT INTO waf_status (http4xx, http5xx, request_times, attack_times, block_times, request_date)
-    VALUES(%u, %u, %u, %u, %u, %s) ON DUPLICATE KEY UPDATE http4xx = http4xx + VALUES(http4xx),
+    INSERT INTO waf_status (http4xx, http5xx, request_times, attack_times, block_times, block_times_attack, block_times_captcha, block_times_cc, captcha_pass_times, request_date)
+    VALUES(%u, %u, %u, %u, %u, %u, %u, %u, %u, %s) ON DUPLICATE KEY UPDATE http4xx = http4xx + VALUES(http4xx),
     http5xx = http5xx + VALUES(http5xx),request_times = request_times + VALUES(request_times),
-    attack_times = attack_times + VALUES(attack_times),block_times = block_times + VALUES(block_times), update_time = NOW();
+    attack_times = attack_times + VALUES(attack_times),block_times = block_times + VALUES(block_times),
+    block_times_attack = block_times_attack + VALUES(block_times_attack),
+    block_times_captcha = block_times_captcha + VALUES(block_times_captcha),
+    block_times_cc = block_times_cc + VALUES(block_times_cc),
+    captcha_pass_times = captcha_pass_times + VALUES(captcha_pass_times),
+    update_time = NOW();
 ]]
 
 local SQL_GET_TODAY_WAF_STATUS = [[SELECT * FROM waf_status WHERE DATE(request_date) = CURDATE() ORDER BY id DESC LIMIT 1;]]
@@ -68,6 +77,11 @@ local SQL_CREATE_TABLE_TRAFFIC_STATS = [[
         `request_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '请求数',
         `attack_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '攻击请求数',
         `block_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '拦截数',
+        `block_times_attack` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '攻击拦截数',
+        `block_times_captcha` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '触发人机验证数',
+        `block_times_cc` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'cc拦截数',
+        `captcha_pass_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '人机验证通过数',
+
         `request_date` CHAR(10) NOT NULL COMMENT '日期',
 
         `update_time` datetime NULL,
@@ -78,20 +92,28 @@ local SQL_CREATE_TABLE_TRAFFIC_STATS = [[
 ]]
 
 local SQL_INSERT_TRAFFIC_STATS = [[
-    INSERT INTO traffic_stats (ip_country_code, ip_country_cn, ip_country_en, ip_province_code, ip_province_cn, ip_province_en, ip_city_code, ip_city_cn, ip_city_en, request_times, attack_times, block_times, request_date)
-    VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %u, %u, %u, %s) ON DUPLICATE KEY UPDATE request_times = request_times + VALUES(request_times),
-    attack_times = attack_times + VALUES(attack_times),block_times = block_times + VALUES(block_times), update_time = NOW();
+    INSERT INTO traffic_stats (ip_country_code, ip_country_cn, ip_country_en, ip_province_code, ip_province_cn, ip_province_en, ip_city_code, ip_city_cn, ip_city_en, request_times, attack_times, block_times, 
+    block_times_attack, block_times_captcha, block_times_cc, captcha_pass_times, request_date)
+    VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %u, %u, %u, %u, %u, %u, %u, %s) ON DUPLICATE KEY UPDATE request_times = request_times + VALUES(request_times),
+    attack_times = attack_times + VALUES(attack_times),block_times = block_times + VALUES(block_times),
+    block_times_attack = block_times_attack + VALUES(block_times_attack),
+    block_times_captcha = block_times_captcha + VALUES(block_times_captcha),
+    block_times_cc = block_times_cc + VALUES(block_times_cc),
+    captcha_pass_times = captcha_pass_times + VALUES(captcha_pass_times),
+    update_time = NOW();
 ]]
 
 local SQL_GET_30DAYS_WORLD_TRAFFIC_STATS = [[
     SELECT ip_country_code AS 'iso_code',ip_country_cn AS 'name_cn', ip_country_en AS 'name_en',
-        SUM(request_times) AS request_times,SUM(attack_times) AS attack_times,SUM(block_times) AS block_times
+        SUM(request_times) AS request_times,SUM(attack_times) AS attack_times,SUM(block_times) AS block_times,
+        SUM(block_times_attack) AS block_times_attack, SUM(block_times_captcha) AS block_times_captcha, SUM(block_times_cc) AS block_times_cc, SUM(captcha_pass_times) AS captcha_pass_times
     FROM traffic_stats WHERE DATE(request_date) >= CURDATE() - INTERVAL 30 DAY GROUP BY ip_country_code, ip_country_cn, ip_country_en;
 ]]
 
 local SQL_GET_30DAYS_CHINA_TRAFFIC_STATS = [[
     SELECT ip_province_code AS 'iso_code',ip_province_cn AS 'name_cn', ip_province_en AS 'name_en',
-        SUM(request_times) AS request_times,SUM(attack_times) AS attack_times,SUM(block_times) AS block_times
+        SUM(request_times) AS request_times,SUM(attack_times) AS attack_times,SUM(block_times) AS block_times,
+        SUM(block_times_attack) AS block_times_attack, SUM(block_times_captcha) AS block_times_captcha, SUM(block_times_cc) AS block_times_cc, SUM(captcha_pass_times) AS captcha_pass_times
     FROM traffic_stats WHERE ip_country_code='CN' AND DATE(request_date) >= CURDATE() - INTERVAL 30 DAY GROUP BY ip_province_code, ip_province_cn, ip_province_en;
 ]]
 
@@ -255,18 +277,27 @@ function _M.update_traffic_stats()
 
             local request_times = utils.dict_get(dict, prefix .. constants.KEY_REQUEST_TIMES) or 0
             local attack_times = utils.dict_get(dict, prefix .. constants.KEY_ATTACK_TIMES) or 0
-            local block_times = utils.dict_get(dict, prefix .. constants.KEY_BLOCK_TIMES) or 0
+            local block_times_attack = utils.dict_get(dict, prefix .. constants.KEY_BLOCK_TIMES_ATTACK) or 0
+            local block_times_captcha = utils.dict_get(dict, prefix .. constants.KEY_BLOCK_TIMES_CAPTCHA) or 0
+            local block_times_cc = utils.dict_get(dict, prefix .. constants.KEY_BLOCK_TIMES_CC) or 0
+            local captcha_pass_times = utils.dict_get(dict, prefix .. constants.KEY_CAPTCHA_PASS_TIMES) or 0
 
-            if request_times > 0 or attack_times > 0 or block_times > 0 then
-                utils.dict_set(dict, prefix .. constants.KEY_REQUEST_TIMES, 0, constants.TTL_KEY_COUNT_CITYS)
-                utils.dict_set(dict, prefix .. constants.KEY_ATTACK_TIMES, 0, constants.TTL_KEY_COUNT_CITYS)
-                utils.dict_set(dict, prefix .. constants.KEY_BLOCK_TIMES, 0, constants.TTL_KEY_COUNT_CITYS)
+            if request_times > 0 or attack_times > 0 or block_times_attack > 0 or block_times_captcha > 0 or block_times_cc > 0 or captcha_pass_times > 0 then
+                utils.dict_set(dict, prefix .. constants.KEY_REQUEST_TIMES, 0)
+                utils.dict_set(dict, prefix .. constants.KEY_ATTACK_TIMES, 0)
+                utils.dict_set(dict, prefix .. constants.KEY_BLOCK_TIMES_ATTACK, 0)
+                utils.dict_set(dict, prefix .. constants.KEY_BLOCK_TIMES_CAPTCHA, 0)
+                utils.dict_set(dict, prefix .. constants.KEY_BLOCK_TIMES_CC, 0)
+                utils.dict_set(dict, prefix .. constants.KEY_CAPTCHA_PASS_TIMES, 0)
+
+                local block_times = block_times_attack + block_times_captcha + block_times_cc
 
                 local sql = format(SQL_INSERT_TRAFFIC_STATS,
                     quote_sql_str(t.countryCode), quote_sql_str(t.countryCN), quote_sql_str(t.countryEN),
                     quote_sql_str(t.provinceCode), quote_sql_str(t.provinceCN), quote_sql_str(t.provinceEN),
                     quote_sql_str(t.cityCode), quote_sql_str(t.cityCN), quote_sql_str(t.cityEN),
-                    request_times, attack_times, block_times, quote_sql_str(ngx.today()))
+                    request_times, attack_times, block_times, block_times_attack, block_times_captcha, block_times_cc, captcha_pass_times,
+                    quote_sql_str(ngx.today()))
 
                 mysql.query(sql)
             end
@@ -281,9 +312,12 @@ function _M.update_waf_status()
     local http5xx = utils.dict_get(dict, constants.KEY_HTTP_5XX) or 0
     local request_times = utils.dict_get(dict, constants.KEY_REQUEST_TIMES) or 0
     local attack_times = utils.dict_get(dict, constants.KEY_ATTACK_TIMES) or 0
-    local block_times = utils.dict_get(dict, constants.KEY_BLOCK_TIMES) or 0
+    local block_times_attack = utils.dict_get(dict, constants.KEY_BLOCK_TIMES_ATTACK) or 0
+    local block_times_captcha = utils.dict_get(dict, constants.KEY_BLOCK_TIMES_CAPTCHA) or 0
+    local block_times_cc = utils.dict_get(dict, constants.KEY_BLOCK_TIMES_CC) or 0
+    local captcha_pass_times = utils.dict_get(dict, constants.KEY_CAPTCHA_PASS_TIMES) or 0
 
-    if http4xx == 0 and http5xx == 0 and request_times == 0 and attack_times == 0 and block_times == 0 then
+    if http4xx == 0 and http5xx == 0 and request_times == 0 and attack_times == 0 and block_times_attack == 0 and block_times_captcha == 0 and block_times_cc == 0 and captcha_pass_times == 0 then
         return
     end
 
@@ -291,9 +325,14 @@ function _M.update_waf_status()
     utils.dict_set(dict, constants.KEY_HTTP_5XX, 0)
     utils.dict_set(dict, constants.KEY_REQUEST_TIMES, 0)
     utils.dict_set(dict, constants.KEY_ATTACK_TIMES, 0)
-    utils.dict_set(dict, constants.KEY_BLOCK_TIMES, 0)
+    utils.dict_set(dict, constants.KEY_BLOCK_TIMES_ATTACK, 0)
+    utils.dict_set(dict, constants.KEY_BLOCK_TIMES_CAPTCHA, 0)
+    utils.dict_set(dict, constants.KEY_BLOCK_TIMES_CC, 0)
+    utils.dict_set(dict, constants.KEY_CAPTCHA_PASS_TIMES, 0)
 
-    local sql = format(SQL_INSERT_WAF_STATUS, http4xx, http5xx, request_times, attack_times, block_times, quote_sql_str(ngx.today()))
+    local block_times = block_times_attack + block_times_captcha + block_times_cc
+
+    local sql = format(SQL_INSERT_WAF_STATUS, http4xx, http5xx, request_times, attack_times, block_times, block_times_attack, block_times_captcha, block_times_cc, captcha_pass_times, quote_sql_str(ngx.today()))
 
     mysql.query(sql)
 end

@@ -209,6 +209,7 @@ function _M.is_cc()
                     if not count then
                         redis_cli.set(key, 1, rule_table.duration)
                     elseif count >= rule_table.threshold then
+                        ngx.ctx.is_cc = true
                         block_ip(ip, rule_table)
                         do_action(module.moduleName, rule_table, nil, rule_table.rule, 503)
 
@@ -220,6 +221,7 @@ function _M.is_cc()
                     if not count then
                         limit:set(key, 1, rule_table.duration)
                     elseif count >= rule_table.threshold then
+                        ngx.ctx.is_cc = true
                         block_ip(ip, rule_table)
                         do_action(module.moduleName, rule_table, nil, rule_table.rule, 503)
 

@@ -21,11 +21,12 @@ local _M = {}
 local function getRequestTraffic()
     local hours = time.get_hours()
     local dict = ngx.shared.dict_req_count
-    local dataStr = '[["hour", "traffic","attack_traffic"],'
+    local dataStr = '[["hour", "traffic","attack_traffic","blocked_traffic"],'
     for _, hour in ipairs(hours) do
         local count = dict:get(hour) or 0
-        local attackCount = dict:get(constants.KEY_ATTACK_PREFIX .. hour) or 0
-        dataStr = concat({ dataStr, '["', hour, '", ', count, ',', attackCount, '],' })
+        local attack_count = dict:get(constants.KEY_ATTACK_PREFIX .. hour) or 0
+        local blocked_count = dict:get(constants.KEY_BLOCKED_PREFIX .. hour) or 0
+        dataStr = concat({ dataStr, '["', hour, '", ', count, ',', attack_count, ',', blocked_count, '],' })
     end
 
     dataStr = string.sub(dataStr, 1, -2) .. ']'
@@ -108,14 +109,20 @@ function _M.do_request()
         else
             local dict = ngx.shared.dict_req_count
 
-            local http4xx = utils.dict_get(dict, constants.KEY_HTTP_4XX)
-            local http5xx = utils.dict_get(dict, constants.KEY_HTTP_5XX)
-            local request_times = utils.dict_get(dict, constants.KEY_REQUEST_TIMES)
-            local attack_times = utils.dict_get(dict, constants.KEY_ATTACK_TIMES)
-            local block_times = utils.dict_get(dict, constants.KEY_BLOCK_TIMES)
+            local http4xx = utils.dict_get(dict, constants.KEY_HTTP_4XX) or 0
+            local http5xx = utils.dict_get(dict, constants.KEY_HTTP_5XX) or 0
+            local request_times = utils.dict_get(dict, constants.KEY_REQUEST_TIMES) or 0
+            local attack_times = utils.dict_get(dict, constants.KEY_ATTACK_TIMES) or 0
+            local block_times_attack = utils.dict_get(dict, constants.KEY_BLOCK_TIMES_ATTACK) or 0
+            local block_times_captcha = utils.dict_get(dict, constants.KEY_BLOCK_TIMES_CAPTCHA) or 0
+            local block_times_cc = utils.dict_get(dict, constants.KEY_BLOCK_TIMES_CC) or 0
+            local captcha_pass_times = utils.dict_get(dict, constants.KEY_CAPTCHA_PASS_TIMES) or 0
+
+            local block_times = block_times_attack + block_times_captcha + block_times_cc
 
             wafStatus = {http4xx = http4xx, http5xx = http5xx, request_times = request_times,
-                        attack_times = attack_times, block_times = block_times}
+                        attack_times = attack_times, block_times = block_times, block_times_attack = block_times_attack,
+                        block_times_captcha = block_times_captcha, block_times_cc = block_times_cc, captcha_pass_times = captcha_pass_times}
         end
 
         data.sourceRegion = {world = world, china = china}

@@ -27,7 +27,7 @@ local REGEX_OPTION = "jo"
 
 local function deny(status)
     if get_site_config("waf").mode == "protection" then
-        ngx.ctx.blocked = true
+        ngx.ctx.is_blocked = true
 
         return ngx.exit(status or ngx.HTTP_FORBIDDEN)
     else
@@ -37,7 +37,7 @@ end
 
 local function redirect()
     if get_site_config("waf").mode == "protection" then
-        ngx.ctx.blocked = true
+        ngx.ctx.is_blocked = true
         ngx.header.content_type = "text/html; charset=UTF-8"
         ngx.status = ngx.HTTP_FORBIDDEN
         local ctx = ngx.ctx

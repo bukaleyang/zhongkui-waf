@@ -199,6 +199,7 @@ end
 local function count_waf_status()
     local dict = ngx.shared.dict_req_count
     local status = ngx.status
+    local ctx = ngx.ctx
 
     if status > 399 and status < 500 then
         utils.dict_incr(dict, constants.KEY_HTTP_4XX, get_ttl)
@@ -208,13 +209,24 @@ local function count_waf_status()
 
     utils.dict_incr(dict, constants.KEY_REQUEST_TIMES, get_ttl)
 
-    local is_attack = ngx.ctx.is_attack
-    if is_attack then
+    if ctx.is_attack then
         utils.dict_incr(dict, constants.KEY_ATTACK_TIMES, get_ttl)
     end
 
-    if ngx.ctx.blocked then
-        utils.dict_incr(dict, constants.KEY_BLOCK_TIMES, get_ttl)
+    if ctx.is_blocked then
+        if ctx.is_attack then
+            if ctx.is_cc then
+                utils.dict_incr(dict, constants.KEY_BLOCK_TIMES_CC, get_ttl)
+            else
+                utils.dict_incr(dict, constants.KEY_BLOCK_TIMES_ATTACK, get_ttl)
+            end
+        elseif ctx.is_captcha then
+            if ctx.is_captcha_pass then
+                utils.dict_incr(dict, constants.KEY_CAPTCHA_PASS_TIMES, get_ttl)
+            else
+                utils.dict_incr(dict, constants.KEY_BLOCK_TIMES_CAPTCHA, get_ttl)
+            end
+        end
     end
 end
 
@@ -238,18 +250,29 @@ local function count_traffic_stats()
         local city_cn = city.names['zh-CN'] or ''
         local city_en = city.names['en'] or ''
 
+        local prefix = concat({country_code, country_cn, country_en, province_code, province_cn, province_en, city_code, city_cn, city_en}, '_') .. ':'
         local dict = ngx.shared.dict_req_count_citys
-        local prefix = country_code .. '_' .. country_cn .. '_' .. country_en .. '_' .. province_code .. '_' .. province_cn .. '_' .. province_en  .. '_'.. city_code .. '_' .. city_cn .. '_' .. city_en .. ':'
 
         utils.dict_incr(dict, prefix .. constants.KEY_REQUEST_TIMES, get_ttl)
 
-        local is_attack = ctx.is_attack
-        if is_attack then
+        if ctx.is_attack then
             utils.dict_incr(dict, prefix .. constants.KEY_ATTACK_TIMES, get_ttl)
         end
 
-        if ctx.blocked then
-            utils.dict_incr(dict, prefix .. constants.KEY_BLOCK_TIMES, get_ttl)
+        if ctx.is_blocked then
+            if ctx.is_attack then
+                if ctx.is_cc then
+                    utils.dict_incr(dict, prefix .. constants.KEY_BLOCK_TIMES_CC, get_ttl)
+                else
+                    utils.dict_incr(dict, prefix .. constants.KEY_BLOCK_TIMES_ATTACK, get_ttl)
+                end
+            elseif ctx.is_captcha then
+                if ctx.is_captcha_pass then
+                    utils.dict_incr(dict, prefix .. constants.KEY_CAPTCHA_PASS_TIMES, get_ttl)
+                else
+                    utils.dict_incr(dict, prefix .. constants.KEY_BLOCK_TIMES_CAPTCHA, get_ttl)
+                end
+            end
         end
     end
 end
@@ -280,6 +303,13 @@ local function count_attack_request_traffic()
     utils.dict_incr(dict, constants.KEY_ATTACK_TYPE_PREFIX .. today .. attack_type, get_ttl)
 end
 
+-- 按小时统计当天拦截请求流量，存入缓存，key格式：block_2023-05-05 09
+local function count_block_request_traffic()
+    local dict = ngx.shared.dict_req_count
+
+    local hour = time.get_date_hour()
+    utils.dict_incr(dict, constants.KEY_BLOCKED_PREFIX .. hour, get_ttl)
+end
 
 if is_site_option_on("waf") then
     count_request_traffic()
@@ -287,13 +317,18 @@ if is_site_option_on("waf") then
     count_waf_status()
     count_traffic_stats()
 
-    local is_attack = ngx.ctx.is_attack
-    if is_attack then
+    local ctx = ngx.ctx
+
+    if ctx.is_attack then
         write_attack_log()
         count_attack_request_traffic()
     end
 
-    if ngx.ctx.ip_blocked then
+    if ctx.is_blocked then
+        count_block_request_traffic()
+    end
+
+    if ctx.ip_blocked then
         write_ip_block_log()
     end
 

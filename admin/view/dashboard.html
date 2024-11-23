@@ -39,8 +39,15 @@
 							</div>
 						</div>
 						<div class="layui-row">
-							<div class="layui-col-md12 layui-padding-1 layui-font-24">
+							<div class="layui-col-md3 layui-padding-1 layui-font-24">
 								<div id="block_times">0</div>
+							</div>
+							<div class="layui-col-md9 layui-padding-1 layui-font-14">
+								<div class="layui-row">
+									<div class="layui-col-md4">攻击阻断：<span id="block_times_attack">0</span></div>
+									<div class="layui-col-md4">人机验证：<span id="block_times_captcha">0</span></div>
+									<div class="layui-col-md4">CC拦截：<span id="block_times_cc">0</div></span>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -333,7 +340,7 @@
 					title: {
 						left: 'left',
 						top: 10,
-						text: '请求流量'
+						text: '流量统计'
 					},
 					toolbox: {
 						feature: {
@@ -368,6 +375,13 @@
 							smooth: true,
 							areaStyle: { opacity: 0.1 },
 							itemStyle: { color: '#FF5722' }
+						},
+						{
+							name: '拦截请求量',
+							type: 'line',
+							smooth: true,
+							areaStyle: { opacity: 0.1 },
+							itemStyle: { color: '#FFB800' }
 						}
 					]
 				};
@@ -443,12 +457,20 @@
 							var request_times = wafStatus.request_times ? wafStatus.request_times : 0;
 							var attack_times = wafStatus.attack_times ? wafStatus.attack_times : 0;
 							var block_times = wafStatus.block_times ? wafStatus.block_times : 0;
+							var block_times_attack = wafStatus.block_times_attack ? wafStatus.block_times_attack : 0;
+							var block_times_captcha = wafStatus.block_times_captcha ? wafStatus.block_times_captcha : 0;
+							var block_times_cc = wafStatus.block_times_cc ? wafStatus.block_times_cc : 0;
+							var captcha_pass_times = wafStatus.captcha_pass_times ? wafStatus.captcha_pass_times : 0;
 
 							var http4xxPercent = request_times > 0 ? http4xx / request_times : 0;
 							var http5xxPercent = request_times > 0 ? http5xx / request_times : 0;
 
 							$('#request_times').text(request_times);
 							$('#block_times').text(block_times);
+							$('#block_times_attack').text(block_times_attack);
+							$('#block_times_captcha').text(block_times_captcha);
+							$('#block_times_cc').text(block_times_cc);
+							$('#captcha_pass_times').text(captcha_pass_times);
 							$('#http4xx').text(http4xx);
 							$('#http5xx').text(http5xx);
 							$('#http4xxPercent').text((http4xxPercent.toFixed(2) > 0 ? http4xxPercent.toFixed(2) : 0) + '%');

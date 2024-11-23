@@ -223,7 +223,8 @@ local function js_challenge()
     local ctx = ngx.ctx
     local ip = ctx.ip
     local ua = ctx.ua
-    local key = md5("captcha_" .. ip .. ua .. SECRET) .. "_result"
+    local host = ctx.server_name
+    local key = md5("captcha_" .. ip .. ua .. host .. SECRET) .. "_result"
 
     local uri = ngx.var.uri
     if uri == '/captcha/challenge' then
@@ -242,20 +243,38 @@ local function js_challenge()
 
                         if is_system_option_on("redis") then
                             result = redis_cli.get("captcha:" .. key)
+
+                            if result then
+                                local index = find(result, "_", 1 , true)
+                                result = sub(result, index + 1)
+
+                                if tonumber(res) == tonumber(result) then
+                                    challenge_result = {result = 'success'}
+
+                                    redis_cli:del("captcha:" .. key)
+
+                                    -- 设置访问令牌
+                                    _M.set_access_token()
+                                    ngx.ctx.is_captcha_pass = true
+                                end
+                            end
                         else
                             local limit = ngx.shared.dict_cclimit
                             result = limit:get(key)
-                        end
 
-                        if result then
-                            local index = find(result, "_", 1 , true)
-                            result = sub(result, index + 1)
+                            if result then
+                                local index = find(result, "_", 1 , true)
+                                result = sub(result, index + 1)
 
-                            if tonumber(res) == tonumber(result) then
-                                challenge_result = {result = 'success'}
+                                if tonumber(res) == tonumber(result) then
+                                    challenge_result = {result = 'success'}
 
-                                -- 设置访问令牌
-                                _M.set_access_token()
+                                    limit:delete(key)
+
+                                    -- 设置访问令牌
+                                    _M.set_access_token()
+                                    ngx.ctx.is_captcha_pass = true
+                                end
                             end
                         end
                     end
@@ -340,6 +359,8 @@ local function do_captcha(module_name, rule_table)
     ngx.ctx.module_name = module_name
     ngx.ctx.rule_table = rule_table
     ngx.ctx.is_attack = false
+    ngx.ctx.is_captcha = true
+    ngx.ctx.is_blocked = true
 
     local captcha_type = upper(rule_table.type)
     if captcha_type == 'JS_CHALLENGE' then
@@ -364,7 +385,8 @@ function _M.trigger_captcha()
     local ctx = ngx.ctx
     local ip = ctx.ip
     local ua = ctx.ua
-    local key = md5("captcha_" .. ip .. ua .. SECRET)
+    local host = ctx.server_name
+    local key = md5("captcha_" .. ip .. ua .. host .. SECRET)
 
     local module = get_site_security_modules("captcha")
     local rule_table = module.rules[1]
@@ -407,7 +429,8 @@ function _M.check_captcha()
     local ctx = ngx.ctx
     local ip = ctx.ip
     local ua = ctx.ua
-    local key = md5("captcha_" .. ip .. ua .. SECRET)
+    local host = ctx.server_name
+    local key = md5("captcha_" .. ip .. ua .. host .. SECRET)
 
     local module = get_site_security_modules("captcha")
     local rule_table = module.rules[1]
@@ -440,7 +463,5 @@ function _M.check_captcha()
 
     do_captcha(module.moduleName, rule_table)
 end
-
-
 
 return _M
