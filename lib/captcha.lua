@@ -212,7 +212,7 @@ local function get_random_formula()
 end
 
 local function js_challenge()
-    local args = ngx.req.get_uri_args()
+    local args = {}
     local time = ngx.time()
 
     local req_sign = ngx.var.http_captcha_sign

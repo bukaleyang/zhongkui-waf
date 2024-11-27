@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>ZhongKui WAF</title>
 <script src="https://libs.baidu.com/jquery/2.0.0/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
@@ -19,8 +22,8 @@
     <div class="progress-bar"></div>
 </div>
 <script>
-    let data = $request_data;
-    let result = $formula;
+    var data = JSON.parse('$request_data');
+    var result = $formula;
 
     function verifyPass(data) {
         $.ajax({
@@ -41,11 +44,8 @@
 
     function verify(data) {
         result = result.toString().slice(0, 10);
-        const urlObject = new URL(window.location.href);
-        const domain = urlObject.origin;
-
         $.ajax({
-            url: domain + '/captcha/challenge',
+            url: '/captcha/challenge?r=' + Math.random(),
             type: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -68,19 +68,19 @@
     }
 
     $(function() {
-        const div = document.querySelector('.progress-bar');
-        const totalDuration = 3000;
-        let currentWidth = 0;
-        const increment = 100 / totalDuration * 100;
+        var div = document.querySelector('.progress-bar');
+        var totalDuration = 3000;
+        var currentWidth = 0;
+        var increment = 100 / totalDuration * 100;
 
-        const intervalId = setInterval(() => {
+        var intervalId = setInterval(function() {
             currentWidth += increment;
             if (currentWidth >= 100) {
                 currentWidth = 100;
                 clearInterval(intervalId);
                 verify(data);
             }
-            div.style.width = `${currentWidth}%`;
+            div.style.width = currentWidth + '%';
         }, 100);
     });
 </script>
