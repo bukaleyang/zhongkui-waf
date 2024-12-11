@@ -16,6 +16,7 @@ local sub = string.sub
 local find = string.find
 local md5 = ngx.md5
 local ngxsub = ngx.re.sub
+local ngxgsub = ngx.re.gsub
 local pairs = pairs
 local tonumber = tonumber
 local tostring = tostring
@@ -347,7 +348,7 @@ local function js_challenge()
     local data_json = cjson_encode(data)
 
     local html = CHALLENGE_HTML
-    html = ngxsub(html, "\\$request_data", data_json, "jo")
+    html = ngxgsub(html, "\\$request_data", data_json, "jo")
     html = ngxsub(html, "\\$formula", formula, "jo")
 
     ngx.print(html)

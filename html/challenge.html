@@ -22,7 +22,12 @@
     <div class="progress-bar"></div>
 </div>
 <script>
-    var data = JSON.parse('$request_data');
+    var data = {};
+    try {
+        data = JSON.parse('$request_data');
+    } catch(e) {
+        data = $request_data;
+    }
     var result = $formula;
 
     function verifyPass(data) {
