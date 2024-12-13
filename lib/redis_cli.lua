@@ -104,12 +104,12 @@ function _M.bath_set(key_table, value, key_prefix)
         red:init_pipeline()
 
         if key_prefix then
-            for _, ip in ipairs(key_table) do
-                red:set(key_prefix .. ip, value)
+            for _, k in ipairs(key_table) do
+                red:set(key_prefix .. k, value)
             end
         else
-            for _, ip in ipairs(key_table) do
-                red:set(ip, value)
+            for _, k in ipairs(key_table) do
+                red:set(k, value)
             end
         end
 
@@ -173,6 +173,33 @@ function _M.del(key)
     end
 
     return res, err
+end
+
+function _M.bath_del(key_table, key_prefix)
+    local red, _ = _M.get_connection()
+    local results, err = nil, nil
+    if red then
+        red:init_pipeline()
+
+        if key_prefix then
+            for _, k in ipairs(key_table) do
+                red:del(key_prefix .. k)
+            end
+        else
+            for _, k in ipairs(key_table) do
+                red:del(k)
+            end
+        end
+
+        results, err = red:commit_pipeline()
+        if not results then
+            ngx.log(ngx.ERR, "failed to delete keys: ", err)
+        end
+
+        _M.close_connection(red)
+    end
+
+    return results, err
 end
 
 --[[

@@ -225,7 +225,8 @@ local function js_challenge()
     local ip = ctx.ip
     local ua = ctx.ua
     local host = ctx.server_name
-    local key = md5("captcha_" .. ip .. ua .. host .. SECRET) .. "_result"
+    local key_captcha = constants.KEY_CAPTCHA_PREFIX .. md5(ip .. ua .. host .. SECRET)
+    local key_formula_result = key_captcha .. "_result"
 
     local uri = ngx.var.uri
     if uri == '/captcha/challenge' then
@@ -243,7 +244,7 @@ local function js_challenge()
                         local result = 0
 
                         if is_system_option_on("redis") then
-                            result = redis_cli.get("captcha:" .. key)
+                            result = redis_cli.get(key_formula_result)
 
                             if result then
                                 local index = find(result, "_", 1 , true)
@@ -252,7 +253,7 @@ local function js_challenge()
                                 if tonumber(res) == tonumber(result) then
                                     challenge_result = {result = 'success'}
 
-                                    redis_cli:del("captcha:" .. key)
+                                    redis_cli.bath_del({key_captcha, key_formula_result})
 
                                     -- 设置访问令牌
                                     _M.set_access_token()
@@ -261,7 +262,7 @@ local function js_challenge()
                             end
                         else
                             local limit = ngx.shared.dict_cclimit
-                            result = limit:get(key)
+                            result = limit:get(key_formula_result)
 
                             if result then
                                 local index = find(result, "_", 1 , true)
@@ -270,7 +271,8 @@ local function js_challenge()
                                 if tonumber(res) == tonumber(result) then
                                     challenge_result = {result = 'success'}
 
-                                    limit:delete(key)
+                                    limit:delete(key_formula_result)
+                                    limit:delete(key_captcha)
 
                                     -- 设置访问令牌
                                     _M.set_access_token()
@@ -294,22 +296,20 @@ local function js_challenge()
 
     -- 缓存公式计算结果
     if is_system_option_on("redis") then
-        key = "captcha:" .. key
-
-        local content, _ = redis_cli.get(key)
+        local content, _ = redis_cli.get(key_formula_result)
         if not content then
             formula, result = get_random_formula()
-            redis_cli.set(key, formula .. "_" .. result, captcha.verifyInSeconds)
+            redis_cli.set(key_formula_result, formula .. "_" .. result, captcha.verifyInSeconds)
         else
             local index = find(content, "_", 1 , true)
             formula = sub(content, 1, index - 1)
         end
     else
         local limit = ngx.shared.dict_cclimit
-        local content, _ = limit:get(key)
+        local content, _ = limit:get(key_formula_result)
         if not content then
             formula, result = get_random_formula()
-            limit:set(key, formula .. "_" .. result, captcha.verifyInSeconds)
+            limit:set(key_formula_result, formula .. "_" .. result, captcha.verifyInSeconds)
         else
             local index = find(content, "_", 1 , true)
             formula = sub(content, 1, index - 1)
@@ -327,6 +327,13 @@ local function js_challenge()
     local sign = _M.get_sign(args, 'Captcha-Sign', SECRET)
 
     local headers = ngx.req.get_headers()
+
+    -- 删除一些请求头
+    headers.connection = nil
+    headers.host = nil
+    headers.cookie = nil
+    headers["user-agent"] = nil
+    headers["accept-encoding"] = nil
 
     local data = {
         method = ngx.req.get_method(),
@@ -380,17 +387,16 @@ function _M.trigger_captcha()
     local ip = ctx.ip
     local ua = ctx.ua
     local host = ctx.server_name
-    local key = md5("captcha_" .. ip .. ua .. host .. SECRET)
+    local key = constants.KEY_CAPTCHA_PREFIX .. md5(ip .. ua .. host .. SECRET)
 
     local module = get_site_security_modules("captcha")
     local rule_table = module.rules[1]
 
     if is_system_option_on("redis") then
-        key = "captcha:" .. key
         local count, _ = redis_cli.incr(key, rule_table.verifyInSeconds)
         if not count then
             redis_cli.set(key, 1, rule_table.verifyInSeconds)
-        elseif count > rule_table.maxFailTimes then
+        elseif tonumber(count) > rule_table.maxFailTimes then
             block_ip(ip, rule_table)
         end
     else
@@ -424,19 +430,18 @@ function _M.check_captcha()
     local ip = ctx.ip
     local ua = ctx.ua
     local host = ctx.server_name
-    local key = md5("captcha_" .. ip .. ua .. host .. SECRET)
+    local key = constants.KEY_CAPTCHA_PREFIX .. md5(ip .. ua .. host .. SECRET)
 
     local module = get_site_security_modules("captcha")
     local rule_table = module.rules[1]
 
     if is_system_option_on("redis") then
-        key = "captcha:" .. key
         local count, _ = redis_cli.get(key)
         if not count then
             return
         end
 
-        if count > rule_table.maxFailTimes then
+        if tonumber(count) > rule_table.maxFailTimes then
             block_ip(ip, rule_table)
         else
             redis_cli.incr(key)
