@@ -28,13 +28,19 @@
     } catch(e) {
         data = $request_data;
     }
+    var headers = {};
+    try {
+        headers = JSON.parse('$request_headers');
+    } catch(e) {
+        headers = $request_headers;
+    }
     var result = $formula;
 
     function verifyPass(data) {
         $.ajax({
             url: window.location.href,
             type: data.method,
-            headers: data.headers,
+            headers: headers,
             data: data.body,
             success: function(response) {
                 document.open();

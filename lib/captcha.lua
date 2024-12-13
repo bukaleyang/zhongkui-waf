@@ -328,27 +328,20 @@ local function js_challenge()
 
     local headers = ngx.req.get_headers()
 
-    -- 删除一些请求头
-    headers.connection = nil
-    headers.host = nil
-    headers.referer = nil
-    headers.cookie = nil
-    headers["user-agent"] = nil
-    headers["accept-encoding"] = nil
-
     local data = {
         method = ngx.req.get_method(),
         url = ngx.var.request_uri,
-        headers = headers,
         body = request.get_request_body(),
         ["Captcha-Sign"] = sign,
         ["Captcha-Time"] = time
     }
 
     local data_json = cjson_encode(data)
+    local headers_json = cjson_encode(headers)
 
     local html = CHALLENGE_HTML
     html = ngxgsub(html, "\\$request_data", data_json, "jo")
+    html = ngxgsub(html, "\\$request_headers", headers_json, "jo")
     html = ngxsub(html, "\\$formula", formula, "jo")
 
     ngx.print(html)
