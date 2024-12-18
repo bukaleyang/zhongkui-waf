@@ -195,7 +195,7 @@ local function load_security_modules(rulePath, site_config)
     security_modules.sqli = { moduleName = "SQL注入检测", rules = {{ attackType = "sqli", rule = "sqli", action = "DENY", severityLevel="high" }}}
     security_modules.xss = { moduleName = "XSS检测",  rules = {{ attackType = "xss", rule = "xss", action = "DENY", severityLevel="low" }}}
     security_modules.whiteIp = { moduleName = "IP白名单检测", rules = {{ attackType = "whiteip", rule = "whiteip", action = "ALLOW", severityLevel="low" }}}
-    security_modules.blackIp = { moduleName = "IP黑名单检测", rules = {{ attackType = "blackip", rule = "blackip", action = "DENY", severityLevel="high" }}}
+    security_modules.blackIp = { moduleName = "IP黑名单检测", rules = {{ attackType = "blackip", rule = "blackip", action = "REDIRECT", severityLevel="high" }}}
 
     local trap = site_config.bot.trap
     local rule_trap = { attackType = "bot_trap", rule = "bot_trap", severityLevel="low" }
