@@ -9,17 +9,23 @@
 <title>ZhongKui WAF</title>
 <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 <style>
-    body{font-family:Arial,sans-serif;background-color:#f5f5f5;margin:0;padding:0}
-    .container{width:80%;max-width:700px;margin:50px auto;text-align:center;padding:30px}
-    .message{font-size:1.3em;font-weight:bold;color:#23292e;margin-bottom:15px}
-    .progress-bar{left:0;top:0;width:0;max-width:100%;height:5px;border-radius:20px;text-align:right;background-color:#16b777;transition:all .3s;-webkit-transition:all .3s}
+    body{margin:0;font-family:Arial,sans-serif;background-color:#f6f8fa;display:flex;justify-content:center;align-items:flex-start;height:100vh;padding-top:15vh;box-sizing:border-box}
+    .verification-container{background:#ffffff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);width:90%;max-width:400px;padding:30px;text-align:center;box-sizing:border-box}
+    .verification-container h1{font-size:24px;color:#333333;margin-bottom:15px}
+    .verification-container p{font-size:16px;color:#666666;margin-bottom:20px}
+    .progress-bar-container{width:100%;height:10px;background-color:#e9ecef;border-radius:5px;overflow:hidden;margin-bottom:20px}
+    .progress-bar{width:0%;height:100%;background-color:#48bb78;transition: width 3s cubic-bezier(0.25, 0.1, 0.25, 1);}
 </style>
 </head>
 <body>
-<div class="container">
-    <div class="message" id="message">请稍候，正在进行浏览器安全检测。</div>
-    <div class="progress-bar"></div>
+<div class="verification-container">
+    <h1>安全验证</h1>
+    <p id="message">正在进行浏览器安全验证，请稍候...</p>
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="progressBar"></div>
+    </div>
 </div>
+
 <script>
     var data = {};
     try {
@@ -42,9 +48,13 @@
             headers: headers,
             data: data.body,
             success: function(response) {
-                document.open();
-                document.write(response);
-                document.close();
+			    $('#message').text('验证通过✓');
+                $('#message').css('color', '#48bb78');
+                setTimeout(function() {
+                    document.open();
+                    document.write(response);
+                    document.close();
+                }, 1000);
             },
             error: function(xhr, status, error) {
                 $('#message').text('请求出错，请刷新页面重试');
@@ -77,21 +87,127 @@
         });
     }
 
-    $(function() {
-        var div = document.querySelector('.progress-bar');
-        var totalDuration = 3000;
-        var currentWidth = 0;
-        var increment = 100 / totalDuration * 100;
+    function isRealBrowser() {
+        const nav = window.navigator;
+        const doc = document;
+        const win = window;
 
-        var intervalId = setInterval(function() {
-            currentWidth += increment;
-            if (currentWidth >= 100) {
-                currentWidth = 100;
-                clearInterval(intervalId);
-                verify(data);
+        try {
+            // 1. WebDriver属性检测（兼容旧版Selenium）
+            if (nav.webdriver === true || doc.documentElement.getAttribute('webdriver')) {
+                return false;
             }
-            div.style.width = currentWidth + '%';
-        }, 100);
+
+            // 2. 用户代理关键词检测
+            const ua = nav.userAgent.toLowerCase();
+            const bannedKeywords = ['headless', 'webdriver', 'puppeteer', 'selenium', 'chromedriver', 'automated', 'phantomjs', 'ghost'];
+            if (bannedKeywords.some(k => ua.includes(k))) {
+                return false;
+            }
+
+            // 3. 移动端检测
+            const isMobileUA = /(android|webos|iphone|ipad|ipod|blackberry|windows phone|mobile)/i.test(ua);
+            const isMobile = isMobileUA || (typeof nav.userAgentData?.mobile === 'boolean' && nav.userAgentData.mobile);
+
+            // 4. 插件和MimeType检测
+            if (!isMobile) {
+                if (!nav.plugins || !nav.mimeTypes) {
+                    return false;
+                }
+                // 类型检查及非空验证
+                if (!nav.plugins || !nav.mimeTypes || Object.prototype.toString.call(nav.plugins) !== '[object PluginArray]' ||
+                    Object.prototype.toString.call(nav.mimeTypes) !== '[object MimeTypeArray]') {
+                    return false;
+                }
+            }
+
+            // 5. 原生函数检测
+            const isNative = fn => {
+                try {
+                    return Function.prototype.toString.call(fn).includes('[native code]');
+                } catch(e) {
+                    return false;
+                }
+            };
+            const nativeChecks = [eval, doc.querySelector, win.setTimeout, win.alert, doc.createElement];
+            if (nativeChecks.some(f => !isNative(f))) {
+                return false;
+            }
+
+            // 6. Headless全局变量检测
+            const headlessGlobals = ['callPhantom', '_phantom', '__nightmare', '__webdriver', '__driver_evaluate', '__scenario__'];
+            if (headlessGlobals.some(p => p in win)) {
+                return false;
+            }
+
+            // 7. 权限API特征
+            if (typeof nav.permissions?.query === 'function' && /headless/.test(nav.permissions.query.toString())) {
+                return false;
+            }
+
+            // 8. 屏幕尺寸逻辑（动态阈值区分设备类型）
+            const [minWidth, minHeight] = isMobile ? [200, 300] : [600, 600];
+            if (win.screen.availWidth < minWidth || win.screen.availHeight < minHeight) {
+                return false;
+            }
+
+            // 9. 触摸支持检测（移动端严格模式）
+            if (isMobile && (!('ontouchstart' in win) || typeof TouchEvent === 'undefined' || nav.maxTouchPoints < 1)) {
+                return false;
+            }
+
+            // 10. 语言属性检测
+            if (!nav.language || !nav.languages?.length || nav.languages.some(l => !l || typeof l !== 'string')) {
+                return false;
+            }
+
+            // 11. UserAgentData品牌检测（Headless特征）
+            if (nav.userAgentData?.brands?.some(b => b.brand.toLowerCase().includes('headless'))) {
+                return false;
+            }
+
+            // 12. WebGL渲染器检测（过滤虚拟渲染）
+            const webglCheck = () => {
+                try {
+                    const canvas = doc.createElement('canvas');
+                    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                    if (!gl) {
+                        return false;
+                    }
+                    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+                    if (ext) {
+                        const renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL).toLowerCase();
+                        if (/(swiftshader|llvmpipe|software)/.test(renderer)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                } catch(e) {
+                    return false;
+                }
+            };
+            if (!webglCheck()) {
+                return false
+            }
+        } catch(e) {
+            return false;
+        }
+
+        return true;
+    }
+
+    $(function() {
+        const progressBar = document.getElementById('progressBar');
+        progressBar.style.width = '0%';
+        setTimeout(() => {
+            progressBar.style.width = '100%';
+        }, 10);
+        
+        if (isRealBrowser()) {
+            setTimeout(() => {
+                verify(data);
+            }, 3000);
+        }
     });
 </script>
 </body>
