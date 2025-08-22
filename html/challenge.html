@@ -8,7 +8,6 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>ZhongKui WAF</title>
-    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <style>
         body{margin:0;font-family:Arial,sans-serif;background-color:#f6f8fa;display:flex;justify-content:center;align-items:flex-start;height:100vh;padding-top:15vh;box-sizing:border-box}
         .verification-container{background:#ffffff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);width:90%;max-width:400px;padding:30px;text-align:center;box-sizing:border-box}
@@ -29,63 +28,75 @@
     </div>
 
     <script>
-        var data = {};
-        try {
-            data = JSON.parse('$request_data');
-        } catch (e) {
-            data = $request_data;
+        // 1. 检测是否需要 polyfill
+        const needsPolyfill = (function() {
+            return !window.fetch || typeof Promise === 'undefined' || typeof Object.assign === 'undefined';
+        })();
+
+        if (needsPolyfill) {
+            // 2. 动态加载 polyfill（顺序加载：Promise → fetch）
+            loadScript(
+                'https://cdn.bootcdn.net/ajax/libs/promise-polyfill/8.3.0/polyfill.min.js',
+                function() {
+                    loadScript(
+                        'https://cdn.bootcdn.net/ajax/libs/fetch/2.0.4/fetch.min.js',
+                        runChallenge  // 全部加载完成后执行挑战逻辑
+                    );
+                }
+            );
+        } else {
+            // 3. 现代浏览器：直接执行挑战
+            runChallenge();
         }
-        var headers = {};
-        try {
-            headers = JSON.parse('$request_headers');
-        } catch (e) {
-            headers = $request_headers;
+
+        // 加载 script 并回调
+        function loadScript(src, callback) {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = callback;
+            script.onerror = function() {
+                console.error('Failed to load polyfill:', src);
+            };
+            document.head.appendChild(script);
         }
+
         var result = $formula;
+        var messageElement = document.getElementById('message');
 
-        function verifyPass(data) {
-            $.ajax({
-                url: window.location.href,
-                type: data.method,
-                headers: headers,
-                data: data.body,
-                success: function (response) {
-                    $('#message').text('验证通过✓');
-                    $('#message').css('color', '#48bb78');
-                    setTimeout(function () {
-                        document.open();
-                        document.write(response);
-                        document.close();
-                    }, 1000);
-                },
-                error: function (xhr, status, error) {
-                    $('#message').text('请求出错，请刷新页面重试');
-                }
-            });
+        function verifyPass() {
+            messageElement.textContent = '验证通过✓';
+            messageElement.style.color = '#48bb78';
+            setTimeout(function () {
+                window.location.href = window.location.href;
+            }, 1000);
         }
 
-        function verify(data) {
+        function verify() {
             result = result.toString().slice(0, 10);
-            $.ajax({
-                url: '/captcha/challenge?r=' + Math.random(),
-                type: 'POST',
+            fetch('/captcha/challenge?r=' + Math.random(), {
+                method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Captcha-Sign': data['Captcha-Sign'],
-                    'Captcha-Time': data['Captcha-Time']
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Captcha-Sign': '$captcha-sign',
+                    'Captcha-Time': $captcha-time
                 },
-                data: { 'captcha_result': result },
-                dataType: "json",
-                success: function (response) {
-                    if (response.result == "success") {
-                        verifyPass(data);
-                    } else {
-                        $('#message').text('验证失败，请刷新页面重试');
-                    }
-                },
-                error: function (xhr, status, error) {
-                    $('#message').text('请求出错，请刷新页面重试');
+                credentials: "same-origin",
+                body: 'captcha_result=' + result
+            }).then(function(response) {
+                if (!response.ok || response.status !== 200) {
+                    messageElement.textContent = '请求出错，请刷新页面重试';
+                    throw new Error('HTTP ' + response.status);
                 }
+                return response.json();
+            }).then(function(data) {
+                if (data.result == "success") {
+                    verifyPass();
+                } else {
+                    messageElement.textContent = '验证失败，请刷新页面重试';
+                }
+            }).catch(function(err) {
+                console.error(err);
+                messageElement.textContent = '请求出错，请刷新页面重试';
             });
         }
 
@@ -214,7 +225,7 @@
             return true;
         }
 
-        $(function () {
+        function runChallenge() {
             const progressBar = document.getElementById('progressBar');
             progressBar.style.width = '0%';
             setTimeout(function () {
@@ -223,12 +234,12 @@
 
             if (isRealBrowser()) {
                 setTimeout(function () {
-                    verify(data);
+                    verify();
                 }, 3000);
             } else {
                 $('#message').text('验证失败');
             }
-        });
+        }
     </script>
 </body>
 

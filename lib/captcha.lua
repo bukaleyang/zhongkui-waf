@@ -241,7 +241,7 @@ local function js_challenge()
                 if args then
                     local res = args['captcha_result']
                     if res then
-                        local result = 0
+                        local result = nil
 
                         if is_system_option_on("redis") then
                             result = redis_cli.get(key_formula_result)
@@ -326,29 +326,9 @@ local function js_challenge()
 
     local sign = _M.get_sign(args, 'Captcha-Sign', SECRET)
 
-    local headers = ngx.req.get_headers()
-
-    -- 删除一些请求头
-    headers.connection = nil
-    headers.host = nil
-    headers.cookie = nil
-    headers["user-agent"] = nil
-    headers["accept-encoding"] = nil
-
-    local data = {
-        method = ngx.req.get_method(),
-        url = ngx.var.request_uri,
-        body = request.get_request_body(),
-        ["Captcha-Sign"] = sign,
-        ["Captcha-Time"] = time
-    }
-
-    local data_json = cjson_encode(data)
-    local headers_json = cjson_encode(headers)
-
     local html = CHALLENGE_HTML
-    html = ngxgsub(html, "\\$request_data", data_json, "jo")
-    html = ngxgsub(html, "\\$request_headers", headers_json, "jo")
+    html = ngxgsub(html, "\\$captcha-sign", sign, "jo")
+    html = ngxgsub(html, "\\$captcha-time", tostring(time), "jo")
     html = ngxsub(html, "\\$formula", formula, "jo")
 
     ngx.print(html)
