@@ -171,7 +171,7 @@ local function block_ip(ip, rule_table)
 end
 
 local function get_random_formula()
-    local operators = {'+', '-', '*', '/', 'pow', 'sqrt'}
+    local operators = {'+', '-', '*', '/', 'pow', 'sqrt', 'abs', 'floor', 'ceil', 'sin', 'cos'}
     local length = #operators
     local index = 1
 
@@ -182,34 +182,57 @@ local function get_random_formula()
     for i = 1, 3, 1 do
         num = math.random(50)
         index = math.random(length)
-        local o = operators[index]
-        if o == '+' then
+        local op = operators[index]
+        if op == '+' then
             result = result + num
-            formula = formula .. o .. tostring(num)
-        elseif o == '-' then
+            formula = formula .. op .. tostring(num)
+        elseif op == '-' then
             result = result - num
-            formula = formula .. o .. tostring(num)
-        elseif o == '*' then
+            formula = formula .. op .. tostring(num)
+        elseif op == '*' then
             result = result * num
-            formula = formula .. o .. tostring(num)
-        elseif o == '/' then
+            formula = formula .. op .. tostring(num)
+        elseif op == '/' then
+            if num == 0 then
+                num = 1
+            end
             result = result / num
-            formula = formula .. o .. tostring(num)
-        elseif o == 'pow' then
+            formula = formula .. op .. tostring(num)
+        elseif op == 'pow' then
             if result > 1 then
                 num = math.random(5)
                 result = math.pow(result, num)
                 formula = 'Math.pow(' .. formula .. ',' .. tostring(num) .. ')'
             end
-        elseif o == 'sqrt' then
+        elseif op == 'sqrt' then
             result = math.sqrt(math.abs(result))
             formula = 'Math.sqrt(Math.abs(' .. formula .. '))'
+        elseif op == 'abs' then
+            result = math.abs(result)
+            formula = 'Math.abs(' .. formula .. ')'
+        elseif op == 'floor' then
+            result = math.floor(result)
+            formula = 'Math.floor(' .. formula .. ')'
+        elseif op == 'ceil' then
+            result = math.ceil(result)
+            formula = 'Math.ceil(' .. formula .. ')'
+        elseif op == 'sin' then
+            -- 三角函数，限制输入范围
+            local angle = result % (2 * math.pi)
+            result = math.sin(angle)
+            formula = 'Math.sin(' .. formula .. ' % (2 * Math.PI))'
+        elseif op == 'cos' then
+            local angle = result % (2 * math.pi)
+            result = math.cos(angle)
+            formula = 'Math.cos(' .. formula .. ' % (2 * Math.PI))'
         end
 
-        formula = '(' .. formula .. ')'
+        if i ~= 3 then
+            formula = '(' .. formula .. ')'
+        end
     end
 
-    return formula, sub(tostring(result), 1, 10)
+    return formula, sub(tostring(result), 1, 5)
 end
 
 local function js_challenge()
@@ -329,7 +352,7 @@ local function js_challenge()
     local html = CHALLENGE_HTML
     html = ngxgsub(html, "\\$captcha-sign", sign, "jo")
     html = ngxgsub(html, "\\$captcha-time", tostring(time), "jo")
-    html = ngxsub(html, "\\$formula", formula, "jo")
+    html = ngxgsub(html, "\\$formula", formula, "jo")
 
     ngx.print(html)
 

@@ -10,11 +10,19 @@
     <title>ZhongKui WAF</title>
     <style>
         body{margin:0;font-family:Arial,sans-serif;background-color:#f6f8fa;display:flex;justify-content:center;align-items:flex-start;height:100vh;padding-top:15vh;box-sizing:border-box}
-        .verification-container{background:#ffffff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);width:90%;max-width:400px;padding:30px;text-align:center;box-sizing:border-box}
+        .verification-container{background:#ffffff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);width:95%;max-width:520px;min-width:320px;padding:30px;text-align:center;box-sizing:border-box;margin:0 auto}
         .verification-container h1{font-size:24px;color:#333333;margin-bottom:15px}
         .verification-container p{font-size:16px;color:#666666;margin-bottom:20px}
         .progress-bar-container{width:100%;height:10px;background-color:#e9ecef;border-radius:5px;overflow:hidden;margin-bottom:20px}
         .progress-bar{width:0%;height:100%;background-color:#48bb78;transition: width 3s cubic-bezier(0.25, 0.1, 0.25, 1);}
+        .debug-info{margin-top:20px;padding:10px;background:#f8f9fa;border-radius:5px;font-size:12px;text-align:left;display:none}
+        .debug-toggle{margin-top:10px;padding:5px 10px;background:#007bff;color:white;border:none;border-radius:3px;cursor:pointer;font-size:12px}
+        .error-report{margin-top:10px;padding:8px;background:#fff3cd;border:1px solid #ffeaa7;border-radius:5px;font-size:14px;color:#856404}
+        .retry-btn{margin-top:10px;padding:8px 16px;background:#28a745;color:white;border:none;border-radius:5px;cursor:pointer}
+        .help-info{margin-top:10px;padding:12px;background:#e7f3ff;border:1px solid #bee5eb;border-radius:5px;font-size:14px;color:#0c5460;line-height:1.5;text-align:left}
+        .help-info h4{margin:0 0 8px 0;font-size:16px;color:#0c5460;text-align:left}
+        .help-info ul{margin:8px 0;padding-left:20px;text-align:left}
+        .help-info li{margin:4px 0;text-align:left}
     </style>
 </head>
 
@@ -25,55 +33,231 @@
         <div class="progress-bar-container">
             <div class="progress-bar" id="progressBar"></div>
         </div>
+        <button class="debug-toggle" onclick="toggleDebugInfo()" style="display:none" id="debugToggle">显示调试信息</button>
+        <div class="debug-info" id="debugInfo"></div>
+        <div id="errorReport" style="display:none"></div>
+        <div id="helpInfo" style="display:none"></div>
+        <button class="retry-btn" onclick="retryVerification()" style="display:none" id="retryBtn">重新验证</button>
     </div>
 
     <script>
+        var messageElement = document.getElementById('message');
+        // 调试日志收集器
+        var debugLogs = [];
+        var failureCount = 0;
+        var originalConsoleError = console.error;
+        var originalConsoleLog = console.log;
+
+        // 重写console方法以收集日志
+        console.error = function() {
+            originalConsoleError.apply(console, arguments);
+            debugLogs.push('[ERROR] ' + Array.prototype.join.call(arguments, ' '));
+            updateDebugInfo();
+        };
+
+        console.log = function() {
+            originalConsoleLog.apply(console, arguments);
+            debugLogs.push('[LOG] ' + Array.prototype.join.call(arguments, ' '));
+            updateDebugInfo();
+        };
+
+        // 全局错误捕获
+        window.onerror = function(msg, url, line, col, error) {
+            var errorMsg = '脚本错误: ' + msg + ' (行:' + line + ')';
+            debugLogs.push('[JS_ERROR] ' + errorMsg);
+            if (error && error.stack) {
+                debugLogs.push('[STACK] ' + error.stack);
+            }
+            updateDebugInfo();
+            showErrorReport('JavaScript错误: ' + msg);
+            return true;
+        };
+
+        function addDebugLog(message) {
+            debugLogs.push('[DEBUG] ' + new Date().toLocaleTimeString() + ' - ' + message);
+            updateDebugInfo();
+        }
+
+        function updateDebugInfo() {
+            var debugElement = document.getElementById('debugInfo');
+            if (debugElement) {
+                debugElement.innerHTML = debugLogs.slice(-20).join('<br>'); // 只显示最近20条
+            }
+        }
+
+        function toggleDebugInfo() {
+            var debugElement = document.getElementById('debugInfo');
+            if (debugElement.style.display === 'none' || debugElement.style.display === '') {
+                debugElement.style.display = 'block';
+                updateDebugInfo();
+            } else {
+                debugElement.style.display = 'none';
+            }
+        }
+
+        function showErrorReport(message) {
+            var errorElement = document.getElementById('errorReport');
+            var retryBtn = document.getElementById('retryBtn');
+            var debugToggle = document.getElementById('debugToggle');
+            var helpElement = document.getElementById('helpInfo');
+            var progressBar = document.getElementById('progressBar');
+            messageElement.textContent = '验证失败，请重试';
+
+            errorElement.innerHTML = '<div class="error-report">' + message + '<br><small>点击"<b>显示调试信息</b>"查看详细信息</small></div>';
+            errorElement.style.display = 'block';
+            retryBtn.style.display = 'inline-block';
+            debugToggle.style.display = 'inline-block';
+            progressBar.style.transition = 'none';
+
+            // 根据当前失败次数显示相应的帮助信息
+            var helpContent;
+            if (failureCount === 0) {
+                // 第一次失败：显示基本提示
+                helpContent = '<div class="help-info">' +
+                    '<h4>验证遇到问题？请尝试以下解决方案：</h4>' +
+                    '<ul>' +
+                    '<li>🔧 确保JavaScript已启用</li>' +
+                    '<li>🍪 确保Cookie已启用</li>' +
+                    '<li>🚫 请暂时关闭广告拦截插件（如AdBlock、uBlock等）</li>' +
+                    '<li>🌍 检查网络连接是否正常</li>' +
+                    '</ul>' +
+                    '</div>';
+            } else {
+                // 多次失败：显示详细帮助信息
+                helpContent = '<div class="help-info">' +
+                    '<h4>多次验证失败，请尝试以下详细解决方案：</h4>' +
+                    '<ul>' +
+                    '<li>🌐 请使用最新版本的现代浏览器（Chrome、Firefox、Edge、Safari）</li>' +
+                    '<li>🔧 确保JavaScript已启用</li>' +
+                    '<li>🍪 确保Cookie已启用</li>' +
+                    '<li>🚫 请暂时关闭广告拦截插件（如AdBlock、uBlock等）</li>' +
+                    '<li>🌍 检查网络连接是否正常</li>' +
+                    '<li>🔒 如使用企业网络，请联系管理员检查防火墙设置</li>' +
+                    '<li>🔄 尝试刷新页面或清除浏览器缓存</li>' +
+                    '<li>📱 如使用移动设备，请尝试切换到桌面浏览器</li>' +
+                    '<li>🔄 尝试重启浏览器或设备</li>' +
+                    '</ul>' +
+                    '<p><strong>如问题持续存在，请联系网站管理员。</strong></p>' +
+                    '</div>';
+            }
+            helpElement.innerHTML = helpContent;
+            helpElement.style.display = 'block';
+        }
+
+        function retryVerification() {
+            failureCount++;
+
+            document.getElementById('errorReport').style.display = 'none';
+            document.getElementById('retryBtn').style.display = 'none';
+            document.getElementById('debugToggle').style.display = 'none';
+            document.getElementById('debugInfo').style.display = 'none';
+            messageElement.textContent = '正在进行浏览器安全验证，请稍候...';
+            messageElement.style.color = '#666666';
+
+            runChallenge();
+        }
+
+        // 收集浏览器环境信息
+        function collectBrowserInfo() {
+            var info = {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                language: navigator.language,
+                languages: navigator.languages ? navigator.languages.join(',') : 'undefined',
+                cookieEnabled: navigator.cookieEnabled,
+                doNotTrack: navigator.doNotTrack,
+                screenWidth: screen.width,
+                screenHeight: screen.height,
+                availWidth: screen.availWidth,
+                availHeight: screen.availHeight,
+                colorDepth: screen.colorDepth,
+                pixelDepth: screen.pixelDepth,
+                windowWidth: window.innerWidth,
+                windowHeight: window.innerHeight,
+                hasTouch: 'ontouchstart' in window,
+                maxTouchPoints: navigator.maxTouchPoints || 0,
+                webdriver: navigator.webdriver,
+                plugins: navigator.plugins ? navigator.plugins.length : 0,
+                mimeTypes: navigator.mimeTypes ? navigator.mimeTypes.length : 0,
+                timestamp: new Date().toISOString()
+            };
+
+            addDebugLog('浏览器信息收集完成');
+            return info;
+        }
+
         // 1. 检测是否需要 polyfill
         const needsPolyfill = (function() {
-            return !window.fetch || typeof Promise === 'undefined' || typeof Object.assign === 'undefined';
+            var needs = !window.fetch || typeof Promise === 'undefined' || typeof Object.assign === 'undefined';
+            addDebugLog('是否需要polyfill: ' + needs);
+            return needs;
         })();
 
         if (needsPolyfill) {
+            addDebugLog('开始加载polyfill');
             // 2. 动态加载 polyfill（顺序加载：Promise → fetch）
             loadScript(
                 'https://cdn.bootcdn.net/ajax/libs/promise-polyfill/8.3.0/polyfill.min.js',
                 function() {
+                    addDebugLog('Promise polyfill加载成功');
                     loadScript(
                         'https://cdn.bootcdn.net/ajax/libs/fetch/2.0.4/fetch.min.js',
-                        runChallenge  // 全部加载完成后执行挑战逻辑
+                        function() {
+                            addDebugLog('Fetch polyfill加载成功');
+                            runChallenge();  // 全部加载完成后执行挑战逻辑
+                        }
                     );
                 }
             );
         } else {
+            addDebugLog('现代浏览器，直接执行挑战');
             // 3. 现代浏览器：直接执行挑战
             runChallenge();
         }
 
         // 加载 script 并回调
         function loadScript(src, callback) {
+            addDebugLog('开始加载脚本: ' + src);
             const script = document.createElement('script');
             script.src = src;
-            script.onload = callback;
+            script.onload = function() {
+                addDebugLog('脚本加载成功: ' + src);
+                callback();
+            };
             script.onerror = function() {
+                var errorMsg = '脚本加载失败: ' + src;
+                addDebugLog(errorMsg);
                 console.error('Failed to load polyfill:', src);
+                showErrorReport('资源加载失败，可能是网络问题或广告拦截插件阻止了资源加载');
             };
             document.head.appendChild(script);
         }
 
         var result = $formula;
-        var messageElement = document.getElementById('message');
 
         function verifyPass() {
+            addDebugLog('验证通过');
             messageElement.textContent = '验证通过✓';
             messageElement.style.color = '#48bb78';
             setTimeout(function () {
+                addDebugLog('准备跳转页面');
                 window.location.href = window.location.href;
             }, 1000);
         }
 
         function verify() {
-            result = result.toString().slice(0, 10);
-            fetch('/captcha/challenge?r=' + Math.random(), {
+            addDebugLog('公式：' + '$formula');
+            addDebugLog('开始验证，计算结果: ' + result);
+            result = result.toString().slice(0, 5);
+            addDebugLog('处理后的结果: ' + result);
+
+            var requestBody = 'captcha_result=' + result;
+            var requestUrl = '/captcha/challenge?r=' + Math.random();
+
+            addDebugLog('发送验证请求: ' + requestUrl);
+            addDebugLog('请求体: ' + requestBody);
+
+            fetch(requestUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -81,26 +265,39 @@
                     'Captcha-Time': $captcha-time
                 },
                 credentials: "same-origin",
-                body: 'captcha_result=' + result
+                body: requestBody
             }).then(function(response) {
+                addDebugLog('收到响应，状态码: ' + response.status);
                 if (!response.ok || response.status !== 200) {
+                    var errorMsg = '请求出错，状态码: ' + response.status;
+                    addDebugLog(errorMsg);
                     messageElement.textContent = '请求出错，请刷新页面重试';
+                    showErrorReport(errorMsg);
                     throw new Error('HTTP ' + response.status);
                 }
                 return response.json();
             }).then(function(data) {
+                addDebugLog('解析响应数据: ' + JSON.stringify(data));
                 if (data.result == "success") {
                     verifyPass();
                 } else {
-                    messageElement.textContent = '验证失败，请刷新页面重试';
+                    var errorMsg = '验证失败，服务器返回: ' + JSON.stringify(data);
+                    addDebugLog(errorMsg);
+                    messageElement.textContent = '验证失败，请重试';
+                    showErrorReport('服务器验证失败，可能是网络延迟或安全策略导致');
                 }
             }).catch(function(err) {
+                var errorMsg = '请求异常: ' + err.message;
+                addDebugLog(errorMsg);
                 console.error(err);
-                messageElement.textContent = '请求出错，请刷新页面重试';
+                messageElement.textContent = '网络连接失败，请重试';
+                showErrorReport('网络请求失败，请检查网络连接或尝试关闭广告拦截插件');
             });
         }
 
         function isRealBrowser() {
+            addDebugLog('开始浏览器真实性检测');
+
             const nav = window.navigator;
             const doc = document;
             const win = window;
@@ -108,6 +305,7 @@
             try {
                 // 1. WebDriver属性检测（兼容旧版Selenium）
                 if (nav.webdriver === true || doc.documentElement.getAttribute('webdriver')) {
+                    addDebugLog('检测失败: WebDriver属性');
                     return false;
                 }
 
@@ -118,24 +316,30 @@
                 // 2. 用户代理关键词检测
                 const ua = nav.userAgent.toLowerCase();
                 const bannedKeywords = ['headless', 'webdriver', 'puppeteer', 'selenium', 'chromedriver', 'automated', 'phantomjs', 'ghost'];
-                if (bannedKeywords.some(function (k) { return ua.includes(k); })) {
+                var foundKeyword = bannedKeywords.find(function (k) { return ua.includes(k); });
+                if (foundKeyword) {
+                    addDebugLog('检测失败: 发现禁用关键词 - ' + foundKeyword);
                     return false;
                 }
 
                 // 3. 移动端检测
                 const isMobileUA = /(android|webos|iphone|ipad|ipod|blackberry|windows phone|mobile)/i.test(ua);
                 const isMobile = isMobileUA;
+                addDebugLog('移动端检测: ' + isMobile);
 
                 // 4. 插件和MimeType检测
                 if (!isMobile) {
                     if (!nav.plugins || !nav.mimeTypes) {
+                        addDebugLog('检测失败: 缺少插件或MimeType支持');
                         return false;
                     }
                     // 类型检查及非空验证
                     if (!nav.plugins || !nav.mimeTypes || Object.prototype.toString.call(nav.plugins) !== '[object PluginArray]' ||
                         Object.prototype.toString.call(nav.mimeTypes) !== '[object MimeTypeArray]') {
+                        addDebugLog('检测失败: 插件或MimeType类型异常');
                         return false;
                     }
+                    addDebugLog('插件数量: ' + nav.plugins.length + ', MimeType数量: ' + nav.mimeTypes.length);
                 }
 
                 // 5. 原生函数检测
@@ -147,18 +351,23 @@
                     }
                 };
                 const nativeChecks = [eval, doc.querySelector, win.setTimeout, win.alert, doc.createElement];
-                if (nativeChecks.some(function (f) { return !isNative(f); })) {
+                var failedNative = nativeChecks.find(function (f) { return !isNative(f); });
+                if (failedNative) {
+                    addDebugLog('检测失败: 非原生函数 - ' + failedNative.name);
                     return false;
                 }
 
                 // 6. Headless全局变量检测
                 const headlessGlobals = ['callPhantom', '_phantom', '__nightmare', '__webdriver', '__driver_evaluate', '__scenario__'];
-                if (headlessGlobals.some(function (p) { return p in win; })) {
+                var foundGlobal = headlessGlobals.find(function (p) { return p in win; });
+                if (foundGlobal) {
+                    addDebugLog('检测失败: 发现headless全局变量 - ' + foundGlobal);
                     return false;
                 }
 
                 // 7. 权限API特征
                 if (typeof navigator.permissions !== 'undefined' && typeof navigator.permissions.query === 'function' && /headless/.test(navigator.permissions.query.toString())) {
+                    addDebugLog('检测失败: 权限API包含headless特征');
                     return false;
                 }
 
@@ -168,12 +377,16 @@
                 const availWidth = window.screen.availWidth || window.screen.width;
                 const availHeight = window.screen.availHeight || window.screen.height;
 
+                addDebugLog('屏幕尺寸: ' + availWidth + 'x' + availHeight + ', 最小要求: ' + minWidth + 'x' + minHeight);
+
                 if (availWidth < minWidth || availHeight < minHeight) {
+                    addDebugLog('检测失败: 屏幕尺寸过小');
                     return false;
                 }
 
                 // 9. 触摸支持检测（移动端严格模式）
                 if (isMobile && (!('ontouchstart' in win) || typeof TouchEvent === 'undefined' || nav.maxTouchPoints < 1)) {
+                    addDebugLog('检测失败: 移动端缺少触摸支持');
                     return false;
                 }
 
@@ -182,15 +395,18 @@
                     if (!nav.languages.length || nav.languages.some(function (l) {
                         return !l || typeof l !== 'string';
                     })) {
+                        addDebugLog('检测失败: 语言属性异常');
                         return false;
                     }
                 }
 
                 // 11. UserAgentData品牌检测（Headless特征）
                 if (nav.userAgentData && Array.isArray(nav.userAgentData.brands)) {
-                    if (nav.userAgentData.brands.some(function (b) {
+                    var headlessBrand = nav.userAgentData.brands.find(function (b) {
                         return b.brand && b.brand.toLowerCase().includes('headless');
-                    })) {
+                    });
+                    if (headlessBrand) {
+                        addDebugLog('检测失败: UserAgentData包含headless品牌');
                         return false;
                     }
                 }
@@ -201,24 +417,27 @@
                         const canvas = doc.createElement('canvas');
                         const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
                         if (!gl) {
+                            addDebugLog('WebGL检测: 不支持WebGL');
                             return false;
                         }
                         const ext = gl.getExtension('WEBGL_debug_renderer_info');
                         if (ext) {
                             const renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL).toLowerCase();
-                            if (/(swiftshader|llvmpipe|software)/.test(renderer)) {
-                                return false;
-                            }
+                            addDebugLog('WebGL渲染器: ' + renderer);
                         }
                         return true;
                     } catch (e) {
+                        addDebugLog('WebGL检测异常: ' + e.message);
                         return false;
                     }
                 };
                 if (!webglCheck()) {
                     return false;
                 }
+
+                addDebugLog('浏览器真实性检测通过');
             } catch (e) {
+                addDebugLog('检测异常: ' + e.message);
                 return false;
             }
 
@@ -226,18 +445,32 @@
         }
 
         function runChallenge() {
-            const progressBar = document.getElementById('progressBar');
+            addDebugLog('开始执行挑战');
+
+            // 收集浏览器信息
+            var browserInfo = collectBrowserInfo();
+            addDebugLog('浏览器环境信息已收集');
+
+            var progressBar = document.getElementById('progressBar');
+            progressBar.style.transition = 'none';
             progressBar.style.width = '0%';
+            progressBar.offsetWidth;
+            progressBar.style.transition = 'width 3s cubic-bezier(0.25, 0.1, 0.25, 1)';
+
             setTimeout(function () {
                 progressBar.style.width = '100%';
+                addDebugLog('进度条动画开始');
             }, 10);
 
             if (isRealBrowser()) {
+                addDebugLog('浏览器验证通过，3秒后提交验证');
                 setTimeout(function () {
                     verify();
                 }, 3000);
             } else {
-                $('#message').text('验证失败');
+                addDebugLog('浏览器验证失败');
+                messageElement.textContent = '浏览器验证失败';
+                showErrorReport('浏览器环境检测未通过，请使用正常浏览器访问并确保JavaScript已启用');
             }
         }
     </script>
