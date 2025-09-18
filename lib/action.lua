@@ -25,6 +25,23 @@ local RULES_HIT_EXPTIME = 60
 local REDIRECT_HTML = get_system_config().html
 local REGEX_OPTION = "jo"
 
+-- HTML转码函数，防止XSS攻击
+local function html_encode(str)
+    if not str then
+        return ""
+    end
+    
+    str = tostring(str)
+    str = string.gsub(str, "&", "&amp;")
+    str = string.gsub(str, "<", "&lt;")
+    str = string.gsub(str, ">", "&gt;")
+    str = string.gsub(str, '"', "&quot;")
+    str = string.gsub(str, "'", "&#x27;")
+    str = string.gsub(str, "/", "&#x2F;")
+    
+    return str
+end
+
 local function deny(status)
     if get_site_config("waf").mode == "protection" then
         ngx.ctx.is_blocked = true
@@ -43,10 +60,15 @@ local function redirect()
         local ctx = ngx.ctx
         local html = REDIRECT_HTML
 
-        html = ngxsub(html, "\\$remote_addr", ctx.ip, REGEX_OPTION)
-        html = ngxsub(html, "\\$request_id", ctx.request_id, REGEX_OPTION)
+        -- 对可能包含恶意脚本的变量进行HTML转码
+        local safe_ip = html_encode(ctx.ip)
+        local safe_ua = html_encode(ctx.ua)
+        local safe_request_id = html_encode(ctx.requestId)
+
+        html = ngxsub(html, "\\$remote_addr", safe_ip, REGEX_OPTION)
+        html = ngxsub(html, "\\$request_id", safe_request_id, REGEX_OPTION)
         html = ngxsub(html, "\\$blocked_time", osdate("%Y-%m-%d %H:%M:%S", ostime()), REGEX_OPTION)
-        html = ngxsub(html, "\\$user_agent", ctx.ua, REGEX_OPTION)
+        html = ngxsub(html, "\\$user_agent", safe_ua, REGEX_OPTION)
 
         ngx.say(html)
         return ngx.exit(ngx.status)
