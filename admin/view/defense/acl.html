@@ -120,10 +120,10 @@
 					<select id="id-action" name="action" lay-filter="filter-action"></select>
 				</div>
 				<div class="layui-col-md2 layui-col-sm2">
-					<input type="checkbox" name="autoIpBlock" lay-skin="switch" title="ON|OFF" />
+					<input type="checkbox" id="id-autoIpBlock" name="autoIpBlock" lay-skin="switch" title="ON|OFF" />
 				</div>
 				<div class="layui-col-md4 layui-col-sm4">
-					<input type="text" name="ipBlockExpireInSeconds" lay-verify="required|number" autocomplete="off" class="layui-input" />
+					<input type="text" id="id-ipBlockExpireInSeconds" name="ipBlockExpireInSeconds" value="0" lay-verify="ipBlockExpire" autocomplete="off" class="layui-input" />
 				</div>
 			</div>
 
@@ -236,6 +236,11 @@
 						shadeClose: true,
 						area: ['640px', 'auto'],
 						content: $('#id-form-rule'),
+						success: function() {
+							// 初始化字段状态
+							var currentAction = $('#id-action').val();
+							toggleIpBlockFields(currentAction);
+						},
 						end: function() {
 							$("#id-form-rule").trigger("reset");
 							$("#id-form-rule").find("input[type='hidden']").val("");
@@ -390,6 +395,9 @@
 						form.val('filter-form-rule', data);
 						form.render(null, 'filter-form-rule');
 						
+						// 根据处置动作设置字段状态
+						toggleIpBlockFields(data.action);
+
 						openLayer('编辑规则');
 					} else if(obj.event === 'remove') {
 						layer.confirm('确定删除该规则吗？', {
@@ -492,6 +500,12 @@
 								return '请选择IP组';
 							}
 						}
+					},
+					ipBlockExpire: function(value, elem) {
+                        // 允许为空，未填时提交默认为0
+                        if (value.length > 0 && !/^\d+$/.test(value)) {
+						    return 'IP屏蔽时长必须为大于等于0的整数';
+                        }
 					}
 				});
 
@@ -503,6 +517,16 @@
 					}
 
 					if (field.autoIpBlock != 'on') {
+						field.autoIpBlock = 'off';
+					}
+
+					// IP屏蔽时长未填时默认为0
+                    if (field.ipBlockExpireInSeconds == null || String(field.ipBlockExpireInSeconds).trim() == '') {
+                        field.ipBlockExpireInSeconds = 0;
+                    }
+
+					// 人机验证不支持自动屏蔽IP，强制关闭
+					if (field.action === 'captcha') {
 						field.autoIpBlock = 'off';
 					}
 
@@ -577,6 +601,30 @@
 					initActionSelect('id-action', 'coding', function() {
 						form.render($('#id-action'));
 					});
+				});
+
+                function toggleIpBlockFields(actionValue) {
+				    var autoIpBlockSwitch = $('#id-autoIpBlock');
+				    var ipBlockExpireInput = $('#id-ipBlockExpireInSeconds');
+				    var isCaptcha = actionValue === 'captcha';
+
+				    if (isCaptcha) {
+                        // 人机验证不支持自动屏蔽IP：开关强制关闭并禁用，屏蔽时长一并禁用
+						autoIpBlockSwitch.prop('checked', false);
+						autoIpBlockSwitch.prop('disabled', true);
+						ipBlockExpireInput.prop('disabled', true);
+				    } else {
+						autoIpBlockSwitch.prop('disabled', false);
+						ipBlockExpireInput.prop('disabled', false);
+				    }
+
+					// 重新渲染表单以更新样式
+                    form.render(null, 'filter-form-rule');
+				}
+
+				// 监听处置动作选择变化
+				form.on('select(filter-action)', function(data) {
+					toggleIpBlockFields(data.value);
 				});
 			});
 		</script>
