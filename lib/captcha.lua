@@ -14,6 +14,7 @@ local type = type
 local len = string.len
 local sub = string.sub
 local find = string.find
+local format = string.format
 local md5 = ngx.md5
 local ngxsub = ngx.re.sub
 local ngxgsub = ngx.re.gsub
@@ -171,7 +172,7 @@ local function block_ip(ip, rule_table)
 end
 
 local function get_random_formula()
-    local operators = {'+', '-', '*', '/', 'pow', 'sqrt', 'abs', 'floor', 'ceil', 'sin', 'cos'}
+    local operators = {'+', '-', '*'}
     local length = #operators
     local index = 1
 
@@ -232,7 +233,7 @@ local function get_random_formula()
         end
     end
 
-    return formula, sub(tostring(result), 1, 5)
+    return formula, sub(format('%.17g', result), 1, 5)
 end
 
 local function js_challenge()
