@@ -97,6 +97,26 @@ function _M.set(key, value, expire_time)
     return ok, err
 end
 
+function _M.add(key, value, expire_time)
+    local red, err = _M.get_connection()
+    local ok = false
+    if red then
+        local res, err2 = red:setnx(key, value)
+        if res == 1 then
+            ok = true  -- SETNX 抢占成功
+            if expire_time and expire_time > 0 then
+                red:expire(key, expire_time)
+            end
+        elseif res == false or (err2 and err2 ~= "") then
+            ngx.log(ngx.ERR, "failed to add key: " .. key, err2)
+        end
+
+        _M.close_connection(red)
+    end
+
+    return ok
+end
+
 function _M.bath_set(key_table, value, key_prefix)
     local red, _ = _M.get_connection()
     local results, err = nil, nil

@@ -1,479 +1,232 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <title>ZhongKui WAF</title>
-    <style>
-        body{margin:0;font-family:Arial,sans-serif;background-color:#f6f8fa;display:flex;justify-content:center;align-items:flex-start;height:100vh;padding-top:15vh;box-sizing:border-box}
-        .verification-container{background:#ffffff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);width:95%;max-width:520px;min-width:320px;padding:30px;text-align:center;box-sizing:border-box;margin:0 auto}
-        .verification-container h1{font-size:24px;color:#333333;margin-bottom:15px}
-        .verification-container p{font-size:16px;color:#666666;margin-bottom:20px}
-        .progress-bar-container{width:100%;height:10px;background-color:#e9ecef;border-radius:5px;overflow:hidden;margin-bottom:20px}
-        .progress-bar{width:0%;height:100%;background-color:#48bb78;transition: width 3s cubic-bezier(0.25, 0.1, 0.25, 1);}
-        .debug-info{margin-top:20px;padding:10px;background:#f8f9fa;border-radius:5px;font-size:12px;text-align:left;display:none}
-        .debug-toggle{margin-top:10px;padding:5px 10px;background:#007bff;color:white;border:none;border-radius:3px;cursor:pointer;font-size:12px}
-        .error-report{margin-top:10px;padding:8px;background:#fff3cd;border:1px solid #ffeaa7;border-radius:5px;font-size:14px;color:#856404}
-        .retry-btn{margin-top:10px;padding:8px 16px;background:#28a745;color:white;border:none;border-radius:5px;cursor:pointer}
-        .help-info{margin-top:10px;padding:12px;background:#e7f3ff;border:1px solid #bee5eb;border-radius:5px;font-size:14px;color:#0c5460;line-height:1.5;text-align:left}
-        .help-info h4{margin:0 0 8px 0;font-size:16px;color:#0c5460;text-align:left}
-        .help-info ul{margin:8px 0;padding-left:20px;text-align:left}
-        .help-info li{margin:4px 0;text-align:left}
-    </style>
-</head>
-
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><title>安全验证</title><style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#fafafa;color:#1a1a1a;min-height:100vh;display:flex;justify-content:center;align-items:flex-start;overflow-y:auto;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.zk-challenge{width:100%;text-align:center;max-width:520px;padding:24px;margin-top:28vh;animation:fadeIn .4s ease forwards}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.zk-icon{width:40px;height:40px;margin:0 auto 14px;position:relative}
+.zk-icon svg{width:100%;height:100%;position:absolute;top:0;left:0;transition:opacity .3s ease,transform .3s ease}
+.zk-spinner{border:2.5px solid rgba(0,0,0,.06);border-top-color:#2563eb;border-radius:50%;width:100%;height:100%;animation:zk-spin .7s linear infinite}
+@keyframes zk-spin{to{transform:rotate(360deg)}}
+.zk-svg-ok,.zk-svg-err{opacity:0;transform:scale(.8)}
+.zk-title{font-size:19px;font-weight:600;letter-spacing:-.01em;margin-bottom:6px;transition:color .3s ease}
+.zk-desc{font-size:14px;color:#666;line-height:1.6}
+.zk-challenge:not(.is-ok):not(.is-err) .zk-desc{color:rgba(0,0,0,.55);letter-spacing:.02em}
+.zk-retry{display:none;margin-top:20px;padding:10px 32px;font-size:14px;font-weight:500;letter-spacing:.01em;color:#fff;background:#1a1a1a;border:none;border-radius:8px;cursor:pointer;transition:transform .15s ease,opacity .15s ease}
+.zk-retry:hover{opacity:.88}
+.zk-retry:active{transform:scale(.97)}
+.zk-help{display:none;width:max-content;max-width:100%;margin:16px auto 0;text-align:left;position:relative}
+.zk-help-toggle{font-size:13px;color:#555;background:none;border:none;cursor:pointer;padding:0;margin-left:16px;text-decoration:none;border-bottom:1px dashed #999;transition:color .2s,border-color .2s}
+.zk-help-toggle:hover{color:#1a1a1a;border-color:#1a1a1a}
+.zk-help-body{max-height:0;overflow:hidden;margin-top:6px;font-size:13px;color:#666;line-height:1.9;opacity:0;visibility:hidden;transform:translateY(-6px);transition:opacity .25s ease,transform .25s ease,visibility .25s,max-height .25s ease}
+.zk-help.open .zk-help-body{max-height:400px;opacity:1;visibility:visible;transform:translateY(0)}
+.zk-help-body ul{display:inline-block;max-width:100%;text-align:left;padding-left:16px}
+.zk-help-body li{margin:2px 0}
+.is-ok .zk-spinner{display:none}
+.is-ok .zk-svg-ok{opacity:1;transform:scale(1);color:#16a34a}
+.is-ok .zk-title{color:#16a34a}
+.is-err .zk-spinner{display:none}
+.is-err .zk-svg-err{opacity:1;transform:scale(1);color:#dc2626}
+.is-err .zk-title{color:#dc2626}
+.is-err .zk-retry{display:inline-block}
+.is-err .zk-help{display:block}
+.is-challenge .zk-spinner{border-top-color:#2563eb}
+.is-challenge .zk-title{color:#1a1a1a}
+.is-challenge .zk-retry{display:inline-block}
+</style></head>
 <body>
-    <div class="verification-container">
-        <h1>安全验证</h1>
-        <p id="message">正在进行浏览器安全验证，请稍候...</p>
-        <div class="progress-bar-container">
-            <div class="progress-bar" id="progressBar"></div>
-        </div>
-        <button class="debug-toggle" onclick="toggleDebugInfo()" style="display:none" id="debugToggle">显示调试信息</button>
-        <div class="debug-info" id="debugInfo"></div>
-        <div id="errorReport" style="display:none"></div>
-        <div id="helpInfo" style="display:none"></div>
-        <button class="retry-btn" onclick="retryVerification()" style="display:none" id="retryBtn">重新验证</button>
-    </div>
-
-    <script>
-        var messageElement = document.getElementById('message');
-        // 调试日志收集器
-        var debugLogs = [];
-        var failureCount = 0;
-        var originalConsoleError = console.error;
-        var originalConsoleLog = console.log;
-
-        // 重写console方法以收集日志
-        console.error = function() {
-            originalConsoleError.apply(console, arguments);
-            debugLogs.push('[ERROR] ' + Array.prototype.join.call(arguments, ' '));
-            updateDebugInfo();
-        };
-
-        console.log = function() {
-            originalConsoleLog.apply(console, arguments);
-            debugLogs.push('[LOG] ' + Array.prototype.join.call(arguments, ' '));
-            updateDebugInfo();
-        };
-
-        // 全局错误捕获
-        window.onerror = function(msg, url, line, col, error) {
-            var errorMsg = '脚本错误: ' + msg + ' (行:' + line + ')';
-            debugLogs.push('[JS_ERROR] ' + errorMsg);
-            if (error && error.stack) {
-                debugLogs.push('[STACK] ' + error.stack);
-            }
-            updateDebugInfo();
-            showErrorReport('JavaScript错误: ' + msg);
-            return true;
-        };
-
-        function addDebugLog(message) {
-            debugLogs.push('[DEBUG] ' + new Date().toLocaleTimeString() + ' - ' + message);
-            updateDebugInfo();
-        }
-
-        function updateDebugInfo() {
-            var debugElement = document.getElementById('debugInfo');
-            if (debugElement) {
-                debugElement.innerHTML = debugLogs.slice(-20).join('<br>'); // 只显示最近20条
-            }
-        }
-
-        function toggleDebugInfo() {
-            var debugElement = document.getElementById('debugInfo');
-            if (debugElement.style.display === 'none' || debugElement.style.display === '') {
-                debugElement.style.display = 'block';
-                updateDebugInfo();
-            } else {
-                debugElement.style.display = 'none';
-            }
-        }
-
-        function showErrorReport(message) {
-            var errorElement = document.getElementById('errorReport');
-            var retryBtn = document.getElementById('retryBtn');
-            var debugToggle = document.getElementById('debugToggle');
-            var helpElement = document.getElementById('helpInfo');
-            var progressBar = document.getElementById('progressBar');
-            messageElement.textContent = '验证失败，请重试';
-
-            errorElement.innerHTML = '<div class="error-report">' + message + '<br><small>点击"<b>显示调试信息</b>"查看详细信息</small></div>';
-            errorElement.style.display = 'block';
-            retryBtn.style.display = 'inline-block';
-            debugToggle.style.display = 'inline-block';
-            progressBar.style.transition = 'none';
-
-            // 根据当前失败次数显示相应的帮助信息
-            var helpContent;
-            if (failureCount === 0) {
-                // 第一次失败：显示基本提示
-                helpContent = '<div class="help-info">' +
-                    '<h4>验证遇到问题？请尝试以下解决方案：</h4>' +
-                    '<ul>' +
-                    '<li>🔧 确保JavaScript已启用</li>' +
-                    '<li>🍪 确保Cookie已启用</li>' +
-                    '<li>🚫 请暂时关闭广告拦截插件（如AdBlock、uBlock等）</li>' +
-                    '<li>🌍 检查网络连接是否正常</li>' +
-                    '</ul>' +
-                    '</div>';
-            } else {
-                // 多次失败：显示详细帮助信息
-                helpContent = '<div class="help-info">' +
-                    '<h4>多次验证失败，请尝试以下详细解决方案：</h4>' +
-                    '<ul>' +
-                    '<li>🌐 请使用最新版本的现代浏览器（Chrome、Firefox、Edge、Safari）</li>' +
-                    '<li>🔧 确保JavaScript已启用</li>' +
-                    '<li>🍪 确保Cookie已启用</li>' +
-                    '<li>🚫 请暂时关闭广告拦截插件（如AdBlock、uBlock等）</li>' +
-                    '<li>🌍 检查网络连接是否正常</li>' +
-                    '<li>🔒 如使用企业网络，请联系管理员检查防火墙设置</li>' +
-                    '<li>🔄 尝试刷新页面或清除浏览器缓存</li>' +
-                    '<li>📱 如使用移动设备，请尝试切换到桌面浏览器</li>' +
-                    '<li>🔄 尝试重启浏览器或设备</li>' +
-                    '</ul>' +
-                    '<p><strong>如问题持续存在，请联系网站管理员。</strong></p>' +
-                    '</div>';
-            }
-            helpElement.innerHTML = helpContent;
-            helpElement.style.display = 'block';
-        }
-
-        function retryVerification() {
-            failureCount++;
-
-            document.getElementById('errorReport').style.display = 'none';
-            document.getElementById('retryBtn').style.display = 'none';
-            document.getElementById('debugToggle').style.display = 'none';
-            document.getElementById('debugInfo').style.display = 'none';
-            messageElement.textContent = '正在进行浏览器安全验证，请稍候...';
-            messageElement.style.color = '#666666';
-
-            runChallenge();
-        }
-
-        // 收集浏览器环境信息
-        function collectBrowserInfo() {
-            var info = {
-                userAgent: navigator.userAgent,
-                platform: navigator.platform,
-                language: navigator.language,
-                languages: navigator.languages ? navigator.languages.join(',') : 'undefined',
-                cookieEnabled: navigator.cookieEnabled,
-                doNotTrack: navigator.doNotTrack,
-                screenWidth: screen.width,
-                screenHeight: screen.height,
-                availWidth: screen.availWidth,
-                availHeight: screen.availHeight,
-                colorDepth: screen.colorDepth,
-                pixelDepth: screen.pixelDepth,
-                windowWidth: window.innerWidth,
-                windowHeight: window.innerHeight,
-                hasTouch: 'ontouchstart' in window,
-                maxTouchPoints: navigator.maxTouchPoints || 0,
-                webdriver: navigator.webdriver,
-                plugins: navigator.plugins ? navigator.plugins.length : 0,
-                mimeTypes: navigator.mimeTypes ? navigator.mimeTypes.length : 0,
-                timestamp: new Date().toISOString()
-            };
-
-            addDebugLog('浏览器信息收集完成');
-            return info;
-        }
-
-        // 1. 检测是否需要 polyfill
-        const needsPolyfill = (function() {
-            var needs = !window.fetch || typeof Promise === 'undefined' || typeof Object.assign === 'undefined';
-            addDebugLog('是否需要polyfill: ' + needs);
-            return needs;
-        })();
-
-        if (needsPolyfill) {
-            addDebugLog('开始加载polyfill');
-            // 2. 动态加载 polyfill（顺序加载：Promise → fetch）
-            loadScript(
-                'https://cdn.bootcdn.net/ajax/libs/promise-polyfill/8.3.0/polyfill.min.js',
-                function() {
-                    addDebugLog('Promise polyfill加载成功');
-                    loadScript(
-                        'https://cdn.bootcdn.net/ajax/libs/fetch/2.0.4/fetch.min.js',
-                        function() {
-                            addDebugLog('Fetch polyfill加载成功');
-                            runChallenge();  // 全部加载完成后执行挑战逻辑
-                        }
-                    );
-                }
-            );
-        } else {
-            addDebugLog('现代浏览器，直接执行挑战');
-            // 3. 现代浏览器：直接执行挑战
-            runChallenge();
-        }
-
-        // 加载 script 并回调
-        function loadScript(src, callback) {
-            addDebugLog('开始加载脚本: ' + src);
-            const script = document.createElement('script');
-            script.src = src;
-            script.onload = function() {
-                addDebugLog('脚本加载成功: ' + src);
-                callback();
-            };
-            script.onerror = function() {
-                var errorMsg = '脚本加载失败: ' + src;
-                addDebugLog(errorMsg);
-                console.error('Failed to load polyfill:', src);
-                showErrorReport('资源加载失败，可能是网络问题或广告拦截插件阻止了资源加载');
-            };
-            document.head.appendChild(script);
-        }
-
-        var result = $formula;
-
-        function verifyPass() {
-            addDebugLog('验证通过');
-            messageElement.textContent = '验证通过✓';
-            messageElement.style.color = '#48bb78';
-            setTimeout(function () {
-                addDebugLog('准备跳转页面');
-                window.location.href = window.location.href;
-            }, 1000);
-        }
-
-        function verify() {
-            addDebugLog('公式：' + '$formula');
-            addDebugLog('开始验证，计算结果: ' + result);
-            result = result.toString().slice(0, 5);
-            addDebugLog('处理后的结果: ' + result);
-
-            var requestBody = 'captcha_result=' + result;
-            var requestUrl = '/captcha/challenge?r=' + Math.random();
-
-            addDebugLog('发送验证请求: ' + requestUrl);
-            addDebugLog('请求体: ' + requestBody);
-
-            fetch(requestUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Captcha-Sign': '$captcha-sign',
-                    'Captcha-Time': $captcha-time
-                },
-                credentials: "same-origin",
-                body: requestBody
-            }).then(function(response) {
-                addDebugLog('收到响应，状态码: ' + response.status);
-                if (!response.ok || response.status !== 200) {
-                    var errorMsg = '请求出错，状态码: ' + response.status;
-                    addDebugLog(errorMsg);
-                    messageElement.textContent = '请求出错，请刷新页面重试';
-                    showErrorReport(errorMsg);
-                    throw new Error('HTTP ' + response.status);
-                }
-                return response.json();
-            }).then(function(data) {
-                addDebugLog('解析响应数据: ' + JSON.stringify(data));
-                if (data.result == "success") {
-                    verifyPass();
-                } else {
-                    var errorMsg = '验证失败，服务器返回: ' + JSON.stringify(data);
-                    addDebugLog(errorMsg);
-                    messageElement.textContent = '验证失败，请重试';
-                    showErrorReport('服务器验证失败，可能是网络延迟或安全策略导致');
-                }
-            }).catch(function(err) {
-                var errorMsg = '请求异常: ' + err.message;
-                addDebugLog(errorMsg);
-                console.error(err);
-                messageElement.textContent = '网络连接失败，请重试';
-                showErrorReport('网络请求失败，请检查网络连接或尝试关闭广告拦截插件');
-            });
-        }
-
-        function isRealBrowser() {
-            addDebugLog('开始浏览器真实性检测');
-
-            const nav = window.navigator;
-            const doc = document;
-            const win = window;
-
-            try {
-                // 1. WebDriver属性检测（兼容旧版Selenium）
-                if (nav.webdriver === true || doc.documentElement.getAttribute('webdriver')) {
-                    addDebugLog('检测失败: WebDriver属性');
-                    return false;
-                }
-
-                if (!String.prototype.includes) {
-                    String.prototype.includes = function (search) { return this.indexOf(search) !== -1; };
-                }
-
-                // 2. 用户代理关键词检测
-                const ua = nav.userAgent.toLowerCase();
-                const bannedKeywords = ['headless', 'webdriver', 'puppeteer', 'selenium', 'chromedriver', 'automated', 'phantomjs', 'ghost'];
-                var foundKeyword = bannedKeywords.find(function (k) { return ua.includes(k); });
-                if (foundKeyword) {
-                    addDebugLog('检测失败: 发现禁用关键词 - ' + foundKeyword);
-                    return false;
-                }
-
-                // 3. 移动端检测
-                const isMobileUA = /(android|webos|iphone|ipad|ipod|blackberry|windows phone|mobile)/i.test(ua);
-                const isMobile = isMobileUA;
-                addDebugLog('移动端检测: ' + isMobile);
-
-                // 4. 插件和MimeType检测
-                if (!isMobile) {
-                    if (!nav.plugins || !nav.mimeTypes) {
-                        addDebugLog('检测失败: 缺少插件或MimeType支持');
-                        return false;
-                    }
-                    // 类型检查及非空验证
-                    if (!nav.plugins || !nav.mimeTypes || Object.prototype.toString.call(nav.plugins) !== '[object PluginArray]' ||
-                        Object.prototype.toString.call(nav.mimeTypes) !== '[object MimeTypeArray]') {
-                        addDebugLog('检测失败: 插件或MimeType类型异常');
-                        return false;
-                    }
-                    addDebugLog('插件数量: ' + nav.plugins.length + ', MimeType数量: ' + nav.mimeTypes.length);
-                }
-
-                // 5. 原生函数检测
-                const isNative = function (fn) {
-                    try {
-                        return Function.prototype.toString.call(fn).includes('[native code]');
-                    } catch (e) {
-                        return false;
-                    }
-                };
-                const nativeChecks = [eval, doc.querySelector, win.setTimeout, win.alert, doc.createElement];
-                var failedNative = nativeChecks.find(function (f) { return !isNative(f); });
-                if (failedNative) {
-                    addDebugLog('检测失败: 非原生函数 - ' + failedNative.name);
-                    return false;
-                }
-
-                // 6. Headless全局变量检测
-                const headlessGlobals = ['callPhantom', '_phantom', '__nightmare', '__webdriver', '__driver_evaluate', '__scenario__'];
-                var foundGlobal = headlessGlobals.find(function (p) { return p in win; });
-                if (foundGlobal) {
-                    addDebugLog('检测失败: 发现headless全局变量 - ' + foundGlobal);
-                    return false;
-                }
-
-                // 7. 权限API特征
-                if (typeof navigator.permissions !== 'undefined' && typeof navigator.permissions.query === 'function' && /headless/.test(navigator.permissions.query.toString())) {
-                    addDebugLog('检测失败: 权限API包含headless特征');
-                    return false;
-                }
-
-                // 8. 屏幕尺寸逻辑（动态阈值区分设备类型）
-                const minWidth = isMobile ? 200 : 600;
-                const minHeight = isMobile ? 300 : 600;
-                const availWidth = window.screen.availWidth || window.screen.width;
-                const availHeight = window.screen.availHeight || window.screen.height;
-
-                addDebugLog('屏幕尺寸: ' + availWidth + 'x' + availHeight + ', 最小要求: ' + minWidth + 'x' + minHeight);
-
-                if (availWidth < minWidth || availHeight < minHeight) {
-                    addDebugLog('检测失败: 屏幕尺寸过小');
-                    return false;
-                }
-
-                // 9. 触摸支持检测（移动端严格模式）
-                if (isMobile && (!('ontouchstart' in win) || typeof TouchEvent === 'undefined' || nav.maxTouchPoints < 1)) {
-                    addDebugLog('检测失败: 移动端缺少触摸支持');
-                    return false;
-                }
-
-                // 10. 语言属性检测
-                if (typeof nav.languages !== 'undefined' && Array.isArray(nav.languages)) {
-                    if (!nav.languages.length || nav.languages.some(function (l) {
-                        return !l || typeof l !== 'string';
-                    })) {
-                        addDebugLog('检测失败: 语言属性异常');
-                        return false;
-                    }
-                }
-
-                // 11. UserAgentData品牌检测（Headless特征）
-                if (nav.userAgentData && Array.isArray(nav.userAgentData.brands)) {
-                    var headlessBrand = nav.userAgentData.brands.find(function (b) {
-                        return b.brand && b.brand.toLowerCase().includes('headless');
-                    });
-                    if (headlessBrand) {
-                        addDebugLog('检测失败: UserAgentData包含headless品牌');
-                        return false;
-                    }
-                }
-
-                // 12. WebGL渲染器检测（过滤虚拟渲染）
-                const webglCheck = function () {
-                    try {
-                        const canvas = doc.createElement('canvas');
-                        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-                        if (!gl) {
-                            addDebugLog('WebGL检测: 不支持WebGL');
-                            return false;
-                        }
-                        const ext = gl.getExtension('WEBGL_debug_renderer_info');
-                        if (ext) {
-                            const renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL).toLowerCase();
-                            addDebugLog('WebGL渲染器: ' + renderer);
-                        }
-                        return true;
-                    } catch (e) {
-                        addDebugLog('WebGL检测异常: ' + e.message);
-                        return false;
-                    }
-                };
-                if (!webglCheck()) {
-                    return false;
-                }
-
-                addDebugLog('浏览器真实性检测通过');
-            } catch (e) {
-                addDebugLog('检测异常: ' + e.message);
-                return false;
-            }
-
-            return true;
-        }
-
-        function runChallenge() {
-            addDebugLog('开始执行挑战');
-
-            // 收集浏览器信息
-            var browserInfo = collectBrowserInfo();
-            addDebugLog('浏览器环境信息已收集');
-
-            var progressBar = document.getElementById('progressBar');
-            progressBar.style.transition = 'none';
-            progressBar.style.width = '0%';
-            progressBar.offsetWidth;
-            progressBar.style.transition = 'width 3s cubic-bezier(0.25, 0.1, 0.25, 1)';
-
-            setTimeout(function () {
-                progressBar.style.width = '100%';
-                addDebugLog('进度条动画开始');
-            }, 10);
-
-            if (isRealBrowser()) {
-                addDebugLog('浏览器验证通过，3秒后提交验证');
-                setTimeout(function () {
-                    verify();
-                }, 3000);
-            } else {
-                addDebugLog('浏览器验证失败');
-                messageElement.textContent = '浏览器验证失败';
-                showErrorReport('浏览器环境检测未通过，请使用正常浏览器访问并确保JavaScript已启用');
-            }
-        }
-    </script>
-</body>
-
-</html>
+<img src="/captcha/beacon?c=$challenge-id" width="1" height="1" alt="" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;border:0">
+<div class="zk-challenge" id="zkChallenge">
+<div class="zk-icon"><div class="zk-spinner"></div><svg class="zk-svg-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><svg class="zk-svg-err" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+<h1 class="zk-title" id="zkTitle">正在确认访问环境…</h1>
+<p class="zk-desc" id="zkDesc">ZhongKui WAF · 自动化安全校验</p>
+<button class="zk-retry" onclick="retryVerification()">重新验证</button>
+<div class="zk-help">
+<button class="zk-help-toggle" onclick="toggleHelp()">为什么我无法通过验证？</button>
+<div class="zk-help-body" id="zkHelpBody">
+<ul><li>请确保浏览器已启用 JavaScript 与 Cookie</li><li>暂时关闭广告拦截 / 隐私保护扩展后重试</li><li>使用最新版 Chrome / Firefox / Edge / Safari</li><li>企业网络用户请联系 IT 管理员放行安全网关</li></ul>
+</div>
+</div>
+</div>
+<script>
+var $c=document.getElementById('zkChallenge'),$title=document.getElementById('zkTitle'),$desc=document.getElementById('zkDesc'),$helpBody=document.getElementById('zkHelpBody');
+function toggleHelp(){$helpBody.parentElement.classList.toggle('open');}
+function showOk(){$c.className='zk-challenge is-ok';$title.textContent='验证通过';$desc.textContent='正在跳转…';try{sessionStorage.removeItem('zkChRetry');}catch(e){}setTimeout(function(){window.location.href=window.location.href;},600);}
+function showErr(msg){$c.className='zk-challenge is-err';$title.textContent='验证未完成';$desc.textContent=msg||'无法确认您的浏览器环境，请重试。';}
+function showChallenge(){$c.className='zk-challenge is-challenge';$title.textContent='正在重新验证…';$desc.textContent='环境评分偏低，正在自动重试。';var n=0;try{n=parseInt(sessionStorage.getItem('zkChRetry')||'0',10)||0;}catch(e){}if(n>=2){showErr('环境评分持续偏低，请稍后重试');return;}try{sessionStorage.setItem('zkChRetry',String(n+1));}catch(e){}setTimeout(function(){window.location.href=window.location.href;},800);}
+function retryVerification(){try{sessionStorage.removeItem('zkChRetry');}catch(e){}window.location.href=window.location.href;}
+window.onerror=function(m,u,l,c,e){showErr('脚本运行异常: '+m);return true;};
+var behaviorSignals={mouseMoves:0,scrollEvents:0,keyEvents:0};
+var browserScoreResult={details:{}};
+var challengeStartTime=0;
+var formulaResult=$formula;
+var captchaSign='$captcha-sign';
+var captchaTime=$captcha-time;
+(function(){
+try{
+var _hex='0123456789ABCDEF';
+var _s=('$challenge-id'+'$probe-token').toUpperCase();
+var _out='';
+for(var _i=0;_i<_s.length;_i++){
+var _d=parseInt(_s.charAt(_i),16);
+var _k=(_i*5+1)%16;
+_out+=_hex.charAt((_d+_k)%16);
+}
+document.cookie='waf_challenge='+_out+'; path=/; SameSite=Lax; Max-Age=300';
+}catch(e){}
+})();
+var isNativeFn=function(fn){try{return Function.prototype.toString.call(fn).indexOf('[native code]')!==-1;}catch(e){return false;}};
+var countNativeFailures=function(){var f=0;try{var c=[eval,document.querySelector,window.setTimeout,window.alert,document.createElement];for(var i=0;i<c.length;i++)if(!isNativeFn(c[i]))f++;}catch(e){f=5;}return f;};
+var HEADLESS_GLOBALS=['callPhantom','_phantom','__nightmare','__webdriver','__driver_evaluate','__scenario__'];
+var safeRead=function(fn,fb){try{return fn();}catch(e){return fb;}};
+function detectWebGL(){
+var r={renderer:null,software:false,supported:false};
+try{
+var cv=document.createElement('canvas'),gl=cv.getContext('webgl')||cv.getContext('experimental-webgl');
+if(!gl){r.renderer='unsupported';return r;}
+r.supported=true;
+var ext=gl.getExtension('WEBGL_debug_renderer_info');
+if(ext){r.renderer=String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)||'');var lw=r.renderer.toLowerCase();r.software=(lw.indexOf('llvmpipe')!==-1||lw.indexOf('swiftshader')!==-1);}
+}catch(e){r.renderer='unsupported';}
+return r;
+}
+function calcWebglScore(w){if(!w.supported)return 0;if(w.software)return 3;return 10;}
+function collectBrowserInfo(){
+var nf=countNativeFailures();
+var wg=detectWebGL();
+var hg=[];
+for(var i=0;i<HEADLESS_GLOBALS.length;i++)if(HEADLESS_GLOBALS[i] in window)hg.push(HEADLESS_GLOBALS[i]);
+var langs=safeRead(function(){return(navigator.languages&&typeof navigator.languages.join==='function')?navigator.languages.join(','):'undefined';},'undefined');
+return {
+userAgent:safeRead(function(){return navigator.userAgent;},''),
+cookieEnabled:safeRead(function(){return navigator.cookieEnabled;},null),
+screenWidth:safeRead(function(){return screen.width;},0),
+screenHeight:safeRead(function(){return screen.height;},0),
+availWidth:safeRead(function(){return screen.availWidth;},0),
+availHeight:safeRead(function(){return screen.availHeight;},0),
+hasTouch:safeRead(function(){return 'ontouchstart' in window;},false),
+webdriver:safeRead(function(){return navigator.webdriver;},false),
+plugins:safeRead(function(){return navigator.plugins?navigator.plugins.length:0;},0),
+mimeTypes:safeRead(function(){return navigator.mimeTypes?navigator.mimeTypes.length:0;},0),
+platform:safeRead(function(){return navigator.platform||'';},''),
+maxTouchPoints:safeRead(function(){return (typeof navigator.maxTouchPoints==='number')?navigator.maxTouchPoints:-1;},-1),
+devicePixelRatio:safeRead(function(){return (typeof window.devicePixelRatio==='number'&&window.devicePixelRatio>0)?window.devicePixelRatio:0;},0),
+innerWidth:safeRead(function(){return window.innerWidth||0;},0),
+innerHeight:safeRead(function(){return window.innerHeight||0;},0),
+nativeFailedCount:nf,webglRenderer:wg.renderer,webglSoftware:wg.software,
+language:safeRead(function(){return navigator.language;},''),
+languages:langs,headlessGlobals:hg
+};
+}
+function scoreBrowser(){
+var nav=navigator,doc=document,win=window,d={},fatal=null,tErr=false;
+try{
+var ua=nav.userAgent.toLowerCase();
+if(nav.webdriver===true||doc.documentElement.getAttribute('webdriver'))fatal='检测到 WebDriver 属性';
+else{
+var kw=['headless','webdriver','puppeteer','selenium','chromedriver','phantomjs'],fk=null;
+for(var i=0;i<kw.length;i++)if(ua.indexOf(kw[i])!==-1){fk=kw[i];break;}
+if(fk)fatal='UA 含禁用关键词: '+fk;
+else{for(var j=0;j<HEADLESS_GLOBALS.length;j++)if(HEADLESS_GLOBALS[j] in win){fatal='检测到 Headless 全局变量: '+HEADLESS_GLOBALS[j];break;}}
+}
+if(fatal)return{details:d,fatal:fatal,telemetryError:tErr};
+var mob=/(android|webos|iphone|ipad|ipod|blackberry|windows phone|mobile)/i.test(ua);
+var nfc=countNativeFailures();d.nativeFunctions=nfc>=3?0:(nfc>=1?5:10);
+if(!mob){var ps=10;if(!nav.plugins||!nav.mimeTypes)ps=0;else if(typeof nav.plugins.length!=='number'||typeof nav.mimeTypes.length!=='number')ps=2;d.plugins=ps;}else d.plugins=10;
+var wg=detectWebGL();d.webgl=calcWebglScore(wg);
+var ss=5,mw=mob?200:400,mh=mob?300:400,aw=win.screen.availWidth||win.screen.width,ah=win.screen.availHeight||win.screen.height;
+if(aw<mw||ah<mh)ss=0;d.screenSize=ss;
+d.touchSupport=mob?(typeof TouchEvent==='undefined'?0:5):5;
+var ls=3;
+if(typeof nav.languages!=='undefined'&&Array.isArray(nav.languages)){if(!nav.languages.length)ls=0;else for(var li=0;li<nav.languages.length;li++)if(!nav.languages[li]||typeof nav.languages[li]!=='string'){ls=0;break;}}
+d.language=ls;
+var cs=10;
+var plat=safeRead(function(){return nav.platform||'';},'').toLowerCase();
+var uaW=ua.indexOf('windows')!==-1,uaM=ua.indexOf('mac os x')!==-1,uaA=ua.indexOf('android')!==-1;
+var uaI=ua.indexOf('iphone')!==-1||ua.indexOf('ipad')!==-1||ua.indexOf('ipod')!==-1;
+var platOk=!(uaW&&plat.indexOf('win')===-1);
+if(uaM&&plat.indexOf('mac')===-1&&!(uaI&&(plat.indexOf('iphone')!==-1||plat.indexOf('ipad')!==-1||plat.indexOf('ipod')!==-1)))platOk=false;
+if(uaA&&plat.indexOf('linux')===-1&&plat.indexOf('android')===-1)platOk=false;
+if(!platOk)cs-=4;
+var mtp=safeRead(function(){return (typeof nav.maxTouchPoints==='number')?nav.maxTouchPoints:0;},0);
+if(mob&&mtp===0)cs-=3;
+var iw=win.innerWidth||0;
+if(!mob&&iw>0&&iw<200)cs-=3;
+var dpr=safeRead(function(){return win.devicePixelRatio||0;},0);
+if(dpr<=0)cs-=2;
+if(cs<0)cs=0;
+d.consistency=cs;
+}catch(e){tErr=true;}
+return{details:d,fatal:fatal,telemetryError:tErr};
+}
+function startBehavior(){
+behaviorSignals={mouseMoves:0,scrollEvents:0,keyEvents:0};
+var mm=function(){behaviorSignals.mouseMoves++;},sc=function(){behaviorSignals.scrollEvents++;},kd=function(){behaviorSignals.keyEvents++;};
+document.addEventListener('mousemove',mm,{passive:true});
+document.addEventListener('scroll',sc,{passive:true});
+document.addEventListener('keydown',kd,{passive:true});
+return function(){
+document.removeEventListener('mousemove',mm);
+document.removeEventListener('scroll',sc);
+document.removeEventListener('keydown',kd);
+};
+}
+function handleVerifyResponse(xhr){
+try{
+var d=JSON.parse(xhr.responseText);
+if(d.result==='success')showOk();
+else if(d.result==='challenge')showChallenge();
+else showErr(d.reason||'unknown');
+}catch(e){showErr('验证响应异常，请重试');}
+}
+function verify(){
+var info=collectBrowserInfo();
+info.details=browserScoreResult.details;
+var payload={challenge_id:'$challenge-id',captcha_result:formulaResult,behavior:behaviorSignals,browser_info:info};
+var body='payload='+encodeURIComponent(JSON.stringify(payload));
+var url='/captcha/challenge?r='+Math.random();
+if(window.fetch){
+fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Captcha-Sign':captchaSign,'Captcha-Time':captchaTime},credentials:'same-origin',body:body})
+.then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+.then(function(d){
+if(d.result==='success')showOk();
+else if(d.result==='challenge')showChallenge();
+else showErr(d.reason||'unknown');
+})
+.catch(function(e){showErr('网络连接失败，请检查网络或关闭拦截插件');});
+}else{
+var xhr=new XMLHttpRequest();
+xhr.open('POST',url,true);
+xhr.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+xhr.setRequestHeader('Captcha-Sign',captchaSign);
+xhr.setRequestHeader('Captcha-Time',captchaTime);
+xhr.withCredentials=true;
+xhr.onreadystatechange=function(){if(xhr.readyState===4){
+if(xhr.status>=200&&xhr.status<300)handleVerifyResponse(xhr);
+else showErr('网络连接失败('+xhr.status+')，请检查网络或关闭拦截插件');
+}};
+xhr.onerror=function(){showErr('网络连接失败，请检查网络或关闭拦截插件');};
+xhr.send(body);
+}
+}
+var MIN_VERIFY_MS=3000;
+function runChallenge(){
+var stop=startBehavior();
+challengeStartTime=Date.now();
+function hold(fn){
+setTimeout(fn,Math.max(0,MIN_VERIFY_MS-(Date.now()-challengeStartTime)));
+}
+try{
+browserScoreResult=scoreBrowser();
+hold(function(){
+stop();
+if(browserScoreResult.fatal)showErr('环境检测未通过 ('+browserScoreResult.fatal+')');
+else verify();
+});
+}catch(e){
+stop();
+hold(function(){showErr('验证脚本异常，请刷新重试');});
+}
+}
+runChallenge();
+</script>
+</body></html>

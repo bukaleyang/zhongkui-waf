@@ -32,7 +32,9 @@
             "autoIpBlock": "off",
             "ipBlockExpireInSeconds": 600,
             "expireInSeconds": 1800,
-            "type": "js_challenge"
+            "type": "js_challenge",
+            "scoreThresholdPass": 70,
+            "scoreThresholdChallenge": 50
         }
     },
     "cc": {
