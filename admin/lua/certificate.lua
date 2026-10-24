@@ -7,17 +7,23 @@ local file_utils = require "file_utils"
 local user = require "user"
 local request = require "request"
 local rule_utils = require "lib.rule_utils"
-local has_x509, x509 = pcall(require, "openssl.x509")
+local site_config = require "lib.site_config"
+local x509 = require "lib.x509"
 
 local pairs = pairs
+local tonumber = tonumber
 local tostring = tostring
-local error = error
+local pcall = pcall
+local type = type
+local gsub = string.gsub
 local tabinsert = table.insert
 local ngxfind = ngx.re.find
 local date = os.date
 local get_upload_files = request.get_upload_files
 local read_file_to_string = file_utils.read_file_to_string
+local write_string_to_file = file_utils.write_string_to_file
 local remove_file = file_utils.remove_file
+local is_file_exists = file_utils.is_file_exists
 
 local cjson_decode = cjson.decode
 local cjson_encode = cjson.encode
@@ -25,11 +31,63 @@ local cjson_encode = cjson.encode
 local _M = {}
 
 local CERTIFICATE_PATH = config.CONF_PATH .. "/certificate.json"
-local CERTS_PATH = config.ZHONGKUI_PATH .. "/admin/ssl-certs/"
+local WEBSITES_PATH = config.CONF_PATH .. "/website.json"
+local CERTS_PATH = (gsub(config.ZHONGKUI_PATH .. "/admin/ssl-certs/", "\\", "/"))
 
-local REGEX_CERT_PATH = "^" .. CERTS_PATH .. "\\S+\\.(?:pem|crt)$"
-local REGEX_KEY_PATH = "^" .. CERTS_PATH .. "\\S+\\.key$"
+local CERT_EXTS = {pem = true, crt = true}
+local KEY_EXTS = {key = true}
 
+-- 校验文件路径是否在证书目录且扩展名正确，避免误删其它文件
+local function is_safe_path(path, extensions)
+    if not path then
+        return false
+    end
+
+    path = gsub(path, "\\", "/")
+    if path:sub(1, #CERTS_PATH) ~= CERTS_PATH then
+        return false
+    end
+
+    local name = path:sub(#CERTS_PATH + 1)
+    if name == "" or name:find("/", 1, true) or name:find("..", 1, true) then
+        return false
+    end
+
+    local ext = name:match("%.([^.]+)$")
+    return ext ~= nil and extensions[ext:lower()] == true
+end
+
+-- 域名中的特殊字符不能出现在文件名中，Windows 也不允许文件名带 *
+local function safe_file_name(name)
+    name = gsub(name or "unknown", "%*", "wildcard")
+    return (gsub(name, "[^%w%.%-_]", "_"))
+end
+
+-- 查询证书是否被启用了 SSL 的站点引用，返回站点域名
+local function get_cert_site(cert_id)
+    local json = read_file_to_string(WEBSITES_PATH)
+    if not json then
+        return nil
+    end
+
+    local ok, rule_table = pcall(cjson_decode, json)
+    if not ok or type(rule_table) ~= "table" or not rule_table.rules then
+        return nil
+    end
+
+    cert_id = tonumber(cert_id)
+
+    for _, site in pairs(rule_table.rules) do
+        for _, p in pairs(site.listenPorts or {}) do
+            if p.ssl == "on" and tonumber(site.certId) == cert_id then
+                local names = site.serverNames
+                return (names and names[1]) or ("id=" .. tostring(site.id))
+            end
+        end
+    end
+
+    return nil
+end
 
 function _M.do_request()
     local response = {code = 200, data = {}, msg = ""}
@@ -53,8 +111,10 @@ function _M.do_request()
         local rule_new = rule_utils.get_rule_from_request()
         if not rule_new then
             response.code = 500
+            ngx.say(cjson_encode(response))
             return
         end
+
         local publicKey = rule_new.publicKey
         local privateKey = rule_new.privateKey
 
@@ -64,68 +124,73 @@ function _M.do_request()
             return
         end
 
-        if not has_x509 then
-            error("certificate parsing failed because openssl.x509 is not installed", 2)
+        -- 有 id 时先确认记录存在，避免写了文件却没有更新配置
+        rule_new.id = tonumber(rule_new.id)
+        local old_cert = nil
+
+        if rule_new.id then
+            old_cert = rule_utils.get_rule(CERTIFICATE_PATH, rule_new.id).data
+
+            if not old_cert then
+                response.code = 500
+                response.msg = "certificate not found"
+                ngx.say(cjson_encode(response))
+                return
+            end
         end
 
         -- 解析证书
-        local cert = x509.new(publicKey)
-
-        local subject = cert:getSubject()
-        local issuer = cert:getIssuer()
-        local subjectAlt = cert:getSubjectAlt()
-        local serial = cert:getSerial()
-        local start_time, end_time = cert:getLifetime()
-
-        rule_new.serial = tostring(serial)
-        rule_new.effectiveDate = date("%Y-%m-%d", start_time)
-        rule_new.expirationDate = date("%Y-%m-%d", end_time)
-
-        local domainName = nil
-
-        for key, value in pairs(subjectAlt) do
-            if key == "CN" then
-                domainName = value
-                break
-            end
+        local cert, cert_err = x509.parse(publicKey)
+        if not cert then
+            response.code = 500
+            response.msg = "certificate parsing failed: " .. (cert_err or "invalid certificate")
+            ngx.say(cjson_encode(response))
+            return
         end
 
-        if not domainName then
-            for key, value in pairs(subject) do
-                if key == "CN" then
-                    domainName = value
-                    break
-                end
-            end
-        end
+        local domainName = cert.domainName
 
+        rule_new.serial = cert.serial
+        rule_new.effectiveDate = cert.effectiveDate
+        rule_new.expirationDate = cert.expirationDate
         rule_new.domainName = domainName
-
-        local issuerName = ""
-        local issuerOrgName = ""
-        for key, value in pairs(issuer) do
-            if key == "CN" then
-                issuerName = value
-            elseif key == "O" then
-                issuerOrgName = value
-            end
-        end
-
-        rule_new.issuerName = issuerName
-        rule_new.issuerOrgName = issuerOrgName
+        rule_new.issuerName = cert.issuerName
+        rule_new.issuerOrgName = cert.issuerOrgName
 
         local ext = ".crt"
         if ngxfind(publicKey, "-----BEGIN CERTIFICATE-----", "jo") ~= nil then
             ext = ".pem"
         end
 
-        local fileName = CERTS_PATH .. date("%Y%m%d%H%M%S") .. "_" .. domainName
-        local certPath = fileName .. ext
-        local keyPath = fileName.. ".key"
+        -- 同域名修改复用原文件路径，避免产生孤儿文件
+        local reuse = old_cert ~= nil
+            and old_cert.domainName == domainName
+            and is_safe_path(old_cert.certPath, CERT_EXTS)
+            and is_safe_path(old_cert.keyPath, KEY_EXTS)
+            and is_file_exists(old_cert.certPath)
+            and is_file_exists(old_cert.keyPath)
+
+        local certPath, keyPath
+
+        if reuse then
+            certPath = old_cert.certPath
+            keyPath = old_cert.keyPath
+        else
+            local fileName = CERTS_PATH .. date("%Y%m%d%H%M%S") .. "_" .. safe_file_name(domainName)
+            certPath = fileName .. ext
+            keyPath = fileName .. ".key"
+        end
 
         -- 保存证书和私钥文件
-        file_utils.write_string_to_file(certPath, publicKey)
-        file_utils.write_string_to_file(keyPath, privateKey)
+        write_string_to_file(certPath, publicKey)
+        write_string_to_file(keyPath, privateKey)
+
+        if not is_file_exists(certPath) or not is_file_exists(keyPath) then
+            response.code = 500
+            response.msg = "failed to write certificate files"
+            ngx.say(cjson_encode(response))
+            return
+        end
 
         rule_new.certPath = certPath
         rule_new.keyPath = keyPath
@@ -135,33 +200,68 @@ function _M.do_request()
         rule_new.file = nil
 
         response = rule_utils.save_or_update_rule(CERTIFICATE_PATH, rule_new)
-        reload = true
-    elseif uri == "/common/certificate/remove" then
-        response = rule_utils.get_rule(CERTIFICATE_PATH)
-        local cert = response.data
-        if cert then
-            -- 删除证书
-            response = rule_utils.delete_rule(CERTIFICATE_PATH)
 
-            -- 如果配置删除成功则删除证书和密钥文件
-            if response and response.code == 200 then
-                local certPath = cert.certPath
-                local keyPath = cert.keyPath
+        -- 确认配置已更新，再删除旧文件
+        local saved = rule_utils.get_rule(CERTIFICATE_PATH, rule_new.id).data
 
-                -- 删除前检查文件路径是否正确，避免删错造成严重后果
-                if ngxfind(certPath, REGEX_CERT_PATH, "jo") then
-                    remove_file(certPath)
+        if not saved or saved.certPath ~= certPath then
+            response.code = 500
+            response.msg = "failed to save certificate"
+
+            if not reuse then
+                remove_file(certPath)
+                remove_file(keyPath)
+            end
+        else
+            -- 已有证书的域名变更导致文件路径变化时，才需要重建站点配置
+            if old_cert and not reuse then
+                site_config.generate()
+
+                if is_safe_path(old_cert.certPath, CERT_EXTS) then
+                    remove_file(old_cert.certPath)
                 end
 
-                if ngxfind(keyPath, REGEX_KEY_PATH, "jo") then
-                    remove_file(keyPath)
+                if is_safe_path(old_cert.keyPath, KEY_EXTS) then
+                    remove_file(old_cert.keyPath)
                 end
             end
 
+            -- 同路径覆盖证书内容后也需要 reload，让 nginx 重新加载证书
             reload = true
-        else
+        end
+    elseif uri == "/common/certificate/remove" then
+        -- 删除证书
+        ngx.req.read_body()
+        local args = ngx.req.get_post_args()
+        local id = args and args['id']
+
+        response = rule_utils.get_rule(CERTIFICATE_PATH, id)
+        local cert = response.data
+
+        if not cert then
             response.code = 500
             response.msg = "crt not exists"
+        else
+            local site = get_cert_site(cert.id)
+
+            if site then
+                -- 证书仍被启用 SSL 的站点引用，拒绝删除
+                response.code = 500
+                response.msg = "该证书正被站点 [" .. site .. "] 使用，请先解绑"
+            else
+                response = rule_utils.delete_rule(CERTIFICATE_PATH)
+
+                -- 如果配置删除成功则删除证书和密钥文件
+                if response.code == 200 then
+                    if is_safe_path(cert.certPath, CERT_EXTS) then
+                        remove_file(cert.certPath)
+                    end
+
+                    if is_safe_path(cert.keyPath, KEY_EXTS) then
+                        remove_file(cert.keyPath)
+                    end
+                end
+            end
         end
     elseif uri == "/common/certificate/get" then
         -- 查询证书
@@ -198,7 +298,7 @@ function _M.do_request()
 
             if rules then
                 for _, r in pairs(rules) do
-                    local certName = r.domainName .. "(" .. r.issuerName .. ")"
+                    local certName = (r.domainName or "") .. "(" .. (r.issuerName or "") .. ")"
                     local cert = {id = r.id, certName = certName }
                     tabinsert(certs, cert)
                 end
@@ -210,7 +310,7 @@ function _M.do_request()
 
     ngx.say(cjson_encode(response))
 
-    -- 如果没有错误且需要重载配置文件则重载配置文件
+    -- 证书文件内容变化后重载 nginx
     if response.code == 200 and reload == true then
         config.reload_config_file()
     end
