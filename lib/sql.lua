@@ -24,6 +24,7 @@ local database = get_system_config('mysql').database
 local BATCH_SIZE = 300
 
 local SQL_CHECK_TABLE = [[SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.TABLES WHERE table_schema='%s' AND table_name='%s']]
+local SQL_CHECK_INDEX = [[SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.STATISTICS WHERE table_schema=DATABASE() AND table_name='%s' AND index_name='%s']]
 
 local SQL_CREATE_TABLE_WAF_STATUS = [[
     CREATE TABLE `waf_status` (
@@ -157,6 +158,7 @@ local SQL_CREATE_TABLE_ATTACK_LOG = [[
         `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
+    CREATE INDEX idx_attack_log_ip ON attack_log (ip);
 ]]
 
 local SQL_INSERT_ATTACK_LOG = [[
@@ -215,7 +217,9 @@ function _M.check_table(premature)
     local tables = {
         {name = 'waf_status', sql = SQL_CREATE_TABLE_WAF_STATUS},
         {name = 'traffic_stats', sql = SQL_CREATE_TABLE_TRAFFIC_STATS},
-        {name = 'attack_log', sql = SQL_CREATE_TABLE_ATTACK_LOG},
+        {name = 'attack_log', sql = SQL_CREATE_TABLE_ATTACK_LOG, indexes = {
+            {name = 'idx_attack_log_ip', sql = 'ALTER TABLE attack_log ADD INDEX idx_attack_log_ip (ip)'},
+        }},
         {name = 'ip_block_log', sql = SQL_CREATE_TABLE_IP_BLOCK_LOG},
     }
 
@@ -224,10 +228,23 @@ function _M.check_table(premature)
         local sql = t.sql
 
         local res, err = mysql.query(format(SQL_CHECK_TABLE, database, name))
-        if res and res[1] and res[1].c == '0' then
-            res, err = mysql.query(sql)
-            if not res then
-                ngx.log(ngx.ERR, 'failed to create table ' .. name .. ' ', err)
+        if res and res[1] then
+            if res[1].c == '0' then
+                res, err = mysql.query(sql)
+                if not res then
+                    ngx.log(ngx.ERR, 'failed to create table ' .. name .. ' ', err)
+                end
+            end
+
+            -- 兼容存量表：索引不存在时补建，已存在则跳过，可重复执行
+            for _, idx in ipairs(t.indexes or {}) do
+                local r = mysql.query(format(SQL_CHECK_INDEX, name, idx.name))
+                if r and r[1] and r[1].c == '0' then
+                    local ok = mysql.query(idx.sql)
+                    if not ok then
+                        ngx.log(ngx.ERR, 'failed to create index ', idx.name, ' on table ', name)
+                    end
+                end
             end
         end
     end
