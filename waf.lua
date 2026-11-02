@@ -13,6 +13,20 @@ local generate_id = request.generate_id
 local is_site_option_on = config.is_site_option_on
 local get_client_ip = ip_utils.get_client_ip
 
+-- ACME HTTP-01 challenge requests must be returned unchanged, bypass WAF
+local request_uri = ngx.var.uri
+if request_uri and request_uri:sub(1, 28) == "/.well-known/acme-challenge/" then
+    return
+end
+
+-- Local renewal scheduler endpoint must bypass WAF browser challenges
+if request_uri == "/common/certificate/acme/renew-due" then
+    local ip = ngx.var.remote_addr or ""
+    if ip == "127.0.0.1" or ip == "::1" or ip == "::ffff:127.0.0.1" then
+        return
+    end
+end
+
 local function init()
     local ctx = ngx.ctx
 

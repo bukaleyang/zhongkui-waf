@@ -1,0 +1,6 @@
+{
+    "email": "",
+    "server": "https://acme-v02.api.letsencrypt.org/directory",
+    "keyType": "RSA2048",
+    "renewDays": 30
+}

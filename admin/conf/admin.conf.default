@@ -130,6 +130,15 @@ server {
         proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
+    # local scheduler only: renew due certificates without login
+    location = /common/certificate/acme/renew-due {
+        allow 127.0.0.1;
+        allow ::1;
+        allow ::ffff:127.0.0.1;
+        deny all;
+        content_by_lua_file $root_path/lua/certificate.lua;
+    }
+
     location /common/ipgroups/ {
         content_by_lua_file $root_path/lua/ip_group.lua;
         proxy_set_header  X-Real-IP  $remote_addr;

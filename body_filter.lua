@@ -17,6 +17,12 @@ local CONTENT_TYPE_REGEX = "^(?:text/html|text/plain|text/xml|application/json|a
 local HTML_CONTENT_TYPE_REGEX = "^(?:text/html|application/xhtml\\+xml)"
 local TRAP_HTML = '<a href="%s" class="honeyLink">come-here</a><style>.honeyLink{display:none;}</style></body>'
 
+-- ACME HTTP-01 challenge responses must not be modified by body filters
+local request_uri = ngx.var.uri
+if request_uri and request_uri:sub(1, 28) == "/.well-known/acme-challenge/" then
+    return
+end
+
 local content = ngx.arg[1]
 
 if is_site_option_on("waf") then

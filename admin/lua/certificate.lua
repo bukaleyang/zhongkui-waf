@@ -9,6 +9,7 @@ local request = require "request"
 local rule_utils = require "lib.rule_utils"
 local site_config = require "lib.site_config"
 local x509 = require "lib.x509"
+local acme = require "lib.acme"
 
 local pairs = pairs
 local tonumber = tonumber
@@ -79,7 +80,7 @@ local function get_cert_site(cert_id)
 
     for _, site in pairs(rule_table.rules) do
         for _, p in pairs(site.listenPorts or {}) do
-            if p.ssl == "on" and tonumber(site.certId) == cert_id then
+            if (p.ssl == "on" or p.ssl == true) and tonumber(site.certId) == cert_id then
                 local names = site.serverNames
                 return (names and names[1]) or ("id=" .. tostring(site.id))
             end
@@ -94,7 +95,14 @@ function _M.do_request()
     local uri = ngx.var.uri
     local reload = false
 
-    if user.check_auth_token() == false then
+    -- 本机调度器可免登录调用续期检查；公网访问仍需登录
+    local is_local_renew = false
+    if uri == "/common/certificate/acme/renew-due" then
+        local ip = ngx.var.remote_addr or ""
+        is_local_renew = ip == "127.0.0.1" or ip == "::1" or ip == "::ffff:127.0.0.1"
+    end
+
+    if not is_local_renew and user.check_auth_token() == false then
         response.code = 401
         response.msg = "User not logged in"
         ngx.status = 401
@@ -103,7 +111,43 @@ function _M.do_request()
         return
     end
 
-    if uri == "/common/certificate/list" then
+    if uri == "/common/certificate/acme/settings" then
+        response = acme.settings_response()
+    elseif uri == "/common/certificate/acme/apply" then
+        local ok, field = pcall(rule_utils.get_rule_from_request)
+        if not ok then
+            response = {code = 400, msg = "请求参数格式错误"}
+        else
+            -- 兜底：ACME 内部任何未捕获的 Lua 错误都转成 JSON，避免前端收到 HTML 崩溃页
+            local called, applied = pcall(acme.apply, field or {})
+            if called then
+                response = applied
+            else
+                ngx.log(ngx.ERR, "ACME apply crashed: ", tostring(applied))
+                response = {code = 500, msg = "证书申请失败: " .. tostring(applied)}
+            end
+        end
+    elseif uri == "/common/certificate/acme/renew" then
+        local called, renewed = pcall(function()
+            ngx.req.read_body()
+            local args = ngx.req.get_post_args()
+            return acme.renew(args and args.id, args and args.force == "1")
+        end)
+        if called then
+            response = renewed
+        else
+            ngx.log(ngx.ERR, "ACME renew crashed: ", tostring(renewed))
+            response = {code = 500, msg = "证书续期失败: " .. tostring(renewed)}
+        end
+    elseif uri == "/common/certificate/acme/renew-due" then
+        local called, renewed = pcall(acme.renew_due)
+        if called then
+            response = renewed
+        else
+            ngx.log(ngx.ERR, "ACME renew-due crashed: ", tostring(renewed))
+            response = {code = 500, data = {checked = 0, renewed = 0, failed = 0}, msg = ""}
+        end
+    elseif uri == "/common/certificate/list" then
         -- 查询证书列表
         response = rule_utils.list_rules(CERTIFICATE_PATH)
     elseif uri == "/common/certificate/save" then
@@ -134,6 +178,14 @@ function _M.do_request()
             if not old_cert then
                 response.code = 500
                 response.msg = "certificate not found"
+                ngx.say(cjson_encode(response))
+                return
+            end
+
+            -- 免费证书由 ACME 管理，避免手动覆盖后失去自动续期能力
+            if old_cert.source == "acme" or old_cert.acme ~= nil then
+                response.code = 500
+                response.msg = "免费证书不支持手动编辑，请使用续期或删除后重新申请"
                 ngx.say(cjson_encode(response))
                 return
             end
@@ -194,6 +246,9 @@ function _M.do_request()
 
         rule_new.certPath = certPath
         rule_new.keyPath = keyPath
+        rule_new.source = "manual"
+        rule_new.acme = nil
+        rule_new.autoRenew = nil
 
         rule_new.publicKey = nil
         rule_new.privateKey = nil
@@ -213,10 +268,7 @@ function _M.do_request()
                 remove_file(keyPath)
             end
         else
-            -- 已有证书的域名变更导致文件路径变化时，才需要重建站点配置
             if old_cert and not reuse then
-                site_config.generate()
-
                 if is_safe_path(old_cert.certPath, CERT_EXTS) then
                     remove_file(old_cert.certPath)
                 end
@@ -226,7 +278,11 @@ function _M.do_request()
                 end
             end
 
-            -- 同路径覆盖证书内容后也需要 reload，让 nginx 重新加载证书
+            -- 证书文件可能刚恢复，重新生成站点配置并 reload
+            local generated, generate_err = site_config.generate()
+            if not generated then
+                ngx.log(ngx.ERR, "failed to generate site config after certificate change: ", tostring(generate_err))
+            end
             reload = true
         end
     elseif uri == "/common/certificate/remove" then
@@ -260,6 +316,8 @@ function _M.do_request()
                     if is_safe_path(cert.keyPath, KEY_EXTS) then
                         remove_file(cert.keyPath)
                     end
+
+                    acme.remove_cert_data(cert)
                 end
             end
         end
@@ -312,7 +370,10 @@ function _M.do_request()
 
     -- 证书文件内容变化后重载 nginx
     if response.code == 200 and reload == true then
-        config.reload_config_file()
+        local reloaded, reload_err = config.reload_config_file()
+        if not reloaded then
+            ngx.log(ngx.ERR, "failed to reload nginx after certificate change: ", tostring(reload_err))
+        end
     end
 end
 

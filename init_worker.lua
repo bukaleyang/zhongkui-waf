@@ -8,6 +8,7 @@ local isarray = require "table.isarray"
 local sql = require "sql"
 local utils = require "utils"
 local constants = require "constants"
+local acme = require "lib.acme"
 
 local md5 = ngx.md5
 local pairs = pairs
@@ -125,3 +126,6 @@ if is_global_option_on("waf") then
     end
 
 end
+
+-- 免费证书自动续期：只在一个 worker 中启动，外部调度器也可调用 renew-due 接口
+acme.start_auto_renew()

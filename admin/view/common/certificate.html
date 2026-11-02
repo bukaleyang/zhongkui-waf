@@ -5,6 +5,12 @@
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
 		<title>证书管理</title>
 		<link href="../../component/pear/css/pear.css" rel="stylesheet">
+		<style>
+			/* 自动续期开关与说明文字同一行，去掉 switch 默认的上边距 */
+			#form_acme .layui-form-switch {
+				margin-top: 0;
+			}
+		</style>
 	</head>
 
 	<body class="pear-container">
@@ -78,14 +84,77 @@
 			</div>
 		</form>
 
+		<form class="layui-form" style="background-color:#fff;padding: 15px 20px;display: none;" lay-filter="form_acme" id="form_acme">
+			<blockquote class="layui-elem-quote" style="margin-bottom: 15px; line-height: 25px;">
+				仅支持 HTTP-01 验证，不支持泛域名。<br>
+				请确保域名已在“防护站点”中添加，且公网 80 端口可访问。<br>
+				申请成功后不会自动绑定，请到防护站点中手动选择该证书。
+			</blockquote>
+
+			<div class="layui-form-item">
+				<label class="layui-form-label">主域名</label>
+				<div class="layui-input-block">
+					<input type="text" name="domain" lay-verify="required|acmeDomain" lay-reqtext="请输入主域名" placeholder="例如：www.example.com" autocomplete="off" class="layui-input">
+				</div>
+			</div>
+
+			<div class="layui-form-item">
+				<label class="layui-form-label">附加域名</label>
+				<div class="layui-input-block">
+					<textarea name="domains" lay-verify="acmeDomains" placeholder="可选，多个域名用逗号、分号或换行分隔，例如：example.com, www.example.com" class="layui-textarea" style="min-height: 70px;"></textarea>
+				</div>
+			</div>
+
+			<div class="layui-form-item">
+				<label class="layui-form-label">邮箱</label>
+				<div class="layui-input-block">
+					<input type="text" name="email" lay-verify="required|email" lay-reqtext="请输入邮箱地址" placeholder="用于 Let's Encrypt 到期通知" autocomplete="off" class="layui-input">
+				</div>
+			</div>
+
+			<div class="layui-form-item">
+				<label class="layui-form-label">自动续期</label>
+				<div class="layui-input-block">
+					<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+						<input type="checkbox" name="autoRenew" lay-skin="switch" lay-text="开启|关闭" checked>
+						<span class="layui-word-aux" id="auto_renew_tip">开启后，到期前 <span id="auto_renew_days">30</span> 天自动续期</span>
+					</div>
+				</div>
+			</div>
+
+			<div class="layui-form-item" style="margin-bottom: 0;">
+				<div class="layui-input-block" style="text-align: right;">
+					<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="acme_apply">申请</button>
+					<button type="button" class="pear-btn" lay-on="acmeCancel">取消</button>
+				</div>
+			</div>
+		</form>
+
 		<script type="text/html" id="user_toolbar">
 			<button class="pear-btn pear-btn-primary pear-btn-md" lay-event="add">
 				<i class="layui-icon layui-icon-add-1"></i>
 				添加证书
 			</button>
+			<button class="pear-btn pear-btn-success pear-btn-md" lay-event="acme">
+				<i class="layui-icon layui-icon-vercode"></i>
+				申请免费证书
+			</button>
+		</script>
+		<script type="text/html" id="cert_type">
+			{{# if(d.source === 'acme'){ }}
+			<span class="layui-badge layui-bg-blue">免费</span>
+			{{# if(d.autoRenew === false){ }}<span class="layui-badge layui-bg-gray">不自动续期</span>{{# } }}
+			{{# if(d.acme && d.acme.status === 'error'){ }}<span class="layui-badge">续期失败</span>{{# } }}
+			{{# } else { }}
+			<span class="layui-badge layui-bg-green">手动</span>
+			{{# } }}
 		</script>
 		<script type="text/html" id="rule_bar">
+			{{# if(d.source === 'acme'){ }}
+			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="renew">续期</button>
+			{{# } else { }}
 			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i></button>
+			{{# } }}
 			<button class="pear-btn pear-btn-danger pear-btn-xs" lay-event="remove"><i class="layui-icon layui-icon-delete"></i></button>
 		</script>
 
@@ -99,6 +168,101 @@
 				var popup = layui.popup;
 				var upload = layui.upload;
 				var $ = layui.$;
+				var acmeIndex = null;
+				var acmePending = false;
+				var renewPending = false;
+				var acmeLoading = null;
+				// 自动续期提前天数，默认 30，打开弹窗时以后台配置为准
+				var acmeRenewDays = 30;
+
+				// 统一关闭申请证书的 loading，避免请求异常时一直转圈
+				function closeAcmeLoading() {
+					if (acmeLoading !== null) {
+						layer.close(acmeLoading);
+						acmeLoading = null;
+					}
+				}
+
+				// popup.failure 默认只显示 1 秒，错误文案较长时看不清，这里延长到 3 秒
+				function showFailure(msg) {
+					layer.msg(msg || '操作失败', { icon: 2, time: 3000 });
+				}
+
+				// 续期提前天数以后台配置为准
+				function updateAutoRenewTip() {
+					$("#auto_renew_days").text(acmeRenewDays);
+				}
+
+				// ===== 申请免费证书表单校验 =====
+				function acmeTrim(value) {
+					return String(value == null ? '' : value).replace(/^\s+|\s+$/g, '');
+				}
+
+				function acmeNormalizeDomain(value) {
+					return acmeTrim(value).toLowerCase().replace(/\.+$/, '');
+				}
+
+				function acmeIsValidDomain(value) {
+					var domain = acmeNormalizeDomain(value);
+					if (!domain || domain.length > 253 || domain.indexOf('*') !== -1) {
+						return false;
+					}
+
+					var labels = domain.split('.');
+					if (labels.length < 2) {
+						return false;
+					}
+
+					for (var i = 0; i < labels.length; i++) {
+						var label = labels[i];
+						if (!label || label.length > 63
+							|| !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label)) {
+							return false;
+						}
+					}
+
+					var tld = labels[labels.length - 1];
+					return /^[a-z]{2,63}$/.test(tld) || /^xn--[a-z0-9-]{2,59}$/.test(tld);
+				}
+
+				function acmeUniqueDomains(value) {
+					var text = acmeTrim(value).replace(/[，、；;]/g, ',');
+					if (!text) {
+						return [];
+					}
+
+					var parts = text.split(/[\s,]+/);
+					var seen = {};
+					var domains = [];
+					for (var i = 0; i < parts.length; i++) {
+						var domain = acmeNormalizeDomain(parts[i]);
+						if (!domain || seen[domain]) {
+							continue;
+						}
+						seen[domain] = true;
+						domains.push(domain);
+					}
+					return domains;
+				}
+
+				form.verify({
+					acmeDomain: function (value) {
+						if (!acmeIsValidDomain(value)) {
+							return '请输入正确的域名，例如：www.example.com';
+						}
+					},
+					acmeDomains: function (value) {
+						var domains = acmeUniqueDomains(value);
+						if (domains.length > 99) {
+							return '单个证书最多支持 100 个域名（含主域名）';
+						}
+						for (var i = 0; i < domains.length; i++) {
+							if (!acmeIsValidDomain(domains[i])) {
+								return '域名格式不正确：' + domains[i];
+							}
+						}
+					}
+				});
 
 				table.render({
 					elem: '#table_rule',
@@ -107,7 +271,8 @@
 						{ field: 'domainName', title: '域名' },
 						{ field: 'issuerName', title: '颁发机构' },
 						{ field: 'expirationDate', title: '有效期至' },
-						{ fixed: 'right', title: '操作', width: 110, minWidth: 110, toolbar: '#rule_bar' }
+						{ title: '类型', width: 180, templet: '#cert_type' },
+						{ fixed: 'right', title: '操作', width: 150, minWidth: 150, toolbar: '#rule_bar' }
 					]],
 					toolbar: '#user_toolbar',
 					css: '.layui-form{margin-top:0px;}',
@@ -117,6 +282,36 @@
 					limits: [5, 10, 15, 20, 25, 30],
 					limit: 10, // 每页默认显示的数量
 				});
+
+				var openAcmeForm = function () {
+					$("#form_acme").trigger("reset");
+					$("#form_acme input[name='autoRenew']").prop("checked", true);
+					form.render(null, 'form_acme');
+					acmeRenewDays = 30;
+					updateAutoRenewTip();
+
+					$.get('/common/certificate/acme/settings', function (res) {
+						if (res && res.code == 200 && res.data) {
+							acmeRenewDays = parseInt(res.data.renewDays, 10) || 30;
+							form.val('form_acme', { email: res.data.email || '' });
+							form.render(null, 'form_acme');
+							updateAutoRenewTip();
+						}
+					}, "json");
+
+					acmeIndex = layer.open({
+						type: 1,
+						title: '申请免费证书',
+						shade: 0.6,
+						shadeClose: true,
+						area: ['620px', 'auto'],
+						content: $('#form_acme'),
+						end: function () {
+							$("#form_acme").trigger("reset");
+							acmeIndex = null;
+						}
+					});
+				};
 
 				// 触发单元格工具事件
 				table.on('tool(table_rule)', function (obj) {
@@ -150,6 +345,37 @@
 							}
 						});
 
+					} else if (obj.event === 'renew') {
+						if (renewPending) {
+							popup.warning('证书续期正在进行中，请稍候');
+							return;
+						}
+
+						renewPending = true;
+						var loading = layer.load(1, {shade: [0.3, '#000']});
+						$.ajax({
+							url: '/common/certificate/acme/renew',
+							type: 'POST',
+							data: { id: data.id },
+							dataType: 'json',
+							timeout: 240000
+						}).done(function (res) {
+							if (res && res.code == 200) {
+								table.reloadData('table_rule');
+								popup.success(res.msg || '已检查续期');
+							} else {
+								showFailure((res && res.msg) || '续期失败');
+							}
+						}).fail(function (xhr, textStatus) {
+							if (textStatus === 'timeout') {
+								showFailure('续期超时，请稍后到证书列表确认结果');
+							} else {
+								showFailure('请求失败，请重试');
+							}
+						}).always(function () {
+							renewPending = false;
+							layer.close(loading);
+						});
 					} else if (obj.event === 'remove') {
 						layer.confirm('确定删除该证书吗？', {
 							icon: 3,
@@ -185,6 +411,8 @@
 								$("#form_rule").find("input[type='hidden']").val("");
 							}
 						});
+					} else if (obj.event === 'acme') {
+						openAcmeForm();
 					} else if (obj.event === 'refresh') {
 						table.reload('table_rule');
 					}
@@ -193,6 +421,11 @@
 				util.on('lay-on', {
 					ruleCancel: function () {
 						layer.closeLast('page');
+					},
+					acmeCancel: function () {
+						if (acmeIndex !== null) {
+							layer.close(acmeIndex);
+						}
 					}
 				});
 
@@ -214,6 +447,57 @@
 					}, "json");
 
 					return false; // 阻止默认 form 跳转
+				});
+
+				// 申请免费证书
+				form.on('submit(acme_apply)', function (data) {
+					if (acmePending) {
+						popup.warning('证书申请正在进行中，请稍候');
+						return false;
+					}
+
+					var field = data.field;
+					// 统一域名和邮箱格式，兼容中文逗号、分号及域名末尾的点
+					field.domain = acmeNormalizeDomain(field.domain);
+					field.domains = acmeUniqueDomains(field.domains).join(',');
+					field.email = acmeTrim(field.email);
+					// Layui 复选框未选中时不会提交字段，这里显式传 off
+					field.autoRenew = field.autoRenew ? "on" : "off";
+
+					acmePending = true;
+					acmeLoading = layer.load(1, {shade: [0.3, '#000']});
+
+					$.ajax({
+						url: '/common/certificate/acme/apply',
+						type: 'POST',
+						data: { rule: JSON.stringify(field) },
+						dataType: 'json',
+						// lego 最长等待 180 秒，再留出 nginx 重载和探测时间
+						timeout: 240000
+					}).done(function (res) {
+						closeAcmeLoading();
+						if (res && res.code == 200) {
+							table.reloadData('table_rule');
+							if (acmeIndex !== null) {
+								layer.close(acmeIndex);
+							}
+							popup.success(res.msg || '证书申请成功');
+						} else {
+							showFailure((res && res.msg) || '证书申请失败');
+						}
+					}).fail(function (xhr, textStatus) {
+						closeAcmeLoading();
+						if (textStatus === 'timeout') {
+							showFailure('申请超时，请稍后到证书列表确认结果');
+						} else {
+							showFailure('请求失败，请检查网络或查看 nginx 错误日志');
+						}
+					}).always(function () {
+						acmePending = false;
+						closeAcmeLoading();
+					});
+
+					return false;
 				});
 
 				// 证书文件上传

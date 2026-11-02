@@ -17,7 +17,7 @@ local cjson_encode = cjson.encode
 local update_site_module_rule_file = config.update_site_module_rule_file
 local get_site_module_rule_file = config.get_site_module_rule_file
 local read_file_to_string = file.read_file_to_string
-local write_string_to_file = file.write_string_to_file
+local write_string_to_file_atomic = file.write_string_to_file_atomic
 
 local _M = {}
 
@@ -140,6 +140,16 @@ function _M.get_rule_from_request()
 end
 
 -- 修改规则
+local function save_rule_file(file_path, rule_table, response)
+    local ok, err = write_string_to_file_atomic(file_path, cjson_encode(rule_table))
+    if not ok then
+        response.code = 500
+        response.msg = "failed to save rule file: " .. tostring(err)
+        return false
+    end
+    return true
+end
+
 function _M.save_or_update_rule(file_path, rule_new)
     local response = { code = 200, data = {}, msg = "" }
 
@@ -165,7 +175,7 @@ function _M.save_or_update_rule(file_path, rule_new)
                 rule_table.nextId = nextId + 1
             end
 
-            write_string_to_file(file_path, cjson_encode(rule_table))
+            save_rule_file(file_path, rule_table, response)
         end
     else
         local msg = 'param error'
@@ -206,7 +216,7 @@ function _M.delete_rule(file_path)
                         end
                     end
 
-                    write_string_to_file(file_path, cjson_encode(rule_table))
+                    save_rule_file(file_path, rule_table, response)
                 end
             else
                 response.code = 500

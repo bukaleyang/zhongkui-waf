@@ -13,7 +13,7 @@ local ipmatcher = require "resty.ipmatcher"
 local read_rule = file_utils.read_rule
 local read_file_to_string = file_utils.read_file_to_string
 local read_file_to_table = file_utils.read_file_to_table
-local write_string_to_file = file_utils.write_string_to_file
+local write_string_to_file_atomic = file_utils.write_string_to_file_atomic
 local is_file_exists = file_utils.is_file_exists
 local is_directory = file_utils.is_directory
 local mkdir = file_utils.mkdir
@@ -120,7 +120,7 @@ function _M.update_site_config_file(site_id, str)
             mkdir(site_dir)
         end
     end
-    return write_string_to_file(config_file, str)
+    return write_string_to_file_atomic(config_file, str)
 end
 
 function _M.get_site_module_rule_file(site_id, module_id)
@@ -159,7 +159,7 @@ function _M.update_site_module_rule_file(site_id, module_id, str)
         rule_file = rules_dir .. '/' .. file_name
     end
 
-    return write_string_to_file(rule_file, str)
+    return write_string_to_file_atomic(rule_file, str)
 end
 
 local function add_ip_group(group, ips)
@@ -343,16 +343,98 @@ function _M.load_config_file()
 end
 
 -- 获取nginx安装目录
+local function join_path(prefix, child)
+    if prefix == '' then
+        return ''
+    end
+
+    local last = prefix:sub(-1)
+    if last ~= '/' and last ~= '\\' then
+        prefix = prefix .. '/'
+    end
+
+    return prefix .. child
+end
+
+-- Windows 下通过当前进程的 exe 路径定位 nginx，避免 OpenResty 使用 --prefix=. 时
+-- ngx.config.prefix() 返回相对路径而受工作目录影响。
+local function get_windows_process_path()
+    if ffi.os ~= "Windows" then
+        return nil
+    end
+
+    local ok, kernel32 = pcall(ffi.load, "kernel32")
+    if not ok then
+        return nil
+    end
+
+    pcall(ffi.cdef, [[
+        unsigned long GetModuleFileNameW(void *hModule, uint16_t *lpFilename, unsigned long nSize);
+        int WideCharToMultiByte(unsigned int CodePage, unsigned long dwFlags, const uint16_t *lpWideCharStr, int cchWideChar, char *lpMultiByteStr, int cbMultiByte, const char *lpDefaultChar, int *lpUsedDefaultChar);
+    ]])
+
+    local wbuf = ffi.new("uint16_t[?]", 32768)
+    local len = kernel32.GetModuleFileNameW(nil, wbuf, 32768)
+    if len == 0 then
+        return nil
+    end
+
+    local size = kernel32.WideCharToMultiByte(65001, 0, wbuf, len, nil, 0, nil, nil)
+    if size <= 0 then
+        return nil
+    end
+
+    local buf = ffi.new("char[?]", size + 1)
+    kernel32.WideCharToMultiByte(65001, 0, wbuf, len, buf, size, nil, nil)
+
+    return ffi.string(buf, size)
+end
+
 local function get_nginx_command_path()
-    local path = ''
-    -- 获取当前 Lua 脚本的文件路径
+    if ffi.os == "Windows" then
+        local process_path = get_windows_process_path()
+        if process_path and is_file_exists(process_path) then
+            return process_path
+        end
+    end
+
+    -- OpenResty 的 prefix 在 Linux 下指向 nginx 安装根目录
+    local prefix = ngx.config and ngx.config.prefix and ngx.config.prefix() or ''
+    if prefix ~= '' then
+        local candidate
+        if ffi.os == "Windows" then
+            candidate = join_path(prefix, 'nginx.exe')
+            -- Windows 下 cmd 对 ./nginx.exe 形式支持不稳定，统一使用反斜杠
+            candidate = candidate:gsub('/', '\\')
+        else
+            candidate = join_path(prefix, 'sbin/nginx')
+        end
+
+        if is_file_exists(candidate) then
+            return candidate
+        end
+    end
+
+    -- 兼容旧版通过脚本路径推断 OpenResty 安装目录的方式
     local script_path = debug.getinfo(1, "S").source:sub(2)
-    -- 获取 OpenResty 安装目录（假设 OpenResty 在 "/usr/local/openresty" 目录下）
     local openresty_path = script_path:match("(.*/openresty/)")
     if openresty_path then
-        path = openresty_path .. 'nginx/sbin/'
+        return openresty_path .. 'nginx/sbin/nginx'
     end
-    return path
+
+    return ''
+end
+
+local function get_nginx_prefix()
+    if ffi.os == "Windows" then
+        local nginx_path = get_nginx_command_path()
+        local dir = nginx_path:match("^(.*)[/\\][^/\\]+$")
+        if dir and dir ~= '' then
+            return dir
+        end
+    end
+
+    return ngx.config and ngx.config.prefix and ngx.config.prefix() or ''
 end
 
 -- 是否Linux系统
@@ -360,25 +442,69 @@ local function is_linux()
     return ffi.os == "Linux"
 end
 
--- 重新加载nginx配置
-function _M.reload_nginx()
-    -- Nginx重新加载配置文件的系统命令
-    local command = get_nginx_command_path() .. "nginx -s reload"
+-- 构建 nginx 命令行（Windows 需要额外处理引号）
+local function build_nginx_command(action)
+    local nginx_path = get_nginx_command_path()
+    local prefix = get_nginx_prefix()
+    local command
+
+    if nginx_path == '' then
+        command = 'nginx'
+    else
+        command = '"' .. nginx_path .. '"'
+        -- 指定 prefix，避免 worker 的工作目录与 nginx 安装目录不同时找不到 conf/nginx.conf
+        if prefix ~= '' then
+            command = command .. ' -p "' .. prefix .. '" -c conf/nginx.conf'
+        end
+    end
+
+    if action and action ~= '' then
+        command = command .. ' ' .. action
+    end
+
+    if ffi.os == "Windows" then
+        -- Windows 的 os.execute 对多个引号参数处理不一致，显式交给 cmd /c 执行
+        command = 'cmd /c "' .. command .. '"'
+    end
+
     if is_linux() then
         command = "sudo " .. command
     end
 
-    local success = os.execute(command)
-    if success then
-        ngx.log(ngx.INFO, "nginx configuration has been successfully reloaded.")
-    else
-        ngx.log(ngx.ERR, "failed to reload Nginx configuration.")
-    end
+    return command
 end
 
--- 如果配置文件正确，则重载nginx
+function _M.test_nginx_config()
+    local command = build_nginx_command('-t')
+    local result = os.execute(command)
+    local success = (result == true or result == 0)
+    if success then
+        ngx.log(ngx.INFO, "nginx configuration test succeeded.")
+    else
+        ngx.log(ngx.ERR, "nginx configuration test failed: ", tostring(result))
+    end
+    return success
+end
+
+function _M.reload_nginx()
+    if not _M.test_nginx_config() then
+        return false, "nginx -t failed"
+    end
+
+    local command = build_nginx_command('-s reload')
+    local result = os.execute(command)
+    local success = (result == true or result == 0)
+    if success then
+        ngx.log(ngx.INFO, "nginx configuration has been successfully reloaded.")
+        return true
+    end
+
+    ngx.log(ngx.ERR, "failed to reload Nginx configuration: ", tostring(result))
+    return false, "nginx -s reload failed: " .. tostring(result)
+end
+
 function _M.reload_config_file()
-    _M.reload_nginx()
+    return _M.reload_nginx()
 end
 
 return _M

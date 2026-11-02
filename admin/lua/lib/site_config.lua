@@ -12,8 +12,9 @@ local concat = table.concat
 local format = string.format
 local tostring = tostring
 local pcall = pcall
+local gsub = string.gsub
 local read_file_to_string = file.read_file_to_string
-local write_string_to_file = file.write_string_to_file
+local write_string_to_file_atomic = file.write_string_to_file_atomic
 local cjson_decode = cjson.decode
 
 local _M = {}
@@ -21,6 +22,17 @@ local _M = {}
 local WEBSITES_PATH = config.CONF_PATH .. '/website.json'
 local CERTIFICATE_PATH = config.CONF_PATH .. "/certificate.json"
 local SITES_CONF_PATH = config.ZHONGKUI_PATH .. '/admin/conf/sites.conf'
+local ACME_WEBROOT = gsub(config.ZHONGKUI_PATH .. '/data/acme/webroot', '\\', '/')
+
+-- ACME HTTP-01 验证文件目录
+local ACME_CHALLENGE_CONFIG = [[
+    location ^~ /.well-known/acme-challenge/ {
+        root "%s";
+        default_type text/plain;
+        try_files $uri =404;
+        access_log off;
+    }
+]]
 
 -- nginx server
 local NGINX_SERVER_CONFIG = [[
@@ -31,6 +43,7 @@ server {
     charset utf-8;
 
 %s
+%s
     location / {
         proxy_pass %s;
         proxy_set_header Host $host;
@@ -38,6 +51,22 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Port $server_port;
+    }
+}
+]]
+
+-- 仅用于 ACME 验证的临时 80 端口 server，避免 SSL-only 站点无法申请证书
+local CHALLENGE_SERVER_CONFIG = [[
+server {
+    listen 80;
+
+    server_name %s;
+
+    charset utf-8;
+
+%s
+    location / {
+        return 404;
     }
 }
 ]]
@@ -60,9 +89,15 @@ local function get_site_cert(cert_id)
         return nil
     end
 
-    local cert = rule_utils.get_rule(CERTIFICATE_PATH, cert_id).data
-    if cert and cert.certPath and cert.keyPath then
+    local response = rule_utils.get_rule(CERTIFICATE_PATH, cert_id)
+    local cert = response and response.data
+    if cert and cert.certPath and cert.keyPath
+        and file.is_file_exists(cert.certPath) and file.is_file_exists(cert.keyPath) then
         return cert
+    end
+
+    if cert then
+        ngx.log(ngx.ERR, "certificate files missing for cert id ", tostring(cert_id))
     end
 
     return nil
@@ -72,15 +107,14 @@ end
 function _M.generate()
     local json = read_file_to_string(WEBSITES_PATH)
     if not json then
-        write_string_to_file(SITES_CONF_PATH, '')
-        return
+        return write_string_to_file_atomic(SITES_CONF_PATH, '')
     end
 
     local ok, rule_table = pcall(cjson_decode, json)
     if not ok or type(rule_table) ~= 'table' then
         -- 配置无法解析时保持现有 sites.conf 不变
         ngx.log(ngx.ERR, "failed to parse ", WEBSITES_PATH)
-        return
+        return nil, "failed to parse " .. WEBSITES_PATH
     end
 
     local sites = rule_table.rules
@@ -94,9 +128,12 @@ function _M.generate()
                 local serverNameStr = concat(serverNames, ' ')
                 local sslCertConfigStr = ''
                 local cert = nil
+                local challengeConfig = format(ACME_CHALLENGE_CONFIG, ACME_WEBROOT)
+                local hasHttp80 = false
+                local hasSsl80 = false
 
                 for _, p in pairs(site.listenPorts or {}) do
-                    if p.ssl == 'on' then
+                    if p.ssl == 'on' or p.ssl == true then
                         cert = get_site_cert(site.certId)
                         break
                     end
@@ -108,7 +145,15 @@ function _M.generate()
 
                 local listenPortsStr = ''
                 for _, p in pairs(site.listenPorts or {}) do
-                    local isSSL = (p.ssl == 'on')
+                    local isSSL = (p.ssl == 'on' or p.ssl == true)
+
+                    if tostring(p.port) == '80' then
+                        if isSSL then
+                            hasSsl80 = true
+                        else
+                            hasHttp80 = true
+                        end
+                    end
 
                     if isSSL and not cert then
                         -- 没有可用证书时跳过 SSL 端口，避免生成无法加载的配置
@@ -120,13 +165,20 @@ function _M.generate()
                 end
 
                 if listenPortsStr ~= '' then
-                    ngxConfig = ngxConfig .. format(NGINX_SERVER_CONFIG, listenPortsStr, serverNameStr, sslCertConfigStr, site.upstream or '')
+                    ngxConfig = ngxConfig .. format(NGINX_SERVER_CONFIG, listenPortsStr, serverNameStr, challengeConfig, sslCertConfigStr, site.upstream or '')
+                end
+
+                -- 只有 443 或其它端口的站点，额外生成 80 端口验证 server
+                if not hasHttp80 and not hasSsl80 then
+                    ngxConfig = ngxConfig .. format(CHALLENGE_SERVER_CONFIG, serverNameStr, challengeConfig)
+                elseif hasSsl80 and not hasHttp80 then
+                    ngx.log(ngx.ERR, "site ", serverNameStr, " listens on port 80 with ssl, ACME HTTP-01 is unavailable")
                 end
             end
         end
     end
 
-    write_string_to_file(SITES_CONF_PATH, ngxConfig)
+    return write_string_to_file_atomic(SITES_CONF_PATH, ngxConfig)
 end
 
 return _M
