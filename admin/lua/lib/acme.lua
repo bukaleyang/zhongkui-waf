@@ -1421,7 +1421,7 @@ function _M.renew(id, force)
     local days = days_left(record.expirationDate)
     if not force and not cert_files_missing(record) and days and days > settings.renewDays then
         return {
-            code = 200,
+            code = 500,
             msg = format("证书尚未到续期时间，剩余 %d 天", max(0, floor(days))),
             data = {notDue = true, daysLeft = days},
         }
