@@ -20,6 +20,10 @@ local gsub = string.gsub
 local tabinsert = table.insert
 local ngxfind = ngx.re.find
 local date = os.date
+local time = os.time
+local floor = math.floor
+local lower = string.lower
+local sort = table.sort
 local get_upload_files = request.get_upload_files
 local read_file_to_string = file_utils.read_file_to_string
 local write_string_to_file = file_utils.write_string_to_file
@@ -37,6 +41,124 @@ local CERTS_PATH = (gsub(config.ZHONGKUI_PATH .. "/admin/ssl-certs/", "\\", "/")
 
 local CERT_EXTS = {pem = true, crt = true}
 local KEY_EXTS = {key = true}
+
+-- 证书列表默认按有效期升序（最早到期在前），无有效期或格式异常的排最后
+local function certificate_sort(a, b)
+    local da = a and a.expirationDate
+    local db = b and b.expirationDate
+
+    if type(da) ~= "string" or not da:match("^%d%d%d%d%-%d%d%-%d%d") then
+        da = nil
+    end
+    if type(db) ~= "string" or not db:match("^%d%d%d%d%-%d%d%-%d%d") then
+        db = nil
+    end
+
+    if da and db then
+        if da ~= db then
+            return da < db
+        end
+    elseif da then
+        return true
+    elseif db then
+        return false
+    end
+
+    -- 日期相同或都无效时按 id 排序，保证顺序稳定
+    return (tonumber(a and a.id) or 0) < (tonumber(b and b.id) or 0)
+end
+
+local CERT_EXPIRING_DAYS = 30
+
+-- 判断有效期字段是否为 YYYY-MM-DD
+local function is_date_string(value)
+    return type(value) == "string" and value:match("^%d%d%d%d%-%d%d%-%d%d$") ~= nil
+end
+
+-- 剩余天数，计算方式与 acme.lua 保持一致（按到期日中午计算）
+local function certificate_days_left(expiration_date)
+    if not is_date_string(expiration_date) then
+        return nil
+    end
+
+    local year, month, day = expiration_date:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)$")
+    local expiration = time({
+        year = tonumber(year),
+        month = tonumber(month),
+        day = tonumber(day),
+        hour = 12,
+    })
+    if not expiration then
+        return nil
+    end
+
+    return (expiration - time()) / 86400
+end
+
+-- 返回证书状态、剩余天数和不可用原因
+local function certificate_state(record, today)
+    local expiration_date = record and record.expirationDate
+    if not is_date_string(expiration_date) then
+        return "invalid", nil, "invalid_date"
+    end
+
+    local days = certificate_days_left(expiration_date)
+    local effective_date = record.effectiveDate
+    if is_date_string(effective_date) and effective_date > today then
+        return "invalid", days, "not_effective"
+    end
+    if expiration_date < today then
+        return "expired", days, "expired"
+    end
+
+    local cert_path = record.certPath
+    local key_path = record.keyPath
+    if not cert_path or not key_path
+        or not is_file_exists(cert_path) or not is_file_exists(key_path) then
+        return "invalid", days, "missing_files"
+    end
+
+    if days and floor(days) <= CERT_EXPIRING_DAYS then
+        return "expiring", days, nil
+    end
+
+    return "valid", days, nil
+end
+
+-- 站点 SSL 证书下拉排序：当前绑定但不可用的证书置顶，其余可用证书按到期日升序
+local function certificate_option_sort(a, b)
+    local a_pinned = a.isCurrentBound == true and a.usable == false
+    local b_pinned = b.isCurrentBound == true and b.usable == false
+    if a_pinned ~= b_pinned then
+        return a_pinned
+    end
+
+    local a_rank = a.usable and 1 or (a.status == "expired" and 2 or 3)
+    local b_rank = b.usable and 1 or (b.status == "expired" and 2 or 3)
+    if a_rank ~= b_rank then
+        return a_rank < b_rank
+    end
+
+    local da = is_date_string(a.expirationDate) and a.expirationDate or nil
+    local db = is_date_string(b.expirationDate) and b.expirationDate or nil
+    if da and db then
+        if da ~= db then
+            return da < db
+        end
+    elseif da then
+        return true
+    elseif db then
+        return false
+    end
+
+    local na = lower(a.domainName or "")
+    local nb = lower(b.domainName or "")
+    if na ~= nb then
+        return na < nb
+    end
+
+    return (tonumber(a.id) or 0) < (tonumber(b.id) or 0)
+end
 
 -- 校验文件路径是否在证书目录且扩展名正确，避免误删其它文件
 local function is_safe_path(path, extensions)
@@ -148,8 +270,8 @@ function _M.do_request()
             response = {code = 500, data = {checked = 0, renewed = 0, failed = 0}, msg = ""}
         end
     elseif uri == "/common/certificate/list" then
-        -- 查询证书列表
-        response = rule_utils.list_rules(CERTIFICATE_PATH)
+        -- 查询证书列表，按有效期升序（最早到期在前）
+        response = rule_utils.list_rules(CERTIFICATE_PATH, nil, certificate_sort)
     elseif uri == "/common/certificate/save" then
         -- 修改或新增证书
         local rule_new = rule_utils.get_rule_from_request()
@@ -351,15 +473,40 @@ function _M.do_request()
         local json = read_file_to_string(CERTIFICATE_PATH)
         if json then
             local rule_table = cjson_decode(json)
-            local rules = rule_table.rules
+            local rules = type(rule_table) == "table" and rule_table.rules or nil
             local certs = {}
 
             if rules then
+                local args = ngx.req.get_uri_args() or {}
+                local valid_only = args.validOnly == "1" or args.validOnly == "true"
+                local keep_id = tonumber(args.keepId)
+                local today = date("%Y-%m-%d")
+
                 for _, r in pairs(rules) do
-                    local certName = (r.domainName or "") .. "(" .. (r.issuerName or "") .. ")"
-                    local cert = {id = r.id, certName = certName }
-                    tabinsert(certs, cert)
+                    local status, days, reason = certificate_state(r, today)
+                    local usable = status == "valid" or status == "expiring"
+                    local is_current = keep_id ~= nil and tonumber(r.id) == keep_id
+
+                    if not valid_only or usable or is_current then
+                        local cert = {
+                            id = r.id,
+                            certName = (r.domainName or "") .. "(" .. (r.issuerName or "") .. ")",
+                            domainName = r.domainName,
+                            issuerName = r.issuerName,
+                            expirationDate = r.expirationDate,
+                            effectiveDate = r.effectiveDate,
+                            source = r.source,
+                            daysLeft = days and floor(days) or nil,
+                            status = status,
+                            reason = reason,
+                            usable = usable,
+                            isCurrentBound = is_current,
+                        }
+                        tabinsert(certs, cert)
+                    end
                 end
+
+                sort(certs, certificate_option_sort)
             end
 
             response.data = certs

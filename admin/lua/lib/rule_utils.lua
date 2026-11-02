@@ -11,6 +11,7 @@ local tonumber = tonumber
 local pairs = pairs
 local insert = table.insert
 local remove = table.remove
+local sort = table.sort
 local cjson_decode = cjson.decode
 local cjson_encode = cjson.encode
 
@@ -21,8 +22,8 @@ local write_string_to_file_atomic = file.write_string_to_file_atomic
 
 local _M = {}
 
--- 查询规则列表
-function _M.list_rules(file_path, list_key)
+-- 查询规则列表；sort_fn 可选，在分页前对列表排序
+function _M.list_rules(file_path, list_key, sort_fn)
     local response = { code = 200, data = {}, msg = "" }
 
     if file_path then
@@ -30,6 +31,16 @@ function _M.list_rules(file_path, list_key)
         if json then
             local rule_table = cjson_decode(json)
             local rules = rule_table[list_key or 'rules']
+
+            if sort_fn and type(rules) == 'table' then
+                local sorted = {}
+                for i = 1, #rules do
+                    sorted[i] = rules[i]
+                end
+                sort(sorted, sort_fn)
+                rules = sorted
+            end
+
             local data = {}
 
             local args, err = ngx.req.get_uri_args()

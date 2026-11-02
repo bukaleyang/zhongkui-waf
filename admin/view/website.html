@@ -5,6 +5,158 @@
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
 		<title>防护站点</title>
 		<link href="../component/pear/css/pear.css" rel="stylesheet">
+		<style>
+			.cert-picker {
+				position: relative;
+			}
+			.cert-picker-trigger {
+				display: flex;
+				align-items: center;
+				min-height: 38px;
+				padding: 0 32px 0 8px;
+				background: #fff;
+				border: 1px solid #d2d2d2;
+				border-radius: 2px;
+				line-height: 36px;
+				cursor: pointer;
+				box-sizing: border-box;
+			}
+			.cert-picker-trigger:hover,
+			.cert-picker.open .cert-picker-trigger {
+				border-color: #16baaa;
+			}
+			.cert-picker-arrow {
+				position: absolute;
+				right: 10px;
+				top: 50%;
+				color: #999;
+				transform: translateY(-50%);
+				transition: transform .2s;
+			}
+			.cert-picker.open .cert-picker-arrow {
+				transform: translateY(-50%) rotate(180deg);
+			}
+			.cert-picker-value {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				min-width: 0;
+				flex: 1;
+				overflow: hidden;
+			}
+			.cert-picker-trigger:not(.has-value) .cert-picker-value {
+				color: #999;
+			}
+			.cert-picker-value-text {
+				flex: 1;
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+			.cert-picker-value-meta {
+				flex: none;
+				color: #999;
+				font-size: 12px;
+				white-space: nowrap;
+				font-variant-numeric: tabular-nums;
+			}
+			.cert-picker-pills {
+				display: flex;
+				gap: 4px;
+				flex: none;
+			}
+			.cert-pill {
+				display: inline-flex;
+				align-items: center;
+				height: 20px;
+				padding: 0 8px;
+				border: 1px solid transparent;
+				border-radius: 4px;
+				font-size: 12px;
+				line-height: 20px;
+				white-space: nowrap;
+			}
+			.cert-pill-success {
+				background: #f0f9eb;
+				border-color: #e1f3d8;
+				color: #67c23a;
+			}
+			.cert-pill-warning {
+				background: #fdf6ec;
+				border-color: #faecd8;
+				color: #e6a23c;
+			}
+			.cert-pill-danger {
+				background: #fef0f0;
+				border-color: #fde2e2;
+				color: #f56c6c;
+			}
+			.cert-pill-info {
+				background: #ecf5ff;
+				border-color: #d9ecff;
+				color: #409eff;
+			}
+			.cert-pill-muted {
+				background: #f4f4f5;
+				border-color: #e9e9eb;
+				color: #909399;
+			}
+			.cert-picker-panel {
+				display: none;
+				position: absolute;
+				left: 0;
+				right: 0;
+				top: calc(100% + 4px);
+				z-index: 19891020;
+				background: #fff;
+				border: 1px solid #e6e6e6;
+				border-radius: 2px;
+				box-shadow: 0 2px 12px rgba(0, 0, 0, .12);
+			}
+			.cert-picker-search {
+				padding: 8px;
+				border-bottom: 1px solid #eee;
+			}
+			.cert-picker-list {
+				max-height: 260px;
+				overflow-y: auto;
+			}
+			.cert-picker-option {
+				display: flex;
+				align-items: flex-start;
+				gap: 8px;
+				padding: 6px 10px;
+				cursor: pointer;
+			}
+			.cert-picker-option:hover,
+			.cert-picker-option.selected {
+				background: #f5f7fa;
+			}
+			.cert-picker-option-main {
+				min-width: 0;
+				flex: 1;
+			}
+			.cert-picker-option-title {
+				display: block;
+				color: #333;
+				line-height: 20px;
+				word-break: break-all;
+			}
+			.cert-picker-option-meta {
+				display: block;
+				color: #999;
+				font-size: 12px;
+				line-height: 18px;
+				font-variant-numeric: tabular-nums;
+			}
+			.cert-picker-empty {
+				padding: 16px 10px;
+				color: #999;
+				font-size: 12px;
+				text-align: center;
+			}
+		</style>
 	</head>
 	<body class="pear-container">
 		<div class="layui-row">
@@ -66,7 +218,20 @@
 			</div>
 			<div class="layui-row layui-col-space10 cert" style="display: none;">
 				<div class="layui-col-md12">
-					<select id="certId" name="certId" lay-verify="certId"></select>
+					<div class="cert-picker" id="certPicker">
+						<input type="hidden" id="certId" name="certId" lay-verify="certId" />
+						<div class="cert-picker-trigger" id="certPickerTrigger">
+							<span class="cert-picker-value" id="certPickerValue">请选择SSL证书</span>
+							<i class="layui-icon layui-icon-down cert-picker-arrow"></i>
+						</div>
+						<div class="cert-picker-panel" id="certPickerPanel">
+							<div class="cert-picker-search">
+								<input type="text" id="certPickerSearch" class="layui-input" placeholder="搜索域名或颁发机构" autocomplete="off" />
+							</div>
+							<div class="cert-picker-list" id="certPickerList"></div>
+						</div>
+					</div>
+					<div class="layui-form-mid layui-word-aux" style="padding-left: 0;">仅显示有效期内的证书；当前绑定的失效证书会保留并标记，请尽快更换。</div>
 				</div>
 			</div>
 
@@ -122,6 +287,9 @@
 				var popup = layui.popup;
 				var tag = layui.tag;
 				var $ = layui.$;
+				var certData = [];
+				var certSelectedId = '';
+				var siteLayerIndex = null;
 
 				function tagRender() {
 					tag.render("serverNames", {
@@ -129,28 +297,328 @@
 					});
 				}
 
+				function certTitleText(item) {
+					return item.certName || item.domainName || '';
+				}
+
+				function certMetaText(item) {
+					var parts = [];
+					if (item.expirationDate) {
+						parts.push('有效期至 ' + item.expirationDate);
+					}
+					if ((item.status === 'valid' || item.status === 'expiring') && item.daysLeft !== null && item.daysLeft !== undefined) {
+						parts.push('剩余 ' + Math.max(0, item.daysLeft) + ' 天');
+					}
+					return parts.join(' · ');
+				}
+
+				// 剩余天数按紧急度着色，颜色复用 layui 提供的字体工具类
+				function certDaysClass(item) {
+					if ((item.status !== 'valid' && item.status !== 'expiring')
+						|| item.daysLeft === null || item.daysLeft === undefined) {
+						return '';
+					}
+
+					var days = Math.max(0, item.daysLeft);
+					if (days <= 7) {
+						return 'layui-font-red';
+					}
+					if (days <= 30) {
+						return 'layui-font-orange';
+					}
+					return '';
+				}
+
+				// 第二行：有效期 + 剩余天数，天数单独着色，便于按紧急度扫读
+				function appendCertMeta($target, item) {
+					var showDays = (item.status === 'valid' || item.status === 'expiring')
+						&& item.daysLeft !== null && item.daysLeft !== undefined;
+
+					if (item.expirationDate) {
+						$target.append(document.createTextNode('有效期至 ' + item.expirationDate));
+						if (showDays) {
+							$target.append(document.createTextNode(' · '));
+						}
+					}
+
+					if (showDays) {
+						$('<span>').addClass(certDaysClass(item))
+							.text('剩余 ' + Math.max(0, item.daysLeft) + ' 天')
+							.appendTo($target);
+					}
+				}
+
+				function certPills(item) {
+					var pills = [];
+					if (item.isCurrentBound) {
+						pills.push({text: '当前绑定', cls: 'cert-pill-info'});
+					}
+					if (item.status === 'valid') {
+						pills.push({text: '有效', cls: 'cert-pill-success'});
+					} else if (item.status === 'expiring') {
+						pills.push({text: '即将到期', cls: 'cert-pill-warning'});
+					} else if (item.status === 'expired') {
+						pills.push({text: '已过期', cls: 'cert-pill-danger'});
+					} else if (item.reason === 'missing_files') {
+						pills.push({text: '文件缺失', cls: 'cert-pill-danger'});
+					} else if (item.reason === 'not_effective') {
+						pills.push({text: '尚未生效', cls: 'cert-pill-warning'});
+					} else if (item.reason === 'invalid_date') {
+						pills.push({text: '日期异常', cls: 'cert-pill-muted'});
+					} else {
+						pills.push({text: '不可用', cls: 'cert-pill-muted'});
+					}
+					return pills;
+				}
+
+				function certPillsText(item) {
+					var text = [];
+					$.each(certPills(item), function(i, pill) {
+						text.push(pill.text);
+					});
+					return text.join(' ');
+				}
+
+				function appendCertPills($target, item) {
+					$.each(certPills(item), function(i, pill) {
+						$('<span>').addClass('cert-pill ' + pill.cls).text(pill.text).appendTo($target);
+					});
+				}
+
+				function renderCertTrigger(item) {
+					var $value = $('#certPickerValue').empty();
+					if (!item) {
+						$value.text('请选择SSL证书');
+						$('#certPickerTrigger').removeClass('has-value');
+						return;
+					}
+
+					var $pills = $('<span class="cert-picker-pills">');
+					appendCertPills($pills, item);
+					$value.append($pills);
+					$('<span class="cert-picker-value-text">').text(certTitleText(item)).appendTo($value);
+
+					if (certMetaText(item)) {
+						var $meta = $('<span class="cert-picker-value-meta">');
+						appendCertMeta($meta, item);
+						$meta.appendTo($value);
+					}
+					$('#certPickerTrigger').addClass('has-value');
+				}
+
+				function renderCertList(keyword) {
+					var $list = $('#certPickerList').empty();
+					keyword = $.trim(keyword || '').toLowerCase();
+
+					if (!certData.length) {
+						$('<div class="cert-picker-empty">').text('暂无可用证书，请先到证书管理添加或申请').appendTo($list);
+						return;
+					}
+
+					var visible = 0;
+					$.each(certData, function(i, item) {
+						var searchText = (certTitleText(item) + ' ' + certMetaText(item) + ' ' + certPillsText(item)).toLowerCase();
+						if (keyword && searchText.indexOf(keyword) < 0) {
+							return;
+						}
+
+						visible++;
+						var $option = $('<div class="cert-picker-option">').attr('data-id', item.id);
+						if (String(item.id) === String(certSelectedId)) {
+							$option.addClass('selected');
+						}
+
+						var $pills = $('<span class="cert-picker-pills">');
+						appendCertPills($pills, item);
+						$option.append($pills);
+
+						var $main = $('<div class="cert-picker-option-main">');
+						$('<span class="cert-picker-option-title">').text(certTitleText(item)).appendTo($main);
+						if (certMetaText(item)) {
+							var $meta = $('<span class="cert-picker-option-meta">');
+							appendCertMeta($meta, item);
+							$meta.appendTo($main);
+						}
+						$option.append($main);
+						$list.append($option);
+					});
+
+					if (keyword && visible === 0) {
+						$('<div class="cert-picker-empty">').text('无匹配证书').appendTo($list);
+					}
+				}
+
+				function positionCertPanel() {
+					var trigger = $('#certPickerTrigger')[0];
+					if (!trigger) {
+						return;
+					}
+
+					var $panel = $('#certPickerPanel');
+					var rect = trigger.getBoundingClientRect();
+					var margin = 8;
+					var width = Math.max(rect.width, 320);
+					var left = rect.left;
+					if (left + width > window.innerWidth - margin) {
+						left = window.innerWidth - width - margin;
+					}
+					if (left < margin) {
+						left = margin;
+					}
+
+					var panelHeight = $panel.outerHeight();
+					var spaceBelow = window.innerHeight - rect.bottom - margin;
+					var spaceAbove = rect.top - margin;
+					var openUp = panelHeight > spaceBelow && spaceAbove > spaceBelow;
+
+					$panel.css({
+						position: 'fixed',
+						left: left + 'px',
+						right: 'auto',
+						width: width + 'px',
+						top: openUp ? 'auto' : (rect.bottom + 4) + 'px',
+						bottom: openUp ? (window.innerHeight - rect.top + 4) + 'px' : 'auto'
+					});
+				}
+
+				function openCertPanel() {
+					if ($('#certPicker').hasClass('open')) {
+						return;
+					}
+
+					var $panel = $('#certPickerPanel');
+					if (!$panel.parent().is('body')) {
+						$panel.appendTo(document.body);
+					}
+
+					$('#certPickerSearch').val('');
+					renderCertList('');
+					$('#certPicker').addClass('open');
+					$panel.show();
+					positionCertPanel();
+
+					setTimeout(function() {
+						$('#certPickerSearch').focus();
+					}, 0);
+				}
+
+				function closeCertPanel() {
+					$('#certPicker').removeClass('open');
+					$('#certPickerPanel').hide();
+				}
+
+				function resizeSiteLayer() {
+					if (!siteLayerIndex) {
+						return;
+					}
+
+					var $layer = $('#layui-layer' + siteLayerIndex);
+					var titleHeight = $layer.find('.layui-layer-title').outerHeight() || 0;
+					var formHeight = $('#id-form-rule').outerHeight() || 0;
+					if (formHeight <= 0) {
+						return;
+					}
+
+					var layerTop = $layer[0].getBoundingClientRect().top;
+					var maxFormHeight = Math.max(240, $(window).height() - layerTop - titleHeight - 24);
+					var targetHeight = Math.min(formHeight, maxFormHeight);
+					layer.style(siteLayerIndex, {height: (targetHeight + titleHeight) + 'px'});
+				}
+
+				function selectCert(item) {
+					certSelectedId = item ? String(item.id) : '';
+					$('#certId').val(certSelectedId).removeClass('layui-form-danger');
+					renderCertTrigger(item || null);
+					renderCertList($('#certPickerSearch').val());
+					closeCertPanel();
+				}
+
 				function listCerts(certId) {
-					$.get('/common/certificate/listcerts',  {}, function(res) {
+					certSelectedId = certId ? String(certId) : '';
+					closeCertPanel();
+					$.get('/common/certificate/listcerts', {validOnly: 1, keepId: certId || ''}, function(res) {
 						if (res && res.code == 200) {
-							var html = '';
-							if (res.data) {
-								$.each(res.data, function(i, item) {
-									html += '<option value="' + item.id + '">' + item.certName + '</option>';
-								});
+							certData = res.data || [];
+							var selected = null;
+							$.each(certData, function(i, item) {
+								if (String(item.id) === certSelectedId) {
+									selected = item;
+									return false;
+								}
+							});
+
+							if (selected) {
+								$('#certId').val(certSelectedId);
+							} else {
+								certSelectedId = '';
+								$('#certId').val('');
 							}
-							$('#certId').html(html);
+
+							renderCertTrigger(selected);
+							renderCertList('');
 
 							if (certId) {
-								$('#certId').val(certId);
 								$(".cert").show();
+								resizeSiteLayer();
 							}
-
-							form.render('select', 'filter-form-rule');
 						} else {
 							popup.failure(res.msg);
 						}
 					}, "json");
 				}
+
+				$('#certPickerTrigger').on('click', function(e) {
+					e.stopPropagation();
+					if ($('#certPicker').hasClass('open')) {
+						closeCertPanel();
+					} else {
+						openCertPanel();
+					}
+				});
+
+				$('#certPickerSearch').on('input', function() {
+					renderCertList(this.value);
+				}).on('keydown', function(e) {
+					if (e.keyCode === 13) {
+						e.preventDefault();
+					}
+				}).on('click', function(e) {
+					e.stopPropagation();
+				});
+
+				$('#certPickerPanel').on('click', function(e) {
+					e.stopPropagation();
+				});
+
+				$('#certPickerList').on('click', '.cert-picker-option', function() {
+					var id = String($(this).attr('data-id'));
+					var selected = null;
+					$.each(certData, function(i, item) {
+						if (String(item.id) === id) {
+							selected = item;
+							return false;
+						}
+					});
+					if (selected) {
+						selectCert(selected);
+					}
+				});
+
+				$(document).on('click.certPicker', function() {
+					closeCertPanel();
+				}).on('keydown.certPicker', function(e) {
+					if (e.keyCode === 27) {
+						closeCertPanel();
+					}
+				}).on('mousedown.certPicker', '.layui-layer-title', function() {
+					closeCertPanel();
+				});
+
+				$(window).on('scroll.certPicker resize.certPicker', function() {
+					if ($('#certPicker').hasClass('open')) {
+						positionCertPanel();
+					}
+				});
 
 				table.render({
 					elem: '#id-table-rules',
@@ -186,7 +654,7 @@
 				});
 
 				function openLayer(title, certId) {
-					layer.open({
+					siteLayerIndex = layer.open({
 						type: 1,
 						title: title,
 						shade: 0.6,
@@ -197,6 +665,11 @@
 							listCerts(certId);
 						},
 						end: function() {
+							siteLayerIndex = null;
+							closeCertPanel();
+							certData = [];
+							certSelectedId = '';
+							renderCertTrigger(null);
 							$("#id-form-rule").trigger("reset");
 							$("#id-form-rule").find("input[type='hidden']").val("");
 							$(".site-row:not(:first)").remove();
@@ -324,8 +797,10 @@
 					if ($(":checkbox[name='ssl']:checked").length > 0) {
 						$(".cert").show();
 					} else {
+						closeCertPanel();
 						$(".cert").hide();
 					}
+					resizeSiteLayer();
 				});
 
 				// 提交事件
