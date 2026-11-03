@@ -16,7 +16,6 @@ local pcall = pcall
 local gsub = string.gsub
 local find = string.find
 local date = os.date
-local remove = os.remove
 local rename = os.rename
 local read_file_to_string = file.read_file_to_string
 local write_string_to_file_atomic = file.write_string_to_file_atomic
@@ -590,7 +589,14 @@ function _M.get_site_fragment(site_id)
         return fragment_template()
     end
 
-    return read_file_to_string(path) or ''
+    -- 读不到时不能返回空串，否则前端会显示空编辑器，容易被当成已清空
+    local content = read_file_to_string(path)
+    if content == nil then
+        ngx.log(ngx.ERR, "failed to read site fragment ", path)
+        return nil, '读取自定义配置失败，请稍后重试'
+    end
+
+    return content
 end
 
 -- 保存：校验 -> 写入 -> 生成 -> nginx -t -> 失败回滚 -> 重载
@@ -624,7 +630,12 @@ function _M.save_site_fragment(site_id, content)
         return {code = 500, msg = '保存自定义配置失败，请检查站点配置目录权限'}
     end
 
+    -- ensure 之后文件必然存在，读不到说明权限或占用异常，继续写会把旧内容丢掉
     local old_content = read_file_to_string(path)
+    if old_content == nil then
+        ngx.log(ngx.ERR, "failed to read site fragment ", path)
+        return {code = 500, msg = '读取现有自定义配置失败，请稍后重试'}
+    end
     local old_conf = read_file_to_string(SITES_CONF_PATH)
 
     -- 空内容保留模板说明
@@ -640,12 +651,7 @@ function _M.save_site_fragment(site_id, content)
 
     -- 片段与 sites.conf 必须一起回滚
     local function rollback()
-        local ok, err
-        if old_content then
-            ok, err = write_string_to_file_atomic(path, old_content)
-        else
-            ok, err = remove(path)
-        end
+        local ok, err = write_string_to_file_atomic(path, old_content)
         if not ok then
             ngx.log(ngx.ERR, "failed to restore site fragment ", path, ": ", tostring(err))
         end
