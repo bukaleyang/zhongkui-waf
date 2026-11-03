@@ -266,6 +266,21 @@
 			</div>
 		</form>
 
+		<form class="layui-form" style="background-color:#fff;padding: 10px 15px;display: none;" id="id-form-adv">
+			<blockquote class="layui-elem-quote" style="line-height: 24px; margin-bottom: 10px;">
+				可以为站点补充 nginx 配置，例如上传大小、超时时间、请求头等。<br>
+				为保障站点安全，此处不支持修改监听端口、域名、证书以及 WAF 相关指令。<br>
+				高级配置独立保存、立即生效，与站点基本信息（域名、证书、上游地址）互不影响。<br>
+				保存时会立即校验，如果配置有误，将自动恢复为修改前的内容。
+			</blockquote>
+			<div id="advConfigSites" style="display: none; margin-bottom: 10px; padding: 0 2px; color: #666; font-size: 12px; line-height: 20px; word-break: break-all;"></div>
+			<textarea id="advConfigText" class="layui-textarea" style="min-height: 200px; font-family: Consolas, Monaco, monospace; line-height: 20px;" placeholder="# 示例：&#10;client_max_body_size 200m;&#10;proxy_read_timeout 300s;"></textarea>
+			<div style="text-align: right; margin-top: 10px;">
+				<button type="button" class="pear-btn pear-btn-primary" id="advConfigSave">保存</button>
+				<button type="button" class="pear-btn" id="advConfigCancel">取消</button>
+			</div>
+		</form>
+
 		<script type="text/html" id="user_toolbar">
 			<button class="pear-btn pear-btn-primary pear-btn-md" lay-event="add">
 				<i class="layui-icon layui-icon-add-1"></i>
@@ -273,8 +288,9 @@
 			</button>
 		</script>
 		<script type="text/html" id="rule_bar">
-			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i></button>
-			<button class="pear-btn pear-btn-danger pear-btn-xs" lay-event="remove"><i class="layui-icon layui-icon-delete"></i></button>
+			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="edit" title="编辑站点"><i class="layui-icon layui-icon-edit"></i></button>
+			<button class="pear-btn pear-btn-xs" lay-event="adv" title="高级配置"><i class="layui-icon layui-icon-set"></i></button>
+			<button class="pear-btn pear-btn-danger pear-btn-xs" lay-event="remove" title="删除站点"><i class="layui-icon layui-icon-delete"></i></button>
 		</script>
 
 		<script src="../component/layui/layui.js"></script>
@@ -290,6 +306,7 @@
 				var certData = [];
 				var certSelectedId = '';
 				var siteLayerIndex = null;
+				var advLayerIndex = null;
 
 				function tagRender() {
 					tag.render("serverNames", {
@@ -507,23 +524,230 @@
 					$('#certPickerPanel').hide();
 				}
 
-				function resizeSiteLayer() {
-					if (!siteLayerIndex) {
-						return;
+				// 证书区域显隐，与 SSL 开关状态保持一致
+				function setCertVisible(visible) {
+					if (visible) {
+						$(".cert").show();
+					} else {
+						closeCertPanel();
+						$(".cert").hide();
 					}
-
-					var $layer = $('#layui-layer' + siteLayerIndex);
-					var titleHeight = $layer.find('.layui-layer-title').outerHeight() || 0;
-					var formHeight = $('#id-form-rule').outerHeight() || 0;
-					if (formHeight <= 0) {
-						return;
-					}
-
-					var layerTop = $layer[0].getBoundingClientRect().top;
-					var maxFormHeight = Math.max(240, $(window).height() - layerTop - titleHeight - 24);
-					var targetHeight = Math.min(formHeight, maxFormHeight);
-					layer.style(siteLayerIndex, {height: (targetHeight + titleHeight) + 'px'});
 				}
+
+				// 按内容自适应弹窗高度：放得下就贴合内容，超出可视区才限高并出现滚动条
+				function resizeSiteLayer(index) {
+					var idx = index || siteLayerIndex;
+					if (!idx) {
+						return;
+					}
+
+					var $layer = $('#layui-layer' + idx);
+					var $content = $layer.find('.layui-layer-content');
+					var $form = $('#id-form-rule');
+					if (!$layer.length || !$content.length || !$form.length || $form.outerHeight() <= 0) {
+						return;
+					}
+
+					// 先解除 layui 创建时锁定的像素高度，让内容自己撑开
+					$layer.css('height', 'auto');
+					$content.css('height', '');
+
+					var titleHeight = $layer.find('.layui-layer-title').outerHeight() || 0;
+					// 上下各留 24px 边距，弹窗整体不越出可视区
+					var maxContentHeight = Math.max(240, $(window).height() - titleHeight - 48);
+
+					if ($content.outerHeight() > maxContentHeight) {
+						$content.css('height', maxContentHeight + 'px');
+						$layer.css('height', (maxContentHeight + titleHeight) + 'px');
+					}
+
+					// 高度变化后重新垂直居中，避免底部被裁掉
+					var layerHeight = $layer.outerHeight() || 0;
+					$layer.css('top', Math.max(0, Math.round(($(window).height() - layerHeight) / 2)) + 'px');
+				}
+
+				function escapeHtml(text) {
+					return String(text == null ? '' : text)
+						.replace(/&/g, '&amp;')
+						.replace(/</g, '&lt;')
+						.replace(/>/g, '&gt;')
+						.replace(/"/g, '&quot;')
+						.replace(/'/g, '&#39;');
+				}
+
+				// popup.success 固定只显示 1 秒，保存类提示看不清，这里单独给足 2.5 秒
+				function showSuccess(msg) {
+					layer.msg(msg || '操作成功', {icon: 1, time: 2500});
+				}
+
+				// 校验失败时把 nginx 的原始报错展示出来，便于直接定位到具体行
+				function showAdvError(msg, detail) {
+					var html = '<div style="padding: 12px 16px; line-height: 24px;">'
+						+ '<div style="color:#f56c6c; margin-bottom: 8px;">' + escapeHtml(msg || '配置校验失败') + '</div>';
+
+					if (detail) {
+						html += '<pre style="max-height:300px; overflow:auto; background:#f7f7f7; padding:10px; font-size:12px; line-height:18px; white-space:pre-wrap; word-break:break-all;">'
+							+ escapeHtml(detail) + '</pre>';
+					}
+
+					html += '</div>';
+
+					layer.open({
+						type: 1,
+						title: '保存失败',
+						shade: 0.6,
+						area: ['660px', 'auto'],
+						content: html
+					});
+				}
+
+				// 高级配置：编辑指定站点的自定义 nginx 片段
+				var advSiteId = null;
+				var advDirty = false;
+
+				function advArea() {
+					var width = Math.min(780, Math.max(320, $(window).width() - 40));
+					var textHeight = Math.min(420, Math.max(200, $(window).height() - 340));
+					$('#advConfigText').css('height', textHeight + 'px');
+					return [width + 'px', 'auto'];
+				}
+
+				function confirmDiscardAdv(callback) {
+					if (!advDirty) {
+						callback();
+						return;
+					}
+
+					layer.confirm('有未保存的修改，确定放弃吗？', {
+						icon: 3,
+						title: '提示'
+					}, function (index) {
+						layer.close(index);
+						callback();
+					});
+				}
+
+				// 单个域名直接显示，多个域名取第一个并带上数量
+				function siteDisplayName(data) {
+					var names = (data && data.serverNames) || [];
+					if (!names.length) {
+						return '';
+					}
+
+					return names.length > 1 ? (names[0] + ' 等 ' + names.length + ' 个域名') : names[0];
+				}
+
+				// 多域名站点在正文里列出全部域名
+				function renderAdvSites(serverNames) {
+					var names = serverNames || [];
+					if (names.length > 1) {
+						$('#advConfigSites').text('生效站点：' + names.join('、')).show();
+					} else {
+						$('#advConfigSites').hide().text('');
+					}
+				}
+
+				function openAdvConfig(siteId, siteName, serverNames) {
+					var id = parseInt(siteId, 10);
+					if (!id) {
+						popup.warning('站点信息有误，请刷新后重试');
+						return;
+					}
+
+					var loading = layer.load(1, {shade: [0.3, '#000']});
+					$.get('/sites/custom/get', {id: id}, function (res) {
+						layer.close(loading);
+
+						if (!res || res.code != 200) {
+							popup.failure((res && res.msg) || '读取配置失败');
+							return;
+						}
+
+						advSiteId = id;
+						advDirty = false;
+						renderAdvSites(serverNames);
+						$('#advConfigText').val((res.data && res.data.content) || '');
+						advLayerIndex = layer.open({
+							type: 1,
+							title: '高级配置' + (siteName ? ' - ' + escapeHtml(siteName) : ''),
+							shade: 0.6,
+							shadeClose: false,
+							area: advArea(),
+							content: $('#id-form-adv'),
+							success: function (layero, index, that) {
+								// 遮罩层点击与右上角关闭保持一致：有未保存修改时先确认
+								if (that && that.shadeo) {
+									that.shadeo.on('click', function () {
+										confirmDiscardAdv(function () {
+											layer.close(index);
+										});
+									});
+								}
+							},
+							cancel: function () {
+								if (advDirty) {
+									confirmDiscardAdv(function () {
+										layer.close(advLayerIndex);
+									});
+									return false;
+								}
+							},
+							end: function () {
+								advLayerIndex = null;
+								advSiteId = null;
+								advDirty = false;
+								$('#advConfigText').val('');
+							}
+						});
+					}, 'json').fail(function () {
+						layer.close(loading);
+						popup.failure('读取配置失败');
+					});
+				}
+
+				$('#advConfigText').on('input propertychange', function () {
+					advDirty = true;
+				});
+
+				$('#advConfigCancel').on('click', function () {
+					confirmDiscardAdv(function () {
+						if (advLayerIndex !== null) {
+							layer.close(advLayerIndex);
+						}
+					});
+				});
+
+				$('#advConfigSave').on('click', function () {
+					if (!advSiteId) {
+						return;
+					}
+
+					var $btn = $(this).prop('disabled', true);
+					var loading = layer.load(1, {shade: [0.3, '#000']});
+
+					$.post('/sites/custom/save', {
+						id: advSiteId,
+						content: $('#advConfigText').val()
+					}, function (res) {
+						layer.close(loading);
+						$btn.prop('disabled', false);
+
+						if (res && res.code == 200) {
+							advDirty = false;
+							if (advLayerIndex !== null) {
+								layer.close(advLayerIndex);
+							}
+							showSuccess(res.msg || '已保存');
+							return;
+						}
+
+						showAdvError((res && res.msg) || '保存失败', res && res.detail);
+					}, 'json').fail(function () {
+						layer.close(loading);
+						$btn.prop('disabled', false);
+						popup.failure('请求失败，请重试');
+					});
+				});
 
 				function selectCert(item) {
 					certSelectedId = item ? String(item.id) : '';
@@ -558,9 +782,14 @@
 							renderCertList('');
 
 							if (certId) {
-								$(".cert").show();
-								resizeSiteLayer();
+								setCertVisible(true);
 							}
+
+							resizeSiteLayer();
+							// 布局稳定后再校正一次，避免按渲染前的旧内容计算高度
+							setTimeout(function() {
+								resizeSiteLayer();
+							}, 0);
 						} else {
 							popup.failure(res.msg);
 						}
@@ -644,7 +873,7 @@
 							}
 						}},
 						{field: 'description', title: '备注', minWidth: 200},
-						{fixed: 'right', title:'操作', width: 110, minWidth: 110, toolbar: '#rule_bar'}
+						{fixed: 'right', title:'操作', width: 150, minWidth: 150, toolbar: '#rule_bar'}
 					]],
 					toolbar: '#user_toolbar',
 					css:'.layui-form{margin-top:0px;}',
@@ -654,6 +883,9 @@
 				});
 
 				function openLayer(title, certId) {
+					// 先显示证书区域，让弹窗初始高度就包含它
+					setCertVisible(!!certId || $(":checkbox[name='ssl']:checked").length > 0);
+
 					siteLayerIndex = layer.open({
 						type: 1,
 						title: title,
@@ -661,8 +893,13 @@
 						shadeClose: true,
 						area: ['620px', 'auto'],
 						content: $('#id-form-rule'),
-						success: function() {
+						success: function(layero, index) {
+							siteLayerIndex = index;
 							listCerts(certId);
+							// 等弹层完成定位后再校正高度
+							setTimeout(function() {
+								resizeSiteLayer(index);
+							}, 0);
 						},
 						end: function() {
 							siteLayerIndex = null;
@@ -675,7 +912,9 @@
 							$(".site-row:not(:first)").remove();
 							$('#serverNames').find('button:not(:last)').remove();
 							tagRender();
-							$(".cert").hide();
+							setCertVisible(false);
+							// 复位后重新渲染，保证下次打开时开关状态与实际值一致
+							form.render(null, 'filter-form-rule');
 						}
 					});
 				}
@@ -719,8 +958,10 @@
 
 						form.val('filter-form-rule', data);
 						form.render(null, 'filter-form-rule');
-						
+
 						openLayer('编辑站点', certId);
+					} else if(obj.event === 'adv') {
+						openAdvConfig(data.id, siteDisplayName(data), data.serverNames);
 					} else if(obj.event === 'remove') {
 						layer.confirm('确定删除该站点吗？', {
 							icon: 3,
@@ -732,6 +973,9 @@
 									obj.del(); // 删除对应行（tr）的 DOM 结构，并更新缓存
 									table.reloadData('id-table-rules');
 									layer.close(index);
+									if (resData.msg) {
+										layer.msg(resData.msg, {icon: 0, time: 3000});
+									}
 									return true;
 								} else {
 									popup.failure(resData.msg);
@@ -763,6 +1007,7 @@
 							newSite.find(":checkbox[name='ssl']").prop("checked", false);
 							$('#addSiteRow').before(newSite);
 							form.render(null, 'filter-form-rule');
+							resizeSiteLayer();
 						} else {
 							popup.failure("最多添加3个监听端口");
 						}
@@ -771,6 +1016,7 @@
 						var count = $('.site-row').length;
 						if (count > 1) {
 							$(this).closest(".layui-row").remove();
+							resizeSiteLayer();
 						} else {
 							popup.failure("至少添加一个监听端口");
 						}
@@ -794,12 +1040,7 @@
 				});
 
 				form.on('switch(filter-switch-ssl)', function(data) {
-					if ($(":checkbox[name='ssl']:checked").length > 0) {
-						$(".cert").show();
-					} else {
-						closeCertPanel();
-						$(".cert").hide();
-					}
+					setCertVisible($(":checkbox[name='ssl']:checked").length > 0);
 					resizeSiteLayer();
 				});
 
@@ -836,7 +1077,7 @@
 						if (data && data.code == 200) {
 							table.reloadData('id-table-rules');
 							layer.closeLast('page');
-							popup.success("已保存");
+							showSuccess("已保存");
 							return true;
 						} else {
 							popup.failure(data.msg);
@@ -865,12 +1106,19 @@
 				});
 
 				$(function(){
-					// 阻止回车触发表单提交
+					// 阻止回车触发表单提交；textarea 里的回车必须放行，否则无法换行
 					$(document).on('keydown', function (e) {
-						if (e.keyCode === 13) {
-							e.preventDefault();
-							return false;
+						if (e.keyCode !== 13) {
+							return;
 						}
+
+						var tag = (e.target && e.target.tagName ? e.target.tagName : '').toLowerCase();
+						if (tag === 'textarea') {
+							return;
+						}
+
+						e.preventDefault();
+						return false;
 					});
 				});
 			});

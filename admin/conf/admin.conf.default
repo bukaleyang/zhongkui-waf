@@ -4,6 +4,9 @@ server {
 
     charset utf-8;
 
+    # 让自定义 nginx 片段等表单提交尽量留在内存中（超过阈值仍需读取临时文件）
+    client_body_buffer_size 128k;
+
     #access_log  logs/zhongkui.access.log  main;
 
     # path-to-zhongkui-waf/admin

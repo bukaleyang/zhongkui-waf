@@ -474,8 +474,33 @@ local function build_nginx_command(action)
     return command
 end
 
+-- Linux 下给外部命令加超时，避免 nginx/sudo 异常时阻塞整个 worker
+local timeout_checked = false
+local has_timeout = false
+local function with_timeout(command)
+    if not is_linux() then
+        return command
+    end
+
+    if not timeout_checked then
+        local handle = io.popen('command -v timeout 2>/dev/null')
+        if handle then
+            local path = handle:read('*a')
+            handle:close()
+            has_timeout = path ~= nil and path ~= ''
+        end
+        timeout_checked = true
+    end
+
+    if has_timeout then
+        return 'timeout 10 ' .. command
+    end
+
+    return command
+end
+
 function _M.test_nginx_config()
-    local command = build_nginx_command('-t')
+    local command = with_timeout(build_nginx_command('-t'))
     local result = os.execute(command)
     local success = (result == true or result == 0)
     if success then
@@ -486,12 +511,50 @@ function _M.test_nginx_config()
     return success
 end
 
-function _M.reload_nginx()
-    if not _M.test_nginx_config() then
+-- 执行 nginx -t 并返回详细输出，用于把语法错误回显到管理界面
+function _M.test_nginx_config_detail()
+    local command = with_timeout(build_nginx_command('-t'))
+    local handle = io.popen(command .. ' 2>&1')
+    if not handle then
+        return _M.test_nginx_config(), ""
+    end
+
+    local output = handle:read('*a') or ""
+    handle:close()
+
+    local passed
+    -- 先判断失败标记，避免配置值里恰好包含 "test is successful" 时被误判为通过
+    if string.find(output, "test failed", 1, true)
+        or string.find(output, "[emerg]", 1, true)
+        or string.find(output, "[error]", 1, true) then
+        passed = false
+    elseif string.find(output, "test is successful", 1, true) then
+        passed = true
+    elseif string.find(output, "syntax is ok", 1, true) then
+        passed = true
+    elseif output == "" then
+        -- popen 不可用时退回只返回布尔值的实现
+        passed = _M.test_nginx_config()
+    else
+        passed = false
+    end
+
+    if passed then
+        ngx.log(ngx.INFO, "nginx configuration test succeeded.")
+    else
+        ngx.log(ngx.ERR, "nginx configuration test failed: ", output)
+    end
+
+    return passed, output
+end
+
+-- skip_test 为 true 表示调用方已经执行过 nginx -t，避免同一流程重复校验
+function _M.reload_nginx(skip_test)
+    if not skip_test and not _M.test_nginx_config() then
         return false, "nginx -t failed"
     end
 
-    local command = build_nginx_command('-s reload')
+    local command = with_timeout(build_nginx_command('-s reload'))
     local result = os.execute(command)
     local success = (result == true or result == 0)
     if success then
@@ -503,8 +566,8 @@ function _M.reload_nginx()
     return false, "nginx -s reload failed: " .. tostring(result)
 end
 
-function _M.reload_config_file()
-    return _M.reload_nginx()
+function _M.reload_config_file(skip_test)
+    return _M.reload_nginx(skip_test)
 end
 
 return _M

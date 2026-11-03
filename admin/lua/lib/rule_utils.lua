@@ -201,41 +201,46 @@ function _M.save_or_update_rule(file_path, rule_new)
     return response
 end
 
--- 删除规则
-function _M.delete_rule(file_path)
+-- 删除规则（id 可由调用方传入，避免解析过一次 body 后再次调用 get_post_args）
+function _M.delete_rule(file_path, rule_id)
     local response = { code = 200, data = {}, msg = "" }
 
     if file_path then
-        ngx.req.read_body()
-        local args, err = ngx.req.get_post_args()
+        if rule_id == nil then
+            ngx.req.read_body()
+            local args, err = ngx.req.get_post_args()
+            if not args then
+                response.code = 500
+                response.msg = err
+            end
+            rule_id = args and args['id']
+        end
 
-        if args then
-            local id = tonumber(args['id'])
-            if id then
-                local json = read_file_to_string(file_path)
+        local id = tonumber(rule_id)
 
-                if json then
-                    local rule_table = cjson_decode(json)
-                    local rules = rule_table.rules
+        if id then
+            local json = read_file_to_string(file_path)
 
-                    if rules then
-                        for k, v in pairs(rules) do
-                            if tonumber(v.id) == id then
-                                remove(rules, k)
-                                break
-                            end
+            if json then
+                local rule_table = cjson_decode(json)
+                local rules = rule_table.rules
+
+                if rules then
+                    for k, v in pairs(rules) do
+                        if tonumber(v.id) == id then
+                            remove(rules, k)
+                            break
                         end
                     end
-
-                    save_rule_file(file_path, rule_table, response)
                 end
-            else
+
+                save_rule_file(file_path, rule_table, response)
+            end
+        else
+            if response.code == 200 then
                 response.code = 500
                 response.msg = 'param id is empty'
             end
-        else
-            response.code = 500
-            response.msg = err
         end
     else
         response.code = 500
