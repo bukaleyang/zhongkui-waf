@@ -575,9 +575,9 @@
 						.replace(/'/g, '&#39;');
 				}
 
-				// popup.success 固定只显示 1 秒，保存类提示看不清，这里单独给足 2.5 秒
+				// popup.success 固定只显示 1 秒，保存类提示看不清，这里给 2 秒
 				function showSuccess(msg) {
-					layer.msg(msg || '操作成功', {icon: 1, time: 2500});
+					layer.msg(msg || '操作成功', {icon: 1, time: 2000});
 				}
 
 				// 校验失败时把 nginx 的原始报错展示出来，便于直接定位到具体行
