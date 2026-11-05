@@ -160,7 +160,6 @@
 				display: flex;
 				align-items: center;
 				gap: 12px;
-				padding-left: 10px;
 			}
 			/* layui 的开关自带 margin-top，flex 布局下会与文字错位 */
 			.force-https-row .layui-form-switch {
@@ -207,14 +206,14 @@
 						</div>
 						<div class="layui-col-md4">
 							<div class="layui-input-inline" style="width: 70%;">
-								<label class="layui-form-label" style="width: 30px;">SSL</label>
+								<label class="layui-form-label" style="width: 50px; padding-left: 0; padding-right: 8px;">HTTPS</label>
 								<input type="checkbox" name="ssl" lay-skin="switch" lay-filter="filter-switch-ssl" title="ON|OFF" />
 							</div>
 							<i class="layui-icon layui-icon-delete" style="cursor: pointer;vertical-align: middle;" lay-on="removeSite"></i>
 						</div>
 					</div>
 					<div class="layui-row layui-col-space10" id="addSiteRow">
-						<div class="layui-col-md12 layui-col-sm12" style="padding-left: 10px;" >
+						<div class="layui-col-md12 layui-col-sm12">
 							<button type="button" class="pear-btn pear-btn-primary pear-btn-xs" lay-on="addSite">
 								<i class="layui-icon layui-icon-add-1"></i>添加监听端口
 							</button> 最多可添加3个端口
@@ -1076,8 +1075,25 @@
 					}
 				});
 
+				// 新增站点默认带上 80（明文）与 443（HTTPS）
+				function initAddSiteRows() {
+					$('.site-row:not(:first)').remove();
+
+					var first = $('.site-row:first');
+					first.find(':text[name="port"]').val('80');
+					first.find(':checkbox[name="ssl"]').prop('checked', false);
+
+					var second = first.clone();
+					second.find(':text[name="port"]').val('443');
+					second.find(':checkbox[name="ssl"]').prop('checked', true);
+					first.after(second);
+				}
+
 				table.on('toolbar(filter-table-rules)', function(obj) {
 					if (obj.event === 'add') {
+						initAddSiteRows();
+						refreshRowSslState();
+						form.render(null, 'filter-form-rule');
 						openLayer('添加站点');
 					} else if (obj.event === 'refresh') {
 						table.reload('id-table-rules');
