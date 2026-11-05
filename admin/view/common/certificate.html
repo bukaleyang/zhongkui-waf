@@ -6,8 +6,13 @@
 		<title>证书管理</title>
 		<link href="../../component/pear/css/pear.css" rel="stylesheet">
 		<style>
-			/* 自动续期开关与说明文字同一行，去掉 switch 默认的上边距 */
-			#form_acme .layui-form-switch {
+			#form_acme .auto-renew-row {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				min-height: 38px;
+			}
+			#form_acme .auto-renew-row .layui-form-switch {
 				margin-top: 0;
 			}
 		</style>
@@ -115,7 +120,7 @@
 			<div class="layui-form-item">
 				<label class="layui-form-label">自动续期</label>
 				<div class="layui-input-block">
-					<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+					<div class="auto-renew-row">
 						<input type="checkbox" name="autoRenew" lay-skin="switch" lay-text="开启|关闭" checked>
 						<span class="layui-word-aux" id="auto_renew_tip">开启后，到期前 <span id="auto_renew_days">30</span> 天自动续期</span>
 					</div>
