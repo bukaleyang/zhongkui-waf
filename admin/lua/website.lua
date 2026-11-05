@@ -9,8 +9,13 @@ local rule_utils = require "lib.rule_utils"
 local site_config = require "lib.site_config"
 
 local cjson_encode = cjson.encode
+local cjson_decode = cjson.decode
 local read_file_to_string = file.read_file_to_string
 local write_string_to_file_atomic = file.write_string_to_file_atomic
+local format = string.format
+local match = string.match
+local gsub = string.gsub
+local concat = table.concat
 
 local _M = {}
 
@@ -58,6 +63,128 @@ local function get_post_args()
     end
 
     return body and ngx.decode_args(body, 0) or nil
+end
+
+-- 端口必须是 1-65535 的整数，非法值会生成加载不了的配置
+local function parse_port(value)
+    local text = tostring(value == nil and '' or value)
+    if not match(text, '^%d+$') then
+        return nil
+    end
+
+    local port = tonumber(text)
+    if not port or port < 1 or port > 65535 then
+        return nil
+    end
+
+    return port
+end
+
+-- 站点结构校验：任何一项不合法都会生成死站（80 返回 404 且 443 未监听），保存前拦住
+local function validate_site(rule)
+    if type(rule) ~= 'table' then
+        return '参数错误'
+    end
+
+    if type(rule.serverNames) ~= 'table' or #rule.serverNames == 0 then
+        return '请至少配置一个域名'
+    end
+
+    for _, name in ipairs(rule.serverNames) do
+        if type(name) ~= 'string' or gsub(name, '%s+', '') == '' then
+            return '域名不能为空'
+        end
+    end
+
+    if type(rule.upstream) ~= 'string' or not match(rule.upstream, '^https?://%S+$') then
+        return '后端地址必须以 http:// 或 https:// 开头'
+    end
+
+    local ports = rule.listenPorts
+    if type(ports) ~= 'table' or #ports == 0 then
+        return '请至少配置一个监听端口'
+    end
+
+    local seen = {}
+    local hasSslPort = false
+    for _, item in ipairs(ports) do
+        local port = type(item) == 'table' and parse_port(item.port)
+        if not port then
+            return '监听端口必须是 1-65535 之间的数字'
+        end
+
+        if seen[port] then
+            return format('监听端口 %d 重复，请删除多余的一项', port)
+        end
+
+        seen[port] = true
+        -- 归一化，避免 "080" 被生成阶段当成非 80 的明文端口
+        item.port = tostring(port)
+
+        local isSSL = (item.ssl == 'on' or item.ssl == true)
+        if isSSL and port == 80 then
+            return '80 端口由系统统一管理，不能启用 SSL'
+        end
+
+        hasSslPort = hasSslPort or isSSL
+    end
+
+    -- 证书不可用时生成阶段会跳过 HTTPS 端口，站点将完全不可访问
+    if hasSslPort and not site_config.is_cert_usable(rule.certId) then
+        return 'HTTPS 端口需要绑定可用证书，请重新选择证书'
+    end
+
+    if (rule.forceHttps == 'on' or rule.forceHttps == true) and not hasSslPort then
+        return '开启强制 HTTPS 前请先配置 HTTPS 端口并绑定证书'
+    end
+
+    return nil
+end
+
+-- 读取站点原值（整对象替换的保存方式下用来补齐缺省字段/记审计日志）
+local function get_old_site(old_json, site_id)
+    site_id = tonumber(site_id)
+    if not site_id or not old_json then
+        return nil
+    end
+
+    local ok, data = pcall(cjson_decode, old_json)
+    if not ok or type(data) ~= 'table' or type(data.rules) ~= 'table' then
+        return nil
+    end
+
+    for _, item in pairs(data.rules) do
+        if tonumber(item.id) == site_id then
+            return item
+        end
+    end
+
+    return nil
+end
+
+-- 请求未带 forceHttps 时沿用原值，避免第三方调用保存接口时把开关静默清空
+local function inherit_force_https(old_json, rule)
+    if rule.forceHttps ~= nil then
+        return
+    end
+
+    local old_site = get_old_site(old_json, rule.id)
+    if old_site then
+        rule.forceHttps = old_site.forceHttps
+    end
+end
+
+-- 监听端口的可读描述，用于审计日志
+local function ports_text(ports)
+    local items = {}
+    for _, item in ipairs(type(ports) == 'table' and ports or {}) do
+        if type(item) == 'table' then
+            local ssl = (item.ssl == 'on' or item.ssl == true) and '/ssl' or ''
+            items[#items + 1] = tostring(item.port) .. ssl
+        end
+    end
+
+    return concat(items, ',')
 end
 
 -- 生成、校验并重载
@@ -165,9 +292,28 @@ function _M.do_request()
             response.code = 400
             response.msg = '参数错误'
         else
-            newRule.mode = 'protection'
-            response = rule_utils.save_or_update_rule(WEBSITES_PATH, newRule)
-            need_reload = true
+            -- 整对象替换：请求未携带 forceHttps 时沿用原值，避免开关被静默清空
+            inherit_force_https(old_sites_json, newRule)
+
+            local invalid = validate_site(newRule)
+            if invalid then
+                response.code = 400
+                response.msg = invalid
+            else
+                newRule.mode = 'protection'
+                response = rule_utils.save_or_update_rule(WEBSITES_PATH, newRule)
+
+                if response.code == 200 then
+                    -- 强制 HTTPS 属安全相关配置，变更留审计日志
+                    local old_site = get_old_site(old_sites_json, newRule.id)
+                    ngx.log(ngx.INFO, format('site save: id=%s names=%s ports=%s forceHttps=%s->%s certId=%s',
+                        tostring(newRule.id), concat(newRule.serverNames or {}, ','),
+                        ports_text(newRule.listenPorts), tostring(old_site and old_site.forceHttps),
+                        tostring(newRule.forceHttps), tostring(newRule.certId)))
+                end
+
+                need_reload = true
+            end
         end
     elseif uri == "/sites/remove" then
         -- 删除站点：片段在重载成功后归档，回滚时才能一起恢复
@@ -179,6 +325,9 @@ function _M.do_request()
 
         if response.code == 200 then
             archive_id = tonumber(site_id)
+            local removed = get_old_site(old_sites_json, site_id)
+            ngx.log(ngx.INFO, format('site remove: id=%s names=%s',
+                tostring(site_id), concat(removed and removed.serverNames or {}, ',')))
         end
 
         need_reload = true
@@ -212,6 +361,9 @@ function _M.do_request()
                     response.msg = '站点已删除，但自定义配置清理失败，请联系管理员检查文件权限'
                 end
             end
+
+            -- 生成告警（端口被跳过、强制 HTTPS 未生效）必须回显，否则站点会静默降级
+            response = site_config.append_warnings(response)
         else
             rollback_sites(old_sites_json, reload_failed)
             response.code = 500

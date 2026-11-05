@@ -8,6 +8,7 @@ local rule_utils = require "lib.rule_utils"
 local nkeys = require "table.nkeys"
 
 local pairs = pairs
+local ipairs = ipairs
 local concat = table.concat
 local format = string.format
 local tostring = tostring
@@ -23,6 +24,9 @@ local cjson_decode = cjson.decode
 
 local _M = {}
 
+-- 最近一次 generate() 产生的告警，调用方（面板保存/重载）可读取后提示运维
+local last_warnings = {}
+
 local WEBSITES_PATH = config.CONF_PATH .. '/website.json'
 local CERTIFICATE_PATH = config.CONF_PATH .. "/certificate.json"
 local SITES_CONF_PATH = config.ZHONGKUI_PATH .. '/admin/conf/sites.conf'
@@ -35,10 +39,21 @@ local FRAGMENT_MAX_SIZE = 16 * 1024
 
 local ACME_CHALLENGE_CONFIG = [[
     location ^~ /.well-known/acme-challenge/ {
+        # 平台 ACME 路径不受自定义配置里的 allow/deny、auth_basic 影响
+        allow all;
+        auth_basic off;
+
         root "%s";
         default_type text/plain;
         try_files $uri =404;
         access_log off;
+    }
+]]
+
+-- HTTP 业务块的 ACME 守卫：在 server-rewrite 阶段截断自定义片段里的 return/rewrite/if
+local HTTP_ACME_GUARD = [[
+    if ($uri ~ ^/\.well-known/acme-challenge/) {
+        break;
     }
 ]]
 
@@ -50,6 +65,7 @@ server {
 
     charset utf-8;
 
+%s
 %s
 %s
 %s
@@ -76,6 +92,38 @@ server {
 %s
     location / {
         return 404;
+    }
+}
+]]
+
+-- 强制 HTTPS 的跳转块：不加载站点片段（片段里的 location 会抢在跳转之前命中）
+local REDIRECT_SERVER_CONFIG = [[
+server {
+%s
+    server_name %s;
+
+    charset utf-8;
+
+    # 跳过 WAF 的 access 阶段，避免验证码/CC 拦截页代替跳转（不能用空块，nginx 会报错）
+    access_by_lua_block { return }
+
+%s
+    location / {
+        return 308 %s;
+    }
+}
+]]
+
+-- 兜底：未命中域名的请求直接断开，避免落到首个站点，也让跳转块无法反射 Host
+local DEFAULT_SERVER_CONFIG = [[
+server {
+    listen 80 default_server;
+    server_name _;
+
+    access_by_lua_block { return }
+
+    location / {
+        return 444;
     }
 }
 ]]
@@ -158,6 +206,33 @@ end
 local function fragment_include(site_id)
     local path = gsub(fragment_path(site_id), '\\', '/')
     return format('\n    # ==== 站点自定义配置：%s ====\n    include "%s";\n', path, path)
+end
+
+-- 强制 HTTPS 的跳转目标：优先 443（不写端口），否则取第一个可用的 ssl 端口
+local function redirect_target(https_ports)
+    local port = https_ports[1]
+    for _, p in ipairs(https_ports) do
+        if p == '443' then
+            port = '443'
+            break
+        end
+    end
+
+    if port == '443' then
+        return 'https://$host$request_uri'
+    end
+
+    return 'https://$host:' .. port .. '$request_uri'
+end
+
+-- 生成 listen 行，options 用于追加 " ssl"
+local function listen_lines(ports, options)
+    local lines = {}
+    for _, port in ipairs(ports) do
+        lines[#lines + 1] = format('    listen %s%s;\n', port, options or '')
+    end
+
+    return concat(lines)
 end
 
 -- 校验站点是否存在
@@ -485,6 +560,8 @@ end
 
 -- 生成站点配置
 function _M.generate()
+    last_warnings = {}
+
     local json = read_file_to_string(WEBSITES_PATH)
     if not json then
         return write_sites_conf_if_changed('')
@@ -516,7 +593,6 @@ function _M.generate()
                 local sslCertConfigStr = ''
                 local cert = nil
                 local challengeConfig = format(ACME_CHALLENGE_CONFIG, ACME_WEBROOT)
-                local hasHttp80 = false
                 local hasSsl80 = false
 
                 for _, p in pairs(site.listenPorts or {}) do
@@ -530,47 +606,99 @@ function _M.generate()
                     sslCertConfigStr = format(SSL_CERT_CONFIG, cert.certPath, cert.keyPath)
                 end
 
-                local listenPortsStr = ''
+                -- 80 恒为明文端口，是否跳转由强制 HTTPS 决定
+                local httpPorts, httpsPorts = {}, {}
+                local hasUser80 = false
                 for _, p in pairs(site.listenPorts or {}) do
                     local isSSL = (p.ssl == 'on' or p.ssl == true)
+                    local port = tostring(p.port)
 
-                    if tostring(p.port) == '80' then
-                        if isSSL then
-                            hasSsl80 = true
-                        else
-                            hasHttp80 = true
+                    if port == '80' then
+                        hasUser80 = true
+                        hasSsl80 = hasSsl80 or isSSL
+                        httpPorts[#httpPorts + 1] = port
+                    elseif isSSL and not cert then
+                        -- 证书不可用时跳过，避免生成加载不了的配置
+                        last_warnings[#last_warnings + 1] = format('站点 %s 的 HTTPS 端口 %s 已跳过：证书不可用',
+                            serverNameStr, port)
+                        ngx.log(ngx.ERR, "site ", serverNameStr, " has no available certificate, skip ssl port ", port)
+                    elseif isSSL then
+                        httpsPorts[#httpsPorts + 1] = port
+                    else
+                        httpPorts[#httpPorts + 1] = port
+                    end
+                end
+
+                local forceHttps = (site.forceHttps == 'on' or site.forceHttps == true)
+                local canRedirect = forceHttps and #httpsPorts > 0
+
+                if forceHttps and not canRedirect then
+                    last_warnings[#last_warnings + 1] = format('站点 %s 的强制 HTTPS 未生效：缺少可用的 HTTPS 端口',
+                        serverNameStr)
+                end
+
+                -- 强制 HTTPS 生效后，明文端口全部改走跳转，避免“只跳 80、8080 仍可明文访问”
+                local redirectPorts = { '80' }
+                if canRedirect then
+                    for _, port in ipairs(httpPorts) do
+                        if port ~= '80' then
+                            redirectPorts[#redirectPorts + 1] = port
                         end
                     end
-
-                    if isSSL and not cert then
-                        -- 没有可用证书时跳过 SSL 端口，避免生成无法加载的配置
-                        ngx.log(ngx.ERR, "site ", serverNameStr, " has no available certificate, skip ssl port ", tostring(p.port))
-                    else
-                        local sslStr = isSSL and ' ssl' or ''
-                        listenPortsStr = listenPortsStr .. '    listen ' .. p.port .. sslStr .. ';\n'
-                    end
+                    httpPorts = {}
+                    sslCertConfigStr = sslCertConfigStr
+                        .. '\n    add_header Strict-Transport-Security "max-age=31536000" always;\n'
                 end
 
-                if listenPortsStr ~= '' then
-                    -- include 与 ACME 必须在 location / 之前，location / 作为兜底
-                    ngxConfig = ngxConfig .. format(NGINX_SERVER_CONFIG, listenPortsStr, serverNameStr,
-                        sslCertConfigStr, fragment_include(site.id), challengeConfig, site.upstream or '')
-                end
-
-                -- 只有 443 或其它端口的站点，额外生成 80 端口验证 server
-                if not hasHttp80 and not hasSsl80 then
+                -- 80 块始终存在：强制 HTTPS 时跳转，未配置 80 时只做证书验证
+                if canRedirect then
+                    local target = redirect_target(httpsPorts)
+                    ngxConfig = ngxConfig .. format(REDIRECT_SERVER_CONFIG, listen_lines(redirectPorts),
+                        serverNameStr, challengeConfig, target)
+                elseif not hasUser80 then
                     ngxConfig = ngxConfig .. format(CHALLENGE_SERVER_CONFIG, serverNameStr, challengeConfig)
-                elseif hasSsl80 and not hasHttp80 then
-                    ngx.log(ngx.ERR, "site ", serverNameStr, " listens on port 80 with ssl, ACME HTTP-01 is unavailable")
+                end
+
+                -- HTTP 业务块
+                if #httpPorts > 0 then
+                    ngxConfig = ngxConfig .. format(NGINX_SERVER_CONFIG, listen_lines(httpPorts), serverNameStr,
+                        '', HTTP_ACME_GUARD, fragment_include(site.id), challengeConfig, site.upstream or '')
+                end
+
+                -- HTTPS 业务块：ACME 只走 80（HTTP-01），这里不需要验证路径
+                if #httpsPorts > 0 then
+                    ngxConfig = ngxConfig .. format(NGINX_SERVER_CONFIG, listen_lines(httpsPorts, ' ssl'), serverNameStr,
+                        sslCertConfigStr, '', fragment_include(site.id), '', site.upstream or '')
+                end
+
+                if hasSsl80 then
+                    last_warnings[#last_warnings + 1] = format('站点 %s 的 80 端口 SSL 标记已忽略', serverNameStr)
+                    ngx.log(ngx.ERR, "site ", serverNameStr, " sets ssl on port 80, the flag is ignored")
                 end
             end
         end
     end
 
-    -- 合并多余空行
-    ngxConfig = gsub(ngxConfig, '\n\n\n+', '\n\n')
+    -- 未命中任何域名的请求直接断开，避免落到首个站点，也让跳转块无法反射 Host
+    ngxConfig = ngxConfig .. DEFAULT_SERVER_CONFIG
 
-    return write_sites_conf_if_changed(ngxConfig)
+    return write_sites_conf_if_changed(gsub(ngxConfig, '\n\n\n+', '\n\n'))
+end
+
+-- 生成告警（端口被跳过、强制 HTTPS 未生效）拼进响应提示，避免静默降级
+function _M.append_warnings(response)
+    if #last_warnings == 0 then
+        return response
+    end
+
+    local text = concat(last_warnings, '；')
+    response.msg = (response.msg and response.msg ~= '') and (response.msg .. '；' .. text) or text
+    return response
+end
+
+-- 站点绑定的证书是否可用（记录存在且证书文件在盘上），供保存校验使用
+function _M.is_cert_usable(cert_id)
+    return get_site_cert(cert_id) ~= nil
 end
 
 -- 文件不存在时返回模板说明（只读）
@@ -693,11 +821,16 @@ function _M.save_site_fragment(site_id, content)
         return {code = 500, msg = msg, detail = tostring(reload_err)}
     end
 
-    return {code = 200, msg = '自定义配置已保存并生效'}
+    return _M.append_warnings({code = 200, msg = '自定义配置已保存并生效'})
 end
 
 -- 手工修改片段后的重新生成与重载
 function _M.reload_site_config()
+    -- generate() 会先写盘，校验失败时要把旧内容还原，避免磁盘上留下无法加载的配置。
+    -- 注意：如果失败原因是片段文件本身，还原 sites.conf 也救不了重启，但至少不会让
+    -- sites.conf 与运行中的配置不一致
+    local old_conf = read_file_to_string(SITES_CONF_PATH)
+
     local generated, gen_err = _M.generate()
     if not generated then
         return {code = 500, msg = '生成站点配置失败: ' .. tostring(gen_err)}
@@ -705,7 +838,13 @@ function _M.reload_site_config()
 
     local passed, detail = config.test_nginx_config_detail()
     if not passed then
-        -- generate() 输出与片段内容解耦，回滚 sites.conf 无法修复片段本身
+        if old_conf then
+            local ok, err = write_string_to_file_atomic(SITES_CONF_PATH, old_conf)
+            if not ok then
+                ngx.log(ngx.ERR, "failed to restore ", SITES_CONF_PATH, ": ", tostring(err))
+            end
+        end
+
         return {code = 500, msg = 'nginx 配置校验失败', detail = detail}
     end
 
@@ -714,7 +853,7 @@ function _M.reload_site_config()
         return {code = 500, msg = 'nginx 重载失败', detail = tostring(reload_err)}
     end
 
-    return {code = 200, msg = '配置已重载'}
+    return _M.append_warnings({code = 200, msg = '配置已重载'})
 end
 
 -- 删除站点时归档整个片段目录，避免 id 复用时旧配置生效
