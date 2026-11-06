@@ -29,8 +29,9 @@ layui.config({
 	theme: "theme",			     // 主题转换
 	message: "message",          // 通知组件
 	toast: "toast",              // 消息通知
-	fullscreen:"fullscreen"     //全屏组件
-}).use(['layer', 'theme', 'jquery'], function () {
+	fullscreen:"fullscreen",    //全屏组件
+	tableLimit:"tableLimit"     //分页条数记忆（项目自有）
+}).use(['layer', 'theme', 'jquery', 'tableLimit'], function () {
 	layui.theme.changeTheme(window, false);
 	var $ = layui.$;
 	$.ajaxSetup({
