@@ -42,32 +42,6 @@ local CERTS_PATH = (gsub(config.ZHONGKUI_PATH .. "/admin/ssl-certs/", "\\", "/")
 local CERT_EXTS = {pem = true, crt = true}
 local KEY_EXTS = {key = true}
 
--- 证书列表默认按有效期升序（最早到期在前），无有效期或格式异常的排最后
-local function certificate_sort(a, b)
-    local da = a and a.expirationDate
-    local db = b and b.expirationDate
-
-    if type(da) ~= "string" or not da:match("^%d%d%d%d%-%d%d%-%d%d") then
-        da = nil
-    end
-    if type(db) ~= "string" or not db:match("^%d%d%d%d%-%d%d%-%d%d") then
-        db = nil
-    end
-
-    if da and db then
-        if da ~= db then
-            return da < db
-        end
-    elseif da then
-        return true
-    elseif db then
-        return false
-    end
-
-    -- 日期相同或都无效时按 id 排序，保证顺序稳定
-    return (tonumber(a and a.id) or 0) < (tonumber(b and b.id) or 0)
-end
-
 local CERT_EXPIRING_DAYS = 30
 
 -- 判断有效期字段是否为 YYYY-MM-DD
@@ -95,8 +69,32 @@ local function certificate_days_left(expiration_date)
     return (expiration - time()) / 86400
 end
 
+-- 剩余天数取整：未过期向下取整；已过期按已完整过去的天数展示
+local function integer_days_left(days)
+    if not days then
+        return nil
+    end
+    if days < 0 then
+        return -floor(-days)
+    end
+    return floor(days)
+end
+
+-- 即将到期阈值，默认与 ACME 自动续期天数保持一致
+local function get_expiring_days()
+    local ok, settings = pcall(acme.get_settings)
+    local renew_days = ok and type(settings) == "table" and tonumber(settings.renewDays)
+    if renew_days and renew_days > 0 then
+        return renew_days
+    end
+
+    return CERT_EXPIRING_DAYS
+end
+
 -- 返回证书状态、剩余天数和不可用原因
-local function certificate_state(record, today)
+local function certificate_state(record, today, expiring_days)
+    expiring_days = tonumber(expiring_days) or CERT_EXPIRING_DAYS
+
     local expiration_date = record and record.expirationDate
     if not is_date_string(expiration_date) then
         return "invalid", nil, "invalid_date"
@@ -118,11 +116,80 @@ local function certificate_state(record, today)
         return "invalid", days, "missing_files"
     end
 
-    if days and floor(days) <= CERT_EXPIRING_DAYS then
+    if days and floor(days) <= expiring_days then
         return "expiring", days, nil
     end
 
     return "valid", days, nil
+end
+
+-- 列表默认排序：按“是否需要立即处理”分组，而不是单纯按到期日期
+-- 0 已过期；1 不可用（文件缺失/日期异常）；2 即将到期；3 尚未生效；4 有效
+local function certificate_priority(state)
+    if state.status == "expired" then
+        return 0
+    end
+
+    if state.status == "invalid" then
+        if state.reason == "not_effective" then
+            return 3
+        end
+        return 1
+    end
+
+    if state.status == "expiring" then
+        return 2
+    end
+
+    return 4
+end
+
+-- 风险优先排序；同组内按到期日升序，再按域名和 id 保证顺序稳定
+local function make_certificate_sort(today, expiring_days)
+    local state_cache = setmetatable({}, {__mode = "k"})
+
+    local function state_of(record)
+        local cached = record and state_cache[record]
+        if cached then
+            return cached
+        end
+
+        local status, _, reason = certificate_state(record, today, expiring_days)
+        cached = {status = status, reason = reason}
+        if record then
+            state_cache[record] = cached
+        end
+
+        return cached
+    end
+
+    return function(a, b)
+        local pa = certificate_priority(state_of(a))
+        local pb = certificate_priority(state_of(b))
+        if pa ~= pb then
+            return pa < pb
+        end
+
+        local da = a and is_date_string(a.expirationDate) and a.expirationDate or nil
+        local db = b and is_date_string(b.expirationDate) and b.expirationDate or nil
+        if da and db then
+            if da ~= db then
+                return da < db
+            end
+        elseif da then
+            return true
+        elseif db then
+            return false
+        end
+
+        local na = lower(a and a.domainName or "")
+        local nb = lower(b and b.domainName or "")
+        if na ~= nb then
+            return na < nb
+        end
+
+        return (tonumber(a and a.id) or 0) < (tonumber(b and b.id) or 0)
+    end
 end
 
 -- 站点 SSL 证书下拉排序：当前绑定但不可用的证书置顶，其余可用证书按到期日升序
@@ -186,30 +253,61 @@ local function safe_file_name(name)
     return (gsub(name, "[^%w%.%-_]", "_"))
 end
 
--- 查询证书是否被启用了 SSL 的站点引用，返回站点域名
-local function get_cert_site(cert_id)
+-- 查询使用各证书的站点，返回 certId -> 站点列表 的映射
+local function get_cert_sites_map()
+    local map = {}
     local json = read_file_to_string(WEBSITES_PATH)
     if not json then
-        return nil
+        return map
     end
 
     local ok, rule_table = pcall(cjson_decode, json)
-    if not ok or type(rule_table) ~= "table" or not rule_table.rules then
-        return nil
+    if not ok or type(rule_table) ~= "table" or type(rule_table.rules) ~= "table" then
+        return map
     end
 
-    cert_id = tonumber(cert_id)
-
     for _, site in pairs(rule_table.rules) do
-        for _, p in pairs(site.listenPorts or {}) do
-            if (p.ssl == "on" or p.ssl == true) and tonumber(site.certId) == cert_id then
-                local names = site.serverNames
-                return (names and names[1]) or ("id=" .. tostring(site.id))
+        local cert_id = tonumber(site.certId)
+        if cert_id then
+            local ssl_enabled = false
+            for _, p in pairs(site.listenPorts or {}) do
+                if p.ssl == "on" or p.ssl == true then
+                    ssl_enabled = true
+                    break
+                end
+            end
+
+            if ssl_enabled then
+                local names = type(site.serverNames) == "table" and site.serverNames or {}
+                local primary = names[1]
+                if type(primary) ~= "string" or primary == "" then
+                    primary = "id=" .. tostring(site.id)
+                end
+
+                local list = map[cert_id]
+                if not list then
+                    list = {}
+                    map[cert_id] = list
+                end
+
+                tabinsert(list, {
+                    id = site.id,
+                    name = primary,
+                    description = site.description,
+                    serverNames = names,
+                })
             end
         end
     end
 
-    return nil
+    return map
+end
+
+-- 查询证书是否被启用了 SSL 的站点引用，返回第一个站点域名
+local function get_cert_site(cert_id)
+    local sites = get_cert_sites_map()[tonumber(cert_id)]
+    local site = sites and sites[1]
+    return site and site.name
 end
 
 function _M.do_request()
@@ -270,8 +368,30 @@ function _M.do_request()
             response = {code = 500, data = {checked = 0, renewed = 0, failed = 0}, msg = ""}
         end
     elseif uri == "/common/certificate/list" then
-        -- 查询证书列表，按有效期升序（最早到期在前）
-        response = rule_utils.list_rules(CERTIFICATE_PATH, nil, certificate_sort)
+        -- 查询证书列表：风险优先（过期/不可用/即将到期在前），同组按到期日升序
+        local today = date("%Y-%m-%d")
+        local expiring_days = get_expiring_days()
+        response = rule_utils.list_rules(CERTIFICATE_PATH, nil,
+            make_certificate_sort(today, expiring_days))
+
+        -- 补充有效性、剩余天数和使用站点，供列表展示与到期提醒
+        if response.code == 0 and type(response.data) == "table" then
+            local sites_map = get_cert_sites_map()
+
+            for _, r in pairs(response.data) do
+                if type(r) == "table" then
+                    local status, days, reason = certificate_state(r, today, expiring_days)
+                    r.status = status
+                    r.daysLeft = integer_days_left(days)
+                    r.usable = status == "valid" or status == "expiring"
+                    r.stateReason = reason
+                    r.expiringDays = expiring_days
+                    r.sites = sites_map[tonumber(r.id)] or {}
+                end
+            end
+
+            response.expiringDays = expiring_days
+        end
     elseif uri == "/common/certificate/save" then
         -- 修改或新增证书
         local rule_new = rule_utils.get_rule_from_request()
@@ -481,9 +601,10 @@ function _M.do_request()
                 local valid_only = args.validOnly == "1" or args.validOnly == "true"
                 local keep_id = tonumber(args.keepId)
                 local today = date("%Y-%m-%d")
+                local expiring_days = get_expiring_days()
 
                 for _, r in pairs(rules) do
-                    local status, days, reason = certificate_state(r, today)
+                    local status, days, reason = certificate_state(r, today, expiring_days)
                     local usable = status == "valid" or status == "expiring"
                     local is_current = keep_id ~= nil and tonumber(r.id) == keep_id
 
@@ -496,7 +617,7 @@ function _M.do_request()
                             expirationDate = r.expirationDate,
                             effectiveDate = r.effectiveDate,
                             source = r.source,
-                            daysLeft = days and floor(days) or nil,
+                            daysLeft = integer_days_left(days),
                             status = status,
                             reason = reason,
                             usable = usable,

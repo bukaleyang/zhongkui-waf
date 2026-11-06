@@ -151,7 +151,45 @@
 			{{# if(d.autoRenew === false){ }}<span class="layui-badge layui-bg-gray">不自动续期</span>{{# } }}
 			{{# if(d.acme && d.acme.status === 'error'){ }}<span class="layui-badge">续期失败</span>{{# } }}
 			{{# } else { }}
-			<span class="layui-badge layui-bg-green">手动</span>
+			<span class="layui-badge layui-badge-rim">手动</span>
+			{{# } }}
+		</script>
+		<script type="text/html" id="cert_sites">
+			{{# var sites = d.sites || []; }}
+			{{# if(sites.length === 0){ }}
+			<span class="layui-word-aux">未使用</span>
+			{{# } else { }}
+			{{# var names = []; for (var i = 0; i < sites.length; i++) { var sn = sites[i].serverNames; if (sn && sn.length) { for (var j = 0; j < sn.length; j++) { names.push(sn[j]); } } else { names.push(sites[i].name); } } }}
+			{{# var showCount = Math.min(sites.length, 2); }}
+			<span title="{{ names.join('、') }}">
+				{{# for(var i = 0; i < showCount; i++){ }}{{ i > 0 ? '、' : '' }}{{ sites[i].name }}{{# } }}
+				{{# if(sites.length > showCount){ }}<span class="layui-badge layui-bg-gray" style="margin-left:4px;">+{{ sites.length - showCount }}</span>{{# } }}
+			</span>
+			{{# } }}
+		</script>
+		<script type="text/html" id="cert_status">
+			{{# if(d.status === 'valid'){ }}
+			<span class="layui-badge layui-bg-green">有效</span>
+			{{# } else if(d.status === 'expiring'){ }}
+			<span class="layui-badge layui-bg-orange" title="证书即将到期，请及时续期或更换">即将到期</span>
+			{{# } else if(d.status === 'expired'){ }}
+			<span class="layui-badge" title="证书已过期">已过期</span>
+			{{# } else { }}
+			{{# var reasonText = d.stateReason === 'not_effective' ? '证书尚未生效' : (d.stateReason === 'missing_files' ? '证书或私钥文件缺失' : (d.stateReason === 'invalid_date' ? '有效期格式异常' : '证书不可用')); }}
+			<span class="layui-badge layui-bg-gray" title="{{ reasonText }}">不可用</span>
+			{{# } }}
+		</script>
+		<script type="text/html" id="cert_days">
+			{{# if(d.status === 'invalid' || d.daysLeft === undefined || d.daysLeft === null){ }}
+			<span class="layui-word-aux">-</span>
+			{{# } else if(d.status === 'expired'){ }}
+			<span style="color:#ff5722;">已过期 {{ d.daysLeft < 0 ? -d.daysLeft : 0 }} 天</span>
+			{{# } else if(d.status === 'expiring'){ }}
+			<span style="color:#ffb800;font-weight:600;" title="证书即将到期，请及时续期或更换">
+				<i class="layui-icon layui-icon-about"></i> {{ d.daysLeft }} 天
+			</span>
+			{{# } else { }}
+			<span>{{ d.daysLeft }} 天</span>
 			{{# } }}
 		</script>
 		<script type="text/html" id="rule_bar">
@@ -273,10 +311,13 @@
 					elem: '#table_rule',
 					url: '/common/certificate/list',
 					cols: [[ //标题栏
-						{ field: 'domainName', title: '域名' },
-						{ field: 'issuerName', title: '颁发机构' },
-						{ field: 'expirationDate', title: '有效期至' },
+						{ field: 'domainName', title: '域名', minWidth: 160 },
+						{ field: 'issuerName', title: '颁发机构', minWidth: 160 },
+						{ field: 'expirationDate', title: '有效期至', width: 120, align: 'center' },
+						{ field: 'daysLeft', title: '剩余天数', width: 130, templet: '#cert_days' },
+						{ title: '状态', width: 100, align: 'center', templet: '#cert_status' },
 						{ title: '类型', width: 180, templet: '#cert_type' },
+						{ title: '使用站点', minWidth: 200, templet: '#cert_sites' },
 						{ fixed: 'right', title: '操作', width: 150, minWidth: 150, toolbar: '#rule_bar' }
 					]],
 					toolbar: '#user_toolbar',
@@ -285,7 +326,7 @@
 					//even: true,
 					page: true, // 是否显示分页
 					limits: [5, 10, 15, 20, 25, 30],
-					limit: 10, // 每页默认显示的数量
+					limit: 10 // 每页默认显示的数量
 				});
 
 				var openAcmeForm = function () {
