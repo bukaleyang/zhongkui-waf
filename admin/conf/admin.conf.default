@@ -4,6 +4,13 @@ server {
 
     charset utf-8;
 
+    # 仅对 admin 后台启用文本类资源压缩；gzip_types 配在 server 级，不影响其他站点
+    gzip on;
+    gzip_min_length 1k;
+    gzip_comp_level 5;
+    gzip_vary on;
+    gzip_types text/css application/javascript application/json application/xml image/svg+xml;
+
     # 让自定义 nginx 片段等表单提交尽量留在内存中（超过阈值仍需读取临时文件）
     client_body_buffer_size 128k;
 
@@ -27,6 +34,22 @@ server {
         return 403;
     }
     
+    # 静态资源缓存（仅 admin 后台，HTML 不缓存）
+    location ^~ /admin/data/ {
+        root    $root_path;
+        expires 7d;
+    }
+
+    location ^~ /component/ {
+        root    $root_path;
+        expires 7d;
+    }
+
+    location ^~ /js/ {
+        root    $root_path;
+        expires 7d;
+    }
+
     location / {
         root   $root_path;
         proxy_set_header  Host  $host;
@@ -133,7 +156,7 @@ server {
         proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
-    # local scheduler only: renew due certificates without login
+    # 本机调度器专用，免登录触发到期证书续期
     location = /common/certificate/acme/renew-due {
         allow 127.0.0.1;
         allow ::1;
