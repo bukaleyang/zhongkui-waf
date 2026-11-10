@@ -31,7 +31,8 @@ function _M.get_connection()
         user = user,
         password = password,
         charset = "utf8mb4",
-        max_packet_size = 1024 * 1024,
+        -- 攻击日志按批 INSERT，大 body 可能超过 1MB，留足余量
+        max_packet_size = 8 * 1024 * 1024,
         pool_size = poolSize or 10
     }
 
@@ -43,19 +44,26 @@ function _M.get_connection()
     return db, err
 end
 
-function _M.query(sql, rows)
-    local res, err, errcode, sql_state
+function _M.query(sql, rows, query_timeout)
     local db = _M.get_connection()
-    if db then
-        res, err, errcode, sql_state = db:query(sql, rows)
-        if not res then
-            ngx.log(ngx.ERR, "bad result: ", err, ": ", errcode, ": ", sql_state, ".")
-            return
-        end
-
-        _M.close_connection(db)
+    if not db then
+        return nil, "failed to connect"
     end
 
+    -- DDL（大表建索引）可能远超过普通查询超时，允许调用方单独指定
+    if query_timeout then
+        db:set_timeout(query_timeout)
+    end
+
+    local res, err, errcode, sql_state = db:query(sql, rows)
+    if not res then
+        ngx.log(ngx.ERR, "bad result: ", err, ": ", errcode, ": ", sql_state, ".")
+        -- 查询失败时连接不可再复用，直接关闭避免泄漏
+        db:close()
+        return nil, err
+    end
+
+    _M.close_connection(db)
     return res
 end
 

@@ -29,6 +29,13 @@
 										<input type="checkbox" name="jsonFormat" lay-skin="switch" title="ON|OFF" />
 									</div>
 								</div>
+								<div class="layui-col-md3">
+									<label class="layui-form-label" style="width: auto;">数据库日志保留</label>
+									<div class="layui-input-group">
+										<input type="text" name="retentionDays" lay-verify="required|number" autocomplete="off" class="layui-input" />
+										<div class="layui-input-suffix" style="padding: 9px 0px 9px 10px;">天</div>
+									</div>
+								</div>
 							</div>
 							<div class="layui-row layui-col-space10">
 								<div class="layui-col-md6">

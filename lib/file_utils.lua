@@ -7,6 +7,7 @@ local ffi = require "ffi"
 
 local lower = string.lower
 local insert = table.insert
+local concat = table.concat
 local pairs = pairs
 local pcall = pcall
 local cjson_decode = cjson.decode
@@ -93,18 +94,18 @@ function _M.read_file_to_string(file_path, binary)
         return
     end
 
-    local content = ""
-    repeat
-        local chunk = file:read(8192) -- 读取 8KB 的块
-        if chunk then
-            content = content .. chunk
-        else
+    -- 按块读取后统一拼接，避免大文件用 .. 反复扩容导致 O(n²)
+    local chunks = {}
+    while true do
+        local chunk = file:read(8192)
+        if not chunk then
             break
         end
-    until not chunk
+        insert(chunks, chunk)
+    end
 
     file:close()
-    return content
+    return concat(chunks)
 end
 
 

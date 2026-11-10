@@ -28,6 +28,12 @@ local write_sql_to_queue = sql.write_sql_to_queue
 local LOG_PATH = config.LOG_PATH
 local language = get_system_config('geoip').language ~= '' and get_system_config('geoip').language or 'en'
 
+-- 写入 attack_log 的内容上限，可在 system.json 的 logLimit 中调整
+local log_limit = get_system_config('logLimit')
+local MAX_REQUEST_BODY_LEN = log_limit.maxRequestBodyLen
+local MAX_RESPONSE_BODY_LEN = log_limit.maxResponseBodyLen
+local MAX_HEADER_LEN = log_limit.maxHeaderLen
+
 local function write_attack_log()
     local ctx = ngx.ctx
     local rule_table = ctx.rule_table
@@ -104,9 +110,9 @@ local function write_attack_log()
     if is_system_option_on("mysql") then
         local sql_str = '(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %.7f, %.7f, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
 
-        local req_header = ngx.req.raw_header() or ''
+        local req_header = sub(ngx.req.raw_header() or '', 1, MAX_HEADER_LEN)
         if #req_header > 0 or request_body then
-            request_body = quote_sql_str(req_header .. (request_body or ''))
+            request_body = quote_sql_str(req_header .. sub(request_body or '', 1, MAX_REQUEST_BODY_LEN))
         else
             request_body = 'NULL'
         end
@@ -116,11 +122,14 @@ local function write_attack_log()
             local header = ''
             for key, value in pairs(headers) do
                 header = header .. key .. ': ' .. value .. '\n'
+                if #header >= MAX_HEADER_LEN then
+                    break
+                end
             end
             if #header > 0 then
                 header = header .. '\n'
             end
-            response_body = quote_sql_str(header .. (response_body or ''))
+            response_body = quote_sql_str(sub(header, 1, MAX_HEADER_LEN) .. sub(response_body or '', 1, MAX_RESPONSE_BODY_LEN))
         else
             response_body = 'NULL'
         end

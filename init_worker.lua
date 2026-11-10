@@ -13,6 +13,8 @@ local acme = require "lib.acme"
 local md5 = ngx.md5
 local pairs = pairs
 local tonumber = tonumber
+local ostime = os.time
+local osdate = os.date
 
 local cjson_decode = cjson.decode
 local cjson_encode = cjson.encode
@@ -25,6 +27,20 @@ local is_system_option_on = config.is_system_option_on
 local get_system_config = config.get_system_config
 
 local prefix = "waf_rules_hits:"
+
+-- 下次 03:30 的秒数，日志保留期清理放在低峰期执行
+local function seconds_until_retention()
+    local now = ostime()
+    local t = osdate('*t', now)
+    t.hour, t.min, t.sec = 3, 30, 0
+
+    local next_run = ostime(t)
+    if next_run <= now then
+        next_run = next_run + 86400
+    end
+
+    return next_run - now
+end
 
 local function sort(key_str, t)
     for _, rt in pairs(t) do
@@ -121,7 +137,18 @@ if is_global_option_on("waf") then
             utils.start_timer_every(2, sql.write_sql_queue_to_mysql, constants.KEY_ATTACK_LOG)
             utils.start_timer_every(2, sql.write_sql_queue_to_mysql, constants.KEY_IP_BLOCK_LOG)
             utils.start_timer_every(2, sql.update_waf_status)
-            utils.start_timer_every(2, sql.update_traffic_stats)
+            -- 城市级统计改为 30 秒批量 upsert：减少连接往返和唯一索引写放大
+            utils.start_timer_every(30, sql.update_traffic_stats)
+
+            -- 首次在下一个低峰期（03:30）清理过期攻击日志，之后每 24 小时一次
+            utils.start_timer(seconds_until_retention(), function(premature)
+                if premature then
+                    return
+                end
+
+                sql.purge_attack_log()
+                utils.start_timer_every(24 * 3600, sql.purge_attack_log)
+            end)
         end
     end
 

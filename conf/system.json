@@ -2,7 +2,13 @@
     "attackLog": {
         "state": "off",
         "logPath": "/usr/local/openresty/nginx/logs/hack/",
-        "jsonFormat": "off"
+        "jsonFormat": "off",
+        "retentionDays": 180
+    },
+    "logLimit": {
+        "maxRequestBodyLen": 262144,
+        "maxResponseBodyLen": 524288,
+        "maxHeaderLen": 16384
     },
     "geoip": {
         "file": "/usr/local/share/GeoIP/GeoLite2-City.mmdb",

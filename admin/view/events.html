@@ -104,26 +104,47 @@
 		</form>
 
 		<script type="text/html" id="user_toolbar">
-			<form class="layui-form layui-row layui-col-space8">
-				<div class="layui-col-md2">
-					<input type="text" name="ip" value="" placeholder="攻击者IP地址" class="layui-input" lay-affix="clear" />
+			<form class="layui-form" id="events-toolbar">
+				<div class="layui-row layui-col-space8">
+					<div class="layui-col-md3">
+						<input type="text" name="ip" value="" placeholder="攻击者IP地址" class="layui-input" lay-affix="clear" />
+					</div>
+					<div class="layui-col-md3">
+						<input type="text" name="serverName" placeholder="域名（精确）" lay-affix="clear" class="layui-input" />
+					</div>
+					<div class="layui-col-md2">
+						<select name="attackType" id="attackType">
+							<option value="">攻击类型</option>
+						</select>
+					</div>
+					<div class="layui-col-md2">
+						<select name="action" id="action">
+							<option value="">处置动作</option>
+						</select>
+					</div>
+					<div class="pear-btn-container layui-col-md2">
+						<button id="events-search-btn" class="pear-btn pear-btn-primary pear-btn-md" lay-submit lay-filter="filter-table-search">查询</button>
+						<button type="reset" class="pear-btn pear-btn-md">重置</button>
+					</div>
 				</div>
-				<div class="layui-col-md2">
-					<input type="text" name="serverName" placeholder="域名" lay-affix="clear" class="layui-input" />
+				<div class="layui-row layui-col-space8" style="margin-top:8px;">
+					<div class="layui-col-md12" id="events-presets" style="display:flex;gap:8px;flex-wrap:wrap;">
+						<button type="button" class="pear-btn pear-btn-md tr-preset" data-preset="1h">最近 1 小时</button>
+						<button type="button" class="pear-btn pear-btn-md tr-preset" data-preset="24h">最近 24 小时</button>
+						<span style="width:1px;background:#e6e6e6;margin:0 4px;"></span>
+						<button type="button" class="pear-btn pear-btn-md tr-preset" data-preset="today">今天</button>
+						<button type="button" class="pear-btn pear-btn-md tr-preset" data-preset="7d">近 7 天</button>
+						<button type="button" class="pear-btn pear-btn-md tr-preset" data-preset="30d">近 30 天</button>
+						<button type="button" class="pear-btn pear-btn-md tr-preset" data-preset="custom">自定义</button>
+					</div>
 				</div>
-				<div class="layui-col-md2">
-					<select name="attackType" id="attackType">
-						<option value="">攻击类型</option>
-					</select>
-				</div>
-				<div class="layui-col-md2">
-					<select name="action" id="action">
-						<option value="">处置动作</option>
-					</select>
-				</div>
-				<div class="pear-btn-container layui-col-md2">
-					<button class="pear-btn pear-btn-primary pear-btn-md" lay-submit lay-filter="filter-table-search">查询</button>
-					<button type="reset" class="pear-btn pear-btn-md">重置</button>
+				<div class="layui-row layui-col-space8" style="margin-top:8px;">
+					<div class="layui-col-md3">
+						<input type="text" name="startTime" id="events-start-time" placeholder="开始时间" class="layui-input" readonly />
+					</div>
+					<div class="layui-col-md3">
+						<input type="text" name="endTime" id="events-end-time" placeholder="结束时间" class="layui-input" readonly />
+					</div>
 				</div>
 			</form>
 		</script>
@@ -135,14 +156,25 @@
 		<script src="../component/pear/pear.js"></script>
 		<script src="../js/action.js"></script>
 		<script src="../js/attackType.js"></script>
+		<script src="../js/time-range.js"></script>
 		<script>
-			layui.use(['form','table','util','jquery','popup','tag'], function() {
+			layui.use(['form','table','util','laydate','jquery','popup','tag'], function() {
 				var table = layui.table;
 				var form = layui.form;
 				var util = layui.util;
 				var popup = layui.popup;
 				var element = layui.element
 				var $ = layui.$;
+				var laydate = layui.laydate;
+
+				// 时间范围规则见 admin/js/time-range.js，后端兜底见 admin/lua/events.lua
+				var tf = TimeRangeFilter.init({
+					$: $,
+					laydate: laydate,
+					start: '#events-start-time',
+					end: '#events-end-time',
+					presets: '#events-presets'
+				});
 
 				function getIPGeoName(data) {
 					if (data.ip_country_code == 'CN') {
@@ -159,6 +191,16 @@
 				table.render({
 					elem: '#id-table-events',
 					url: '/events/list',
+					where: tf.defaultRange,
+					// 后端无数据时 data 是 {} 而非 []，统一成数组才能渲染空态行
+					parseData: function(res) {
+						res.data = res.data && res.data.length ? res.data : [];
+						res.count = res.count || 0;
+						return res;
+					},
+					text: {
+						none: '暂无记录'
+					},
 					cols: [[ //标题栏
 						{field: 'server_name', title: '域名'},
 						{field: 'request_uri', title: '请求地址'},
@@ -202,6 +244,10 @@
 					page: true, // 是否显示分页
 					limits: [10, 15, 20, 25, 30, 50, 100],
 					limit: 10, // 每页默认显示的数量
+					done: function(res) {
+						tf.bindPickers();
+						tf.sync(res);
+					}
 				});
 
 				// 触发单元格工具事件
@@ -288,15 +334,37 @@
 				});
 
 				form.on('submit(filter-table-search)', function(data) {
-					var field = data.field; // 获得表单字段
-					// 执行搜索重载
+					var range = tf.validate();
+					if (range.msg) {
+						popup.failure(range.msg);
+						return false;
+					}
+
+					data.field.startTime = range.startTime;
+					data.field.endTime = range.endTime;
+
 					table.reloadData('id-table-events', {
 						page: {
 							curr: 1 // 重新从第 1 页开始
 						},
-						where: field // 搜索的字段
+						where: data.field // 搜索的字段
 					});
 					return false; // 阻止默认 form 跳转
+				});
+
+				$(document).on('click', '#events-presets .tr-preset', function() {
+					var key = $(this).attr('data-preset');
+					tf.apply(key);
+					if (key !== 'custom') {
+						$('#events-search-btn').trigger('click');
+					}
+				});
+
+				$(document).on('click', '#events-toolbar button[type="reset"]', function() {
+					setTimeout(function() {
+						tf.reset();
+						$('#events-search-btn').trigger('click');
+					}, 0);
 				});
 
 				util.on('lay-on', {

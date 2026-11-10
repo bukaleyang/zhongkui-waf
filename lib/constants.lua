@@ -22,4 +22,14 @@ _M.KEY_IP_GROUPS_BLACKLIST = 'ipBlackList'
 _M.KEY_CAPTCHA_PREFIX = 'captcha:'
 _M.KEY_CAPTCHA_ACCESSTOKEN_REDIS_PREFIX = 'captcha_accesstoken:'
 
+-- 写入 attack_log 的内容上限默认值，可在 conf/system.json 的 logLimit 中覆盖
+-- 请求体：覆盖常见 JSON/表单/上传片段，避免单行过大
+_M.DEFAULT_MAX_REQUEST_BODY_LEN = 256 * 1024
+-- 响应体：与 ModSecurity / Coraza 的 SecResponseBodyLimit 默认值（512KB）一致
+_M.DEFAULT_MAX_RESPONSE_BODY_LEN = 512 * 1024
+-- header：常见服务器单个 header 上限是 8KB，整体 16KB 足够定位问题
+_M.DEFAULT_MAX_HEADER_LEN = 16 * 1024
+-- 单个字段允许配置的最大值，保证单行和批量 INSERT 不超过 mysql_cli.max_packet_size
+_M.MAX_LOG_FIELD_LEN = 1024 * 1024
+
 return _M

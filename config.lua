@@ -225,6 +225,28 @@ local function storage_security_modules(server_name, security_modules)
     dict_config:set(server_name, json)
 end
 
+-- 日志内容上限允许在 system.json 中调整；缺省或非法值回退默认值，超大值按硬上限收敛
+local function normalize_log_limit(system)
+    local conf = system.logLimit or {}
+
+    local function limit(value, default)
+        value = tonumber(value)
+        if not value or value <= 0 then
+            return default
+        end
+        if value > constants.MAX_LOG_FIELD_LEN then
+            return constants.MAX_LOG_FIELD_LEN
+        end
+        return value
+    end
+
+    system.logLimit = {
+        maxRequestBodyLen = limit(conf.maxRequestBodyLen, constants.DEFAULT_MAX_REQUEST_BODY_LEN),
+        maxResponseBodyLen = limit(conf.maxResponseBodyLen, constants.DEFAULT_MAX_RESPONSE_BODY_LEN),
+        maxHeaderLen = limit(conf.maxHeaderLen, constants.DEFAULT_MAX_HEADER_LEN)
+    }
+end
+
 local function load_system_config()
     local system_path = _M.CONF_PATH .. '/system.json'
     local json = read_file_to_string(system_path)
@@ -232,6 +254,8 @@ local function load_system_config()
     if json then
         system = cjson_decode(json)
     end
+
+    normalize_log_limit(system)
 
     local log_path = system.attackLog.logPath
     if log_path and #log_path > 0 then

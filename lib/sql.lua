@@ -13,8 +13,8 @@ local concat = table.concat
 local insert = table.insert
 local ngxmatch = ngx.re.match
 local quote_sql_str = ngx.quote_sql_str
-local floor = math.floor
 local format = string.format
+local tonumber = tonumber
 local get_system_config = config.get_system_config
 
 local _M = {}
@@ -22,9 +22,18 @@ local _M = {}
 local database = get_system_config('mysql').database
 
 local BATCH_SIZE = 300
+-- 按字节二次切批，避免大 body 让单条 INSERT 超过 mysql_cli 的 max_packet_size
+local BATCH_MAX_BYTES = 4 * 1024 * 1024
+
+-- 攻击日志保留期清理：每次删除的行数，避免单个大事务长时间锁行
+local PURGE_BATCH_SIZE = 2000
+-- 单次运行最多删除的批数，避免首次清理存量时长时间占用数据库
+local PURGE_MAX_BATCHES = 1000
+local PURGE_DEFAULT_DAYS = 180
 
 local SQL_CHECK_TABLE = [[SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.TABLES WHERE table_schema='%s' AND table_name='%s']]
 local SQL_CHECK_INDEX = [[SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.STATISTICS WHERE table_schema=DATABASE() AND table_name='%s' AND index_name='%s']]
+local SQL_DELETE_EXPIRED_ATTACK_LOG = 'DELETE FROM attack_log WHERE request_time < DATE_SUB(NOW(), INTERVAL %d DAY) ORDER BY request_time LIMIT %d'
 
 local SQL_CREATE_TABLE_WAF_STATUS = [[
     CREATE TABLE `waf_status` (
@@ -38,13 +47,11 @@ local SQL_CREATE_TABLE_WAF_STATUS = [[
         `block_times_captcha` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '触发人机验证数',
         `block_times_cc` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'cc拦截数',
         `captcha_pass_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '人机验证通过数',
-        `request_date` CHAR(10) NOT NULL COMMENT '日期',
-
+        `request_date` DATE NOT NULL COMMENT '日期',
         `update_time` datetime NULL,
         `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
-    CREATE UNIQUE INDEX idx_unique_waf_status_request_date ON waf_status (request_date);
 ]]
 
 local SQL_INSERT_WAF_STATUS = [[
@@ -59,7 +66,8 @@ local SQL_INSERT_WAF_STATUS = [[
     update_time = NOW();
 ]]
 
-local SQL_GET_TODAY_WAF_STATUS = [[SELECT * FROM waf_status WHERE DATE(request_date) = CURDATE() ORDER BY id DESC LIMIT 1;]]
+-- request_date 是 DATE，直接用 CURDATE() 比较，可命中 idx_unique_waf_status_request_date
+local SQL_GET_TODAY_WAF_STATUS = [[SELECT * FROM waf_status WHERE request_date = CURDATE() ORDER BY id DESC LIMIT 1;]]
 
 local SQL_CREATE_TABLE_TRAFFIC_STATS = [[
     CREATE TABLE `traffic_stats` (
@@ -83,19 +91,69 @@ local SQL_CREATE_TABLE_TRAFFIC_STATS = [[
         `block_times_cc` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'cc拦截数',
         `captcha_pass_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '人机验证通过数',
 
-        `request_date` CHAR(10) NOT NULL COMMENT '日期',
+        `request_date` DATE NOT NULL COMMENT '日期',
 
         `update_time` datetime NULL,
         `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
-    CREATE UNIQUE INDEX idx_unique_traffic_stats_request_date ON traffic_stats (ip_country_code, ip_province_en, ip_city_en, request_date);
 ]]
 
-local SQL_INSERT_TRAFFIC_STATS = [[
-    INSERT INTO traffic_stats (ip_country_code, ip_country_cn, ip_country_en, ip_province_code, ip_province_cn, ip_province_en, ip_city_code, ip_city_cn, ip_city_en, request_times, attack_times, block_times, 
+-- 数据统计页只需要“国家/天”和“省份/天”两个粒度。
+-- 城市级 traffic_stats 继续保留明细写入，但 dashboard 改为读这两个小汇总表。
+local SQL_CREATE_TABLE_TRAFFIC_STATS_COUNTRY_DAILY = [[
+    CREATE TABLE `traffic_stats_country_daily` (
+        `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `request_date` DATE NOT NULL COMMENT '日期',
+        `ip_country_code` CHAR(2) NOT NULL DEFAULT '' COMMENT '国家代码',
+        `ip_country_cn` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '国家_中文',
+        `ip_country_en` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '国家_英文',
+        `request_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '请求数',
+        `attack_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '攻击请求数',
+        `block_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '拦截数',
+        `block_times_attack` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '攻击拦截数',
+        `block_times_captcha` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '触发人机验证数',
+        `block_times_cc` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'cc拦截数',
+        `captcha_pass_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '人机验证通过数',
+        `update_time` datetime NULL,
+        `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `idx_unique_traffic_stats_country_daily` (`request_date`, `ip_country_code`, `ip_country_en`)
+    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+]]
+
+local SQL_CREATE_TABLE_TRAFFIC_STATS_PROVINCE_DAILY = [[
+    CREATE TABLE `traffic_stats_province_daily` (
+        `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `request_date` DATE NOT NULL COMMENT '日期',
+        `ip_country_code` CHAR(2) NOT NULL DEFAULT '' COMMENT '国家代码',
+        `ip_province_code` VARCHAR(50) NOT NULL DEFAULT '' COMMENT '省份代码',
+        `ip_province_cn` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '省份_中文',
+        `ip_province_en` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '省份_英文',
+        `request_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '请求数',
+        `attack_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '攻击请求数',
+        `block_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '拦截数',
+        `block_times_attack` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '攻击拦截数',
+        `block_times_captcha` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '触发人机验证数',
+        `block_times_cc` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'cc拦截数',
+        `captcha_pass_times` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '人机验证通过数',
+        `update_time` datetime NULL,
+        `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `idx_unique_traffic_stats_province_daily` (`request_date`, `ip_country_code`, `ip_province_code`, `ip_province_en`)
+    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+]]
+
+-- 批量 upsert：每 30 秒把当前所有活跃城市合并成一条/多条多行 INSERT，
+-- 避免每 2 秒逐城市单条 SQL 造成的连接池/唯一索引写放大。
+local SQL_INSERT_TRAFFIC_STATS_HEAD = [[
+    INSERT INTO traffic_stats (ip_country_code, ip_country_cn, ip_country_en, ip_province_code, ip_province_cn, ip_province_en, ip_city_code, ip_city_cn, ip_city_en, request_times, attack_times, block_times,
     block_times_attack, block_times_captcha, block_times_cc, captcha_pass_times, request_date)
-    VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %u, %u, %u, %u, %u, %u, %u, %s) ON DUPLICATE KEY UPDATE request_times = request_times + VALUES(request_times),
+    VALUES
+]]
+
+local SQL_INSERT_TRAFFIC_STATS_TAIL = [[
+    ON DUPLICATE KEY UPDATE request_times = request_times + VALUES(request_times),
     attack_times = attack_times + VALUES(attack_times),block_times = block_times + VALUES(block_times),
     block_times_attack = block_times_attack + VALUES(block_times_attack),
     block_times_captcha = block_times_captcha + VALUES(block_times_captcha),
@@ -104,18 +162,76 @@ local SQL_INSERT_TRAFFIC_STATS = [[
     update_time = NOW();
 ]]
 
-local SQL_GET_30DAYS_WORLD_TRAFFIC_STATS = [[
-    SELECT ip_country_code AS 'iso_code',ip_country_cn AS 'name_cn', ip_country_en AS 'name_en',
-        SUM(request_times) AS request_times,SUM(attack_times) AS attack_times,SUM(block_times) AS block_times,
-        SUM(block_times_attack) AS block_times_attack, SUM(block_times_captcha) AS block_times_captcha, SUM(block_times_cc) AS block_times_cc, SUM(captcha_pass_times) AS captcha_pass_times
-    FROM traffic_stats WHERE DATE(request_date) >= CURDATE() - INTERVAL 30 DAY GROUP BY ip_country_code, ip_country_cn, ip_country_en;
+local SQL_INSERT_TRAFFIC_STATS_COUNTRY_HEAD = [[
+    INSERT INTO traffic_stats_country_daily (request_date, ip_country_code, ip_country_cn, ip_country_en, request_times, attack_times, block_times,
+    block_times_attack, block_times_captcha, block_times_cc, captcha_pass_times)
+    VALUES
 ]]
 
-local SQL_GET_30DAYS_CHINA_TRAFFIC_STATS = [[
-    SELECT ip_province_code AS 'iso_code',ip_province_cn AS 'name_cn', ip_province_en AS 'name_en',
+local SQL_INSERT_TRAFFIC_STATS_COUNTRY_TAIL = [[
+    ON DUPLICATE KEY UPDATE request_times = request_times + VALUES(request_times),
+    attack_times = attack_times + VALUES(attack_times),
+    block_times = block_times + VALUES(block_times),
+    block_times_attack = block_times_attack + VALUES(block_times_attack),
+    block_times_captcha = block_times_captcha + VALUES(block_times_captcha),
+    block_times_cc = block_times_cc + VALUES(block_times_cc),
+    captcha_pass_times = captcha_pass_times + VALUES(captcha_pass_times),
+    update_time = NOW();
+]]
+
+local SQL_INSERT_TRAFFIC_STATS_PROVINCE_HEAD = [[
+    INSERT INTO traffic_stats_province_daily (request_date, ip_country_code, ip_province_code, ip_province_cn, ip_province_en, request_times, attack_times, block_times,
+    block_times_attack, block_times_captcha, block_times_cc, captcha_pass_times)
+    VALUES
+]]
+
+local SQL_INSERT_TRAFFIC_STATS_PROVINCE_TAIL = [[
+    ON DUPLICATE KEY UPDATE request_times = request_times + VALUES(request_times),
+    attack_times = attack_times + VALUES(attack_times),
+    block_times = block_times + VALUES(block_times),
+    block_times_attack = block_times_attack + VALUES(block_times_attack),
+    block_times_captcha = block_times_captcha + VALUES(block_times_captcha),
+    block_times_cc = block_times_cc + VALUES(block_times_cc),
+    captcha_pass_times = captcha_pass_times + VALUES(captcha_pass_times),
+    update_time = NOW();
+]]
+
+-- dashboard 只读国家/省份日汇总表：
+-- 不再扫描城市级 traffic_stats 的十几万行明细。
+local SQL_GET_30DAYS_WORLD_TRAFFIC_STATS = [[
+    SELECT ip_country_code AS 'iso_code', MAX(ip_country_cn) AS 'name_cn', ip_country_en AS 'name_en',
         SUM(request_times) AS request_times,SUM(attack_times) AS attack_times,SUM(block_times) AS block_times,
         SUM(block_times_attack) AS block_times_attack, SUM(block_times_captcha) AS block_times_captcha, SUM(block_times_cc) AS block_times_cc, SUM(captcha_pass_times) AS captcha_pass_times
-    FROM traffic_stats WHERE ip_country_code='CN' AND DATE(request_date) >= CURDATE() - INTERVAL 30 DAY GROUP BY ip_province_code, ip_province_cn, ip_province_en;
+    FROM traffic_stats_country_daily
+    WHERE request_date >= CURDATE() - INTERVAL 29 DAY
+      AND request_date <= CURDATE()
+    -- 唯一键是 code + en；中文名只用于展示，用 MAX 取非空值，避免某天中文名为空时同一国家拆成两行。
+    GROUP BY ip_country_code, ip_country_en;
+]]
+
+-- 中国地图按省级汇总：包含港澳台，并把 GeoIP 返回的“北京市/河北省”等后缀去掉，
+-- 保证 name_cn 与 echarts china.json 的区域名一致；同一区域的多条记录合并为一行。
+local SQL_GET_30DAYS_CHINA_TRAFFIC_STATS = [[
+    SELECT MAX(ip_province_code) AS 'iso_code',
+        CASE
+            WHEN ip_province_cn LIKE '%特别行政区' THEN LEFT(ip_province_cn, CHAR_LENGTH(ip_province_cn) - 5)
+            WHEN ip_province_cn LIKE '%壮族自治区' THEN LEFT(ip_province_cn, CHAR_LENGTH(ip_province_cn) - 5)
+            WHEN ip_province_cn LIKE '%回族自治区' THEN LEFT(ip_province_cn, CHAR_LENGTH(ip_province_cn) - 5)
+            WHEN ip_province_cn LIKE '%维吾尔自治区' THEN LEFT(ip_province_cn, CHAR_LENGTH(ip_province_cn) - 5)
+            WHEN ip_province_cn LIKE '%自治区' THEN LEFT(ip_province_cn, CHAR_LENGTH(ip_province_cn) - 3)
+            WHEN ip_province_cn LIKE '%省' THEN LEFT(ip_province_cn, CHAR_LENGTH(ip_province_cn) - 1)
+            WHEN ip_province_cn LIKE '%市' THEN LEFT(ip_province_cn, CHAR_LENGTH(ip_province_cn) - 1)
+            ELSE ip_province_cn
+        END AS 'name_cn',
+        MAX(ip_province_en) AS 'name_en',
+        SUM(request_times) AS request_times,SUM(attack_times) AS attack_times,SUM(block_times) AS block_times,
+        SUM(block_times_attack) AS block_times_attack, SUM(block_times_captcha) AS block_times_captcha, SUM(block_times_cc) AS block_times_cc, SUM(captcha_pass_times) AS captcha_pass_times
+    FROM traffic_stats_province_daily
+    WHERE request_date >= CURDATE() - INTERVAL 29 DAY
+      AND request_date <= CURDATE()
+      AND ip_country_code IN ('CN', 'HK', 'MO', 'TW')
+      AND ip_province_cn NOT IN ('', '未知', 'unknown')
+    GROUP BY name_cn;
 ]]
 
 local SQL_CREATE_TABLE_ATTACK_LOG = [[
@@ -158,7 +274,6 @@ local SQL_CREATE_TABLE_ATTACK_LOG = [[
         `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
-    CREATE INDEX idx_attack_log_ip ON attack_log (ip);
 ]]
 
 local SQL_INSERT_ATTACK_LOG = [[
@@ -199,7 +314,6 @@ local SQL_CREATE_TABLE_IP_BLOCK_LOG = [[
         `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
-    CREATE UNIQUE INDEX idx_unique_ip_block_log_ip_start_time ON ip_block_log (ip, start_time);
 ]]
 
 local SQL_INSERT_IP_BLOCK_LOG = [[
@@ -214,13 +328,43 @@ function _M.check_table(premature)
         return
     end
 
+    -- 大表 ADD INDEX 需要的时间远超普通查询超时（默认 5 秒）；
+    -- 默认保留 180 天后 attack_log 可能到上亿行，建索引按最坏情况给到 2 小时。
+    -- ADD INDEX 是 Online DDL，执行期间不阻塞正常读写。
+    local DDL_TIMEOUT = 2 * 60 * 60 * 1000
+
     local tables = {
-        {name = 'waf_status', sql = SQL_CREATE_TABLE_WAF_STATUS},
-        {name = 'traffic_stats', sql = SQL_CREATE_TABLE_TRAFFIC_STATS},
-        {name = 'attack_log', sql = SQL_CREATE_TABLE_ATTACK_LOG, indexes = {
-            {name = 'idx_attack_log_ip', sql = 'ALTER TABLE attack_log ADD INDEX idx_attack_log_ip (ip)'},
+        {name = 'waf_status', sql = SQL_CREATE_TABLE_WAF_STATUS, indexes = {
+            {name = 'idx_unique_waf_status_request_date', sql = 'ALTER TABLE waf_status ADD UNIQUE INDEX idx_unique_waf_status_request_date (request_date)'},
         }},
-        {name = 'ip_block_log', sql = SQL_CREATE_TABLE_IP_BLOCK_LOG},
+        {name = 'traffic_stats', sql = SQL_CREATE_TABLE_TRAFFIC_STATS, indexes = {
+            {name = 'idx_unique_traffic_stats_request_date', sql = 'ALTER TABLE traffic_stats ADD UNIQUE INDEX idx_unique_traffic_stats_request_date (ip_country_code, ip_province_en, ip_city_en, request_date)'},
+            {name = 'idx_traffic_stats_request_date', sql = 'ALTER TABLE traffic_stats ADD INDEX idx_traffic_stats_request_date (request_date, ip_country_code)'},
+        }},
+        {name = 'traffic_stats_country_daily', sql = SQL_CREATE_TABLE_TRAFFIC_STATS_COUNTRY_DAILY, indexes = {
+            {name = 'idx_unique_traffic_stats_country_daily', sql = 'ALTER TABLE traffic_stats_country_daily ADD UNIQUE INDEX idx_unique_traffic_stats_country_daily (request_date, ip_country_code, ip_country_en)'},
+        }},
+        {name = 'traffic_stats_province_daily', sql = SQL_CREATE_TABLE_TRAFFIC_STATS_PROVINCE_DAILY, indexes = {
+            {name = 'idx_unique_traffic_stats_province_daily', sql = 'ALTER TABLE traffic_stats_province_daily ADD UNIQUE INDEX idx_unique_traffic_stats_province_daily (request_date, ip_country_code, ip_province_code, ip_province_en)'},
+        }},
+        -- 旧版 idx_attack_log_ip 不再创建；已有库请执行
+        -- sql/2026-11-08_attack_log_indexes.sql 删除旧索引并补建新索引。
+        {name = 'attack_log', sql = SQL_CREATE_TABLE_ATTACK_LOG, indexes = {
+            {name = 'idx_attack_log_request_time', sql = 'ALTER TABLE attack_log ADD INDEX idx_attack_log_request_time (request_time)'},
+            {name = 'idx_attack_log_server_name', sql = 'ALTER TABLE attack_log ADD INDEX idx_attack_log_server_name (server_name, request_time)'},
+            {name = 'idx_attack_log_server_type_time', sql = 'ALTER TABLE attack_log ADD INDEX idx_attack_log_server_type_time (server_name, attack_type, request_time, action)'},
+            {name = 'idx_attack_log_attack_type_time', sql = 'ALTER TABLE attack_log ADD INDEX idx_attack_log_attack_type_time (attack_type, request_time)'},
+            {name = 'idx_attack_log_action_time', sql = 'ALTER TABLE attack_log ADD INDEX idx_attack_log_action_time (action, request_time)'},
+            -- 攻击类型 + 处置动作组合筛选（本地 100 万行实测 COUNT 约 2.0 秒降到 1.0 秒）
+            {name = 'idx_attack_log_type_action_time', sql = 'ALTER TABLE attack_log ADD INDEX idx_attack_log_type_action_time (attack_type, action, request_time)'},
+            -- IP 精确筛选 + 时间范围；替换原先只有 ip 单列的索引，避免先取该 IP 全部历史再回表过滤时间
+            {name = 'idx_attack_log_ip_time', sql = 'ALTER TABLE attack_log ADD INDEX idx_attack_log_ip_time (ip, request_time)'},
+        }},
+        {name = 'ip_block_log', sql = SQL_CREATE_TABLE_IP_BLOCK_LOG, indexes = {
+            {name = 'idx_unique_ip_block_log_ip_start_time', sql = 'ALTER TABLE ip_block_log ADD UNIQUE INDEX idx_unique_ip_block_log_ip_start_time (ip, start_time)'},
+            {name = 'idx_ip_block_log_start_time', sql = 'ALTER TABLE ip_block_log ADD INDEX idx_ip_block_log_start_time (start_time)'},
+            {name = 'idx_ip_block_log_block_reason_time', sql = 'ALTER TABLE ip_block_log ADD INDEX idx_ip_block_log_block_reason_time (block_reason, start_time)'},
+        }},
     }
 
     for _, t in pairs(tables) do
@@ -230,7 +374,7 @@ function _M.check_table(premature)
         local res, err = mysql.query(format(SQL_CHECK_TABLE, database, name))
         if res and res[1] then
             if res[1].c == '0' then
-                res, err = mysql.query(sql)
+                res, err = mysql.query(sql, nil, DDL_TIMEOUT)
                 if not res then
                     ngx.log(ngx.ERR, 'failed to create table ' .. name .. ' ', err)
                 end
@@ -240,7 +384,7 @@ function _M.check_table(premature)
             for _, idx in ipairs(t.indexes or {}) do
                 local r = mysql.query(format(SQL_CHECK_INDEX, name, idx.name))
                 if r and r[1] and r[1].c == '0' then
-                    local ok = mysql.query(idx.sql)
+                    local ok = mysql.query(idx.sql, nil, DDL_TIMEOUT)
                     if not ok then
                         ngx.log(ngx.ERR, 'failed to create index ', idx.name, ' on table ', name)
                     end
@@ -250,76 +394,238 @@ function _M.check_table(premature)
     end
 end
 
-function _M.update_traffic_stats()
-    local dict = ngx.shared.dict_req_count_citys
-    local keys = dict:get_keys()
+-- 按保留期分批删除过期攻击日志，避免一次性删除大量行拖慢数据库
+function _M.purge_attack_log(premature)
+    if premature then
+        return
+    end
 
-    if keys then
-        local key_table = {}
+    local attack_log = get_system_config('attackLog')
+    local days = tonumber(attack_log and attack_log.retentionDays) or PURGE_DEFAULT_DAYS
+    if days < 1 then
+        days = PURGE_DEFAULT_DAYS
+    end
 
-        for _, key in ipairs(keys) do
-            local m, err = ngxmatch(key, '(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?):', 'isjo')
-            if m then
-                local prefix = m[0]
+    local purge_sql = format(SQL_DELETE_EXPIRED_ATTACK_LOG, days, PURGE_BATCH_SIZE)
+    local deleted = 0
+    local batches = 0
 
-                local countryCode = m[1] or ''
-                local countryCN = m[2] or ''
-                local countryEN = m[3] or ''
-
-                local provinceCode = m[4] or ''
-                local provinceCN = m[5] or ''
-                local provinceEN = m[6] or ''
-
-                local cityCode = m[7] or ''
-                local cityCN = m[8] or ''
-                local cityEN = m[9] or ''
-
-                insert(key_table, {
-                    prefix = prefix,
-                    countryCode = countryCode,
-                    countryCN = countryCN,
-                    countryEN = countryEN,
-                    provinceCode = provinceCode,
-                    provinceCN = provinceCN,
-                    provinceEN = provinceEN,
-                    cityCode = cityCode,
-                    cityCN = cityCN,
-                    cityEN = cityEN
-                })
-            end
+    -- 单次运行设上限：首次部署存量很大时不会长时间占用数据库，剩余部分下次继续
+    while batches < PURGE_MAX_BATCHES do
+        local res, err = mysql.query(purge_sql)
+        if not res then
+            ngx.log(ngx.ERR, 'failed to purge attack_log: ', err)
+            break
         end
 
-        for _, t in pairs(key_table) do
-            local prefix = t.prefix
+        local affected = res.affected_rows or 0
+        deleted = deleted + affected
+        batches = batches + 1
 
-            local request_times = utils.dict_get(dict, prefix .. constants.KEY_REQUEST_TIMES) or 0
-            local attack_times = utils.dict_get(dict, prefix .. constants.KEY_ATTACK_TIMES) or 0
-            local block_times_attack = utils.dict_get(dict, prefix .. constants.KEY_BLOCK_TIMES_ATTACK) or 0
-            local block_times_captcha = utils.dict_get(dict, prefix .. constants.KEY_BLOCK_TIMES_CAPTCHA) or 0
-            local block_times_cc = utils.dict_get(dict, prefix .. constants.KEY_BLOCK_TIMES_CC) or 0
-            local captcha_pass_times = utils.dict_get(dict, prefix .. constants.KEY_CAPTCHA_PASS_TIMES) or 0
+        if affected < PURGE_BATCH_SIZE then
+            break
+        end
 
-            if request_times > 0 or attack_times > 0 or block_times_attack > 0 or block_times_captcha > 0 or block_times_cc > 0 or captcha_pass_times > 0 then
-                utils.dict_set(dict, prefix .. constants.KEY_REQUEST_TIMES, 0)
-                utils.dict_set(dict, prefix .. constants.KEY_ATTACK_TIMES, 0)
-                utils.dict_set(dict, prefix .. constants.KEY_BLOCK_TIMES_ATTACK, 0)
-                utils.dict_set(dict, prefix .. constants.KEY_BLOCK_TIMES_CAPTCHA, 0)
-                utils.dict_set(dict, prefix .. constants.KEY_BLOCK_TIMES_CC, 0)
-                utils.dict_set(dict, prefix .. constants.KEY_CAPTCHA_PASS_TIMES, 0)
+        -- 让出事件循环，也避免长时间持续压满数据库 IO
+        ngx.sleep(0.05)
+    end
 
-                local block_times = block_times_attack + block_times_captcha + block_times_cc
+    if deleted > 0 then
+        ngx.log(ngx.INFO, 'attack_log retention: deleted ', deleted, ' rows older than ', days, ' days')
+    end
 
-                local sql = format(SQL_INSERT_TRAFFIC_STATS,
-                    quote_sql_str(t.countryCode), quote_sql_str(t.countryCN), quote_sql_str(t.countryEN),
-                    quote_sql_str(t.provinceCode), quote_sql_str(t.provinceCN), quote_sql_str(t.provinceEN),
-                    quote_sql_str(t.cityCode), quote_sql_str(t.cityCN), quote_sql_str(t.cityEN),
-                    request_times, attack_times, block_times, block_times_attack, block_times_captcha, block_times_cc, captcha_pass_times,
-                    quote_sql_str(ngx.today()))
+    if batches >= PURGE_MAX_BATCHES then
+        ngx.log(ngx.WARN, 'attack_log retention: batch limit reached, remaining rows will be purged next run')
+    end
+end
 
-                mysql.query(sql)
+local TRAFFIC_STATS_BATCH_SIZE = 200
+-- 归零后的城市计数 key 只需要短暂保留：
+--   * 值已经是 0，保留再久也没有意义
+--   * 用 2 天会把每个出现过的城市 key 续命 2 天，共享字典很快被占满并触发淘汰
+-- 1 小时足够覆盖 30 秒的采集周期，也能让共享字典占用稳定在“最近 1 小时出现过的城市”。
+local TRAFFIC_STATS_KEY_TTL = 3600
+local CITY_KEY_PATTERN = '(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?):'
+local CITY_ROW_FORMAT = '(%s, %s, %s, %s, %s, %s, %s, %s, %s, %u, %u, %u, %u, %u, %u, %u, %s)'
+local COUNTRY_ROW_FORMAT = '(%s, %s, %s, %s, %u, %u, %u, %u, %u, %u, %u)'
+local PROVINCE_ROW_FORMAT = '(%s, %s, %s, %s, %s, %u, %u, %u, %u, %u, %u, %u)'
+
+local function new_stats_acc(code, cn, en)
+    return {
+        code = code or '',
+        cn = cn or '',
+        en = en or '',
+        request = 0,
+        attack = 0,
+        block_attack = 0,
+        block_captcha = 0,
+        block_cc = 0,
+        captcha_pass = 0
+    }
+end
+
+local function add_stats_acc(acc, request_times, attack_times, block_times_attack, block_times_captcha, block_times_cc, captcha_pass_times)
+    acc.request = acc.request + request_times
+    acc.attack = acc.attack + attack_times
+    acc.block_attack = acc.block_attack + block_times_attack
+    acc.block_captcha = acc.block_captcha + block_times_captcha
+    acc.block_cc = acc.block_cc + block_times_cc
+    acc.captcha_pass = acc.captcha_pass + captcha_pass_times
+end
+
+local function exec_stats_batch(head, tail, rows, count, table_name)
+    if count == 0 then
+        return
+    end
+
+    local sql = head .. concat(rows, ',') .. tail
+    local res, err = mysql.query(sql)
+    if not res then
+        ngx.log(ngx.ERR, 'failed to update ', table_name, ': ', err)
+    end
+end
+
+function _M.update_traffic_stats()
+    local dict = ngx.shared.dict_req_count_citys
+
+    -- get_keys(0) 表示不限制数量；该函数每 30 秒在 timer 中执行一次，短暂阻塞可接受。
+    -- 旧代码使用默认 1024 上限，超过上限的城市会长期不落库。
+    local keys = dict:get_keys(0)
+    if not keys or #keys == 0 then
+        return
+    end
+
+    -- ngx.today() 返回 YYYY-MM-DD，可直接写入 DATE 列
+    local today = ngx.today()
+    local seen = {}
+    local city_rows = newtab(TRAFFIC_STATS_BATCH_SIZE, 0)
+    local city_count = 0
+    local country_accs = {}
+    local province_accs = {}
+
+    local function flush_city()
+        if city_count == 0 then
+            return
+        end
+
+        exec_stats_batch(SQL_INSERT_TRAFFIC_STATS_HEAD, SQL_INSERT_TRAFFIC_STATS_TAIL, city_rows, city_count, 'traffic_stats')
+
+        city_rows = newtab(TRAFFIC_STATS_BATCH_SIZE, 0)
+        city_count = 0
+    end
+
+    for _, key in ipairs(keys) do
+        local m = ngxmatch(key, CITY_KEY_PATTERN, 'isjo')
+        if m then
+            local prefix = m[0]
+
+            -- 每个城市有 6 个计数 key，按城市前缀去重，避免重复读取和重复 SQL。
+            if not seen[prefix] then
+                seen[prefix] = true
+
+                local request_times = utils.dict_get(dict, prefix .. constants.KEY_REQUEST_TIMES) or 0
+                local attack_times = utils.dict_get(dict, prefix .. constants.KEY_ATTACK_TIMES) or 0
+                local block_times_attack = utils.dict_get(dict, prefix .. constants.KEY_BLOCK_TIMES_ATTACK) or 0
+                local block_times_captcha = utils.dict_get(dict, prefix .. constants.KEY_BLOCK_TIMES_CAPTCHA) or 0
+                local block_times_cc = utils.dict_get(dict, prefix .. constants.KEY_BLOCK_TIMES_CC) or 0
+                local captcha_pass_times = utils.dict_get(dict, prefix .. constants.KEY_CAPTCHA_PASS_TIMES) or 0
+
+                if request_times > 0 or attack_times > 0 or block_times_attack > 0 or block_times_captcha > 0 or block_times_cc > 0 or captcha_pass_times > 0 then
+                    -- 重置时带上 TTL；不带 TTL 的 set 会清除过期时间，历史城市 key 会永久占用共享字典。
+                    utils.dict_set(dict, prefix .. constants.KEY_REQUEST_TIMES, 0, TRAFFIC_STATS_KEY_TTL)
+                    utils.dict_set(dict, prefix .. constants.KEY_ATTACK_TIMES, 0, TRAFFIC_STATS_KEY_TTL)
+                    utils.dict_set(dict, prefix .. constants.KEY_BLOCK_TIMES_ATTACK, 0, TRAFFIC_STATS_KEY_TTL)
+                    utils.dict_set(dict, prefix .. constants.KEY_BLOCK_TIMES_CAPTCHA, 0, TRAFFIC_STATS_KEY_TTL)
+                    utils.dict_set(dict, prefix .. constants.KEY_BLOCK_TIMES_CC, 0, TRAFFIC_STATS_KEY_TTL)
+                    utils.dict_set(dict, prefix .. constants.KEY_CAPTCHA_PASS_TIMES, 0, TRAFFIC_STATS_KEY_TTL)
+
+                    local block_times = block_times_attack + block_times_captcha + block_times_cc
+
+                    local country_code = m[1] or ''
+                    local country_cn = m[2] or ''
+                    local country_en = m[3] or ''
+                    local province_code = m[4] or ''
+                    local province_cn = m[5] or ''
+                    local province_en = m[6] or ''
+
+                    -- 兜底归一化：个别 IP 库记录缺少 iso_code，只有英文名。
+                    -- 只补空 code，不改动已有 code，也不改变国家归属：
+                    --   * 避免同一地区在汇总表里被拆成“有 code / 无 code”两行
+                    --   * 空 code 的香港/澳门补回 HK/MO 后，dashboard 才能正确落到地图上
+                    if country_code == '' then
+                        if country_en == 'Hong Kong' then
+                            country_code = 'HK'
+                        elseif country_en == 'Macao' then
+                            country_code = 'MO'
+                        end
+                    end
+                    if province_code == '' then
+                        if province_en == 'Hong Kong' then
+                            province_code = 'HK'
+                        elseif province_en == 'Macao' then
+                            province_code = 'MO'
+                        end
+                    end
+
+                    -- 城市级明细
+                    city_count = city_count + 1
+                    city_rows[city_count] = format(CITY_ROW_FORMAT,
+                        quote_sql_str(country_code), quote_sql_str(country_cn), quote_sql_str(country_en),
+                        quote_sql_str(province_code), quote_sql_str(province_cn), quote_sql_str(province_en),
+                        quote_sql_str(m[7] or ''), quote_sql_str(m[8] or ''), quote_sql_str(m[9] or ''),
+                        request_times, attack_times, block_times, block_times_attack, block_times_captcha, block_times_cc, captcha_pass_times,
+                        quote_sql_str(today))
+
+                    if city_count >= TRAFFIC_STATS_BATCH_SIZE then
+                        flush_city()
+                    end
+
+                    -- 国家级汇总（唯一键为 code + en，避免中文名偶发为空时拆成两行）
+                    local country_key = country_code .. '\1' .. country_en
+                    local country = country_accs[country_key]
+                    if not country then
+                        country = new_stats_acc(country_code, country_cn, country_en)
+                        country_accs[country_key] = country
+                    end
+                    add_stats_acc(country, request_times, attack_times, block_times_attack, block_times_captcha, block_times_cc, captcha_pass_times)
+
+                    -- 省级汇总（唯一键为 code + en；空 code 的香港/澳门/未知靠 en 区分）
+                    local province_key = country_code .. '\1' .. province_code .. '\1' .. province_en
+                    local province = province_accs[province_key]
+                    if not province then
+                        province = new_stats_acc(province_code, province_cn, province_en)
+                        province.country_code = country_code
+                        province_accs[province_key] = province
+                    end
+                    add_stats_acc(province, request_times, attack_times, block_times_attack, block_times_captcha, block_times_cc, captcha_pass_times)
+                end
             end
         end
     end
+
+    flush_city()
+
+    local country_rows = newtab(64, 0)
+    local country_count = 0
+    for _, c in pairs(country_accs) do
+        country_count = country_count + 1
+        country_rows[country_count] = format(COUNTRY_ROW_FORMAT,
+            quote_sql_str(today), quote_sql_str(c.code), quote_sql_str(c.cn), quote_sql_str(c.en),
+            c.request, c.attack, c.block_attack + c.block_captcha + c.block_cc,
+            c.block_attack, c.block_captcha, c.block_cc, c.captcha_pass)
+    end
+    exec_stats_batch(SQL_INSERT_TRAFFIC_STATS_COUNTRY_HEAD, SQL_INSERT_TRAFFIC_STATS_COUNTRY_TAIL, country_rows, country_count, 'traffic_stats_country_daily')
+
+    local province_rows = newtab(64, 0)
+    local province_count = 0
+    for _, p in pairs(province_accs) do
+        province_count = province_count + 1
+        province_rows[province_count] = format(PROVINCE_ROW_FORMAT,
+            quote_sql_str(today), quote_sql_str(p.country_code), quote_sql_str(p.code), quote_sql_str(p.cn), quote_sql_str(p.en),
+            p.request, p.attack, p.block_attack + p.block_captcha + p.block_cc,
+            p.block_attack, p.block_captcha, p.block_cc, p.captcha_pass)
+    end
+    exec_stats_batch(SQL_INSERT_TRAFFIC_STATS_PROVINCE_HEAD, SQL_INSERT_TRAFFIC_STATS_PROVINCE_TAIL, province_rows, province_count, 'traffic_stats_province_daily')
 end
 
 function _M.update_waf_status()
@@ -373,49 +679,61 @@ function _M.write_sql_queue_to_mysql(premature, key)
 
     local dict_sql_queue = ngx.shared.dict_sql_queue
 
-    local len = dict_sql_queue:llen(key) or 0
-    if len == 0 then
+    -- 只处理进入函数时的快照数量，避免高流量下 timer 长时间不返回
+    local remaining = dict_sql_queue:llen(key) or 0
+    if remaining == 0 then
         return
     end
 
-    local sql_str = ''
+    local sql_str
     if key == constants.KEY_ATTACK_LOG then
         sql_str = SQL_INSERT_ATTACK_LOG
     elseif key == constants.KEY_IP_BLOCK_LOG then
         sql_str = SQL_INSERT_IP_BLOCK_LOG
+    else
+        return
     end
-
-    local insert_time_total = floor(len / BATCH_SIZE) + 1
-    local insert_time = 0
 
     local buffer = newtab(BATCH_SIZE, 0)
+    local index = 0
+    local bytes = 0
 
-    local index = 1
-    local value = dict_sql_queue:lpop(key)
+    local function flush()
+        if index == 0 then
+            return
+        end
 
-    while (insert_time <= insert_time_total and value) do
+        mysql.query(sql_str .. concat(buffer, ',', 1, index))
+        buffer = newtab(BATCH_SIZE, 0)
+        index = 0
+        bytes = 0
+    end
+
+    while remaining > 0 do
+        local value = dict_sql_queue:lpop(key)
+        if not value then
+            break
+        end
+        remaining = remaining - 1
+
+        index = index + 1
         buffer[index] = value
-        value = dict_sql_queue:lpop(key)
+        bytes = bytes + #value
 
-        if index == BATCH_SIZE or value == nil then
-            local sql_values = concat(buffer, ',')
-
-            if sql_values then
-                mysql.query(sql_str .. sql_values)
-                insert_time = insert_time + 1
-            end
-
-            index = 1
-            buffer = newtab(BATCH_SIZE, 0)
-        else
-            index = index + 1
+        if index >= BATCH_SIZE or bytes >= BATCH_MAX_BYTES then
+            flush()
         end
     end
+
+    flush()
 end
 
 function _M.write_sql_to_queue(key, sql)
     local dict_sql_queue = ngx.shared.dict_sql_queue
-    dict_sql_queue:rpush(key, sql)
+    local ok, err = dict_sql_queue:rpush(key, sql)
+    if not ok then
+        ngx.log(ngx.ERR, "failed to push sql to queue ", key, ": ", err)
+    end
 end
 
 return _M

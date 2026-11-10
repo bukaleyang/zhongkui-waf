@@ -7,23 +7,22 @@ local ngxfind = ngx.re.find
 local ngxmatch = ngx.re.match
 local ngxgmatch = ngx.re.gmatch
 local sub = string.sub
-local randomseed = math.randomseed
-local random = math.random
+local format = string.format
 local ostime = os.time
 local osdate = os.date
-local osclock = os.clock
 
 local read_file_to_string = file_utils.read_file_to_string
 
 local _M = {}
 
 -- 生成一个随机的id
-function _M.generate_id()
-    local now = ostime()
-    randomseed(now + (ngx.worker.id() + 1) * osclock() + random())
-    local num = random(100000, 999999)
+local seq = 0
 
-    return osdate("%Y%m%d%H%M%S", now) .. num
+function _M.generate_id()
+    seq = seq + 1
+    local worker_id = ngx.worker.id() or 0
+    -- worker 前缀 + 自增序号，避免每次请求 randomseed 的开销和同秒重复
+    return osdate("%Y%m%d%H%M%S", ostime()) .. format("%02d%04d", worker_id % 100, seq % 10000)
 end
 
 function _M.get_boundary()
