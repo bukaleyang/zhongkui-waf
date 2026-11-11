@@ -5,8 +5,10 @@ local file_utils = require "file_utils"
 
 local ngxfind = ngx.re.find
 local ngxmatch = ngx.re.match
-local ngxgmatch = ngx.re.gmatch
 local sub = string.sub
+local find_plain = string.find
+local insert = table.insert
+local concat = table.concat
 local format = string.format
 local ostime = os.time
 local osdate = os.date
@@ -73,54 +75,51 @@ function _M.get_upload_files()
     local delimiter = '--' .. boundary .. '\r\n'
     local delimiter_end = '--' .. boundary .. '--' .. '\r\n'
 
-    local content = ''
-    local is_file = false
-
     local body_raw = _M.get_request_body()
-    local it, err = ngxgmatch(body_raw, ".+?(?:\n|$)", "isjo")
-    if not it then
-        ngx.log(ngx.ERR, "error: ", err)
-        return nil, err
+    if not body_raw then
+        return nil, "no body"
     end
+
+    local total_len = #body_raw
+    local chunks = {}
+    local is_file = false
+    local pos = 1
 
     local files = {}
     local name = nil
     local fileName = nil
     local ext = nil
 
-    while true do
-        local m, err = it()
-        if err then
-            ngx.log(ngx.ERR, "error: ", err)
-            return nil, err
-        end
+    -- 逐行扫描：字面量查找 + table 收集，避免大文件上 content = content .. line 的 O(n²)
+    while pos <= total_len do
+        local nl = find_plain(body_raw, '\n', pos, true)
+        local line
 
-        if not m then
-            break
-        end
-
-        local line = m[0]
-        if line == nil then
-            break
+        if nl then
+            line = sub(body_raw, pos, nl)      -- 保留行尾 \n，与原来的逐行匹配结果一致
+            pos = nl + 1
+        else
+            line = sub(body_raw, pos)
+            pos = total_len + 1
         end
 
         if line == delimiter or line == delimiter_end then
-            if content ~= '' then
+            if #chunks > 0 then
                 if is_file then
                     is_file = false
-                    files[name] = {content = content, fileName = fileName, ext = ext}
+                    files[name] = {content = concat(chunks), fileName = fileName, ext = ext}
                 end
-               content = ''
+                chunks = {}
             end
         elseif line ~= '\r\n' then
             if is_file then
-                if content == '' then
+                if #chunks == 0 then
                     local from = ngxfind(line, "Content-Type:\\s*\\S+/\\S+", "ijo")
                     if not from then
-                        content = content .. line
+                        insert(chunks, line)
                     end
                 else
-                    content = content .. line
+                    insert(chunks, line)
                 end
             else
                 local from, to = ngxfind(line, [[Content-Disposition:\s*form-data;\s*name=["|']\w+["|'];\s*filename=["|'][\s\S]+\.\w+(?:"|')]], "ijo")

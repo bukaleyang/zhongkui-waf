@@ -28,7 +28,9 @@ local get_request_body = request.get_request_body
 local get_boundary = request.get_boundary
 
 local concat = table.concat
-local ngxgmatch = ngx.re.gmatch
+local insert = table.insert
+local find_plain = string.find
+local byte = string.byte
 local ngxfind = ngx.re.find
 local md5 = ngx.md5
 
@@ -40,6 +42,14 @@ local get_system_config = config.get_system_config
 local read_file_to_table = file_utils.read_file_to_table
 
 local _M = {}
+
+-- 超大请求体保护阈值
+-- raw body 超过该值后不再整体做 libinjection，改为逐个表单 part 检测，
+-- 避免 GB 级/几十 MB 的上传请求把 worker 长时间占死（见 is_evil_request_body）
+local MAX_BODY_INSPECT_LEN = 1024 * 1024
+-- 单个上传文件内容检查上限：只检查文件前 256KB，其余丢弃，
+-- 否则逐行累积 + 全量规则匹配会让 CPU 随文件体积线性/平方增长
+local MAX_FILE_CONTENT_LEN = 256 * 1024
 
 -- whether or not the regular expression matches on the input
 local function matches(input, regex, options, ctx, nth)
@@ -458,59 +468,89 @@ function _M.is_evil_request_body()
             local delimiter = '--' .. boundary
             local delimiter_end = '--' .. boundary .. '--'
 
-            local body = ''
-            local is_file = false
-
             local body_raw = get_request_body()
-            local it, err = ngxgmatch(body_raw, ".+?(?:\n|$)", "isjo")
-            if not it then
-                ngx.log(ngx.ERR, "error: ", err)
+            if not body_raw then
                 return
             end
 
-            while true do
-                local m, err = it()
-                if err then
-                    ngx.log(ngx.ERR, "error: ", err)
-                    return
+            local total_len = #body_raw
+            -- 超大请求体不再整体做 libinjection，改为逐个表单 part 检测
+            local inspect_text_only = total_len > MAX_BODY_INSPECT_LEN
+
+            local chunks = {}          -- 当前 part 的文本内容
+            local file_chunks = {}     -- 当前文件 part 的内容（限长）
+            local file_len = 0
+            local is_file = false
+            local in_file_head = false
+            local pos = 1
+
+            -- 逐行扫描：用字面量查找代替 ngx.re.gmatch，内容用 table 收集后一次 concat，
+            -- 避免 body = body .. line 在大文件上退化成 O(n²)
+            while pos <= total_len do
+                local nl = find_plain(body_raw, '\n', pos, true)
+                local raw_line
+
+                if nl then
+                    raw_line = sub(body_raw, pos, nl - 1)
+                    pos = nl + 1
+                else
+                    raw_line = sub(body_raw, pos)
+                    pos = total_len + 1
                 end
 
-                if not m then
-                    break
-                end
-
-                local line = trim(m[0])
-                if line == nil then
-                    break
+                local line
+                if is_file and not in_file_head then
+                    -- 文件内容行只去掉行尾 CR，不做逐行正则 trim
+                    if byte(raw_line, -1) == 13 then
+                        line = sub(raw_line, 1, -2)
+                    else
+                        line = raw_line
+                    end
+                else
+                    line = trim(raw_line)
                 end
 
                 if line == delimiter or line == delimiter_end then
-                    if body ~= '' then
-                        body = sub(body, 1, -2)
-                        if is_file then
-                            if is_site_option_on("fileContentCheck") then
-                                -- 文件内容检查
-                                if _M.is_evil_file(body) then
-                                    return true
-                                end
-                            end
-                            is_file = false
-                        else
-                            if _M.is_evil_body(body) then
+                    if is_file then
+                        if file_len > 0 and is_site_option_on("fileContentCheck") then
+                            -- 文件内容检查（只检查文件前 MAX_FILE_CONTENT_LEN 字节）
+                            if _M.is_evil_file(concat(file_chunks, '\n')) then
                                 return true
                             end
                         end
-                        body = ''
+
+                        is_file = false
+                        in_file_head = false
+                        file_chunks = {}
+                        file_len = 0
+                    elseif #chunks > 0 then
+                        local text = concat(chunks, '\n')
+
+                        if _M.is_evil_body(text) then
+                            return true
+                        end
+
+                        if inspect_text_only then
+                            _M.is_sqli_or_xss(text)
+                        end
+
+                        chunks = {}
                     end
                 elseif line ~= '' then
                     if is_file then
-                        if body == '' then
-                            local fr = matches(line, "Content-Type:\\s*\\S+/\\S+", "ijo")
-                            if fr == nil then
-                                body = body .. line .. '\n'
+                        if in_file_head then
+                            -- 文件 part 的头一行通常是 Content-Type，跳过
+                            if not matches(line, "Content-Type:\\s*\\S+/\\S+", "ijo") then
+                                in_file_head = false
+
+                                if file_len < MAX_FILE_CONTENT_LEN then
+                                    insert(file_chunks, line)
+                                    file_len = file_len + #line + 1
+                                end
                             end
-                        else
-                            body = body .. line .. '\n'
+                        elseif file_len < MAX_FILE_CONTENT_LEN then
+                            insert(file_chunks, line)
+                            file_len = file_len + #line + 1
                         end
                     else
                         local from, to = matches(line, [[Content-Disposition:\s*form-data;[\s\S]+filename=["|'][\s\S]+\.(\w+)(?:"|')]], "ijo", nil, 1)
@@ -523,16 +563,22 @@ function _M.is_evil_request_body()
                             end
 
                             is_file = true
+                            in_file_head = true
+                            file_chunks = {}
+                            file_len = 0
                         else
                             local fr = matches(line, "Content-Disposition:\\s*form-data;\\s*name=", "ijo")
                             if fr == nil then
-                                body = body .. line .. '\n'
+                                insert(chunks, line)
                             end
                         end
                     end
                 end
             end
-            _M.is_sqli_or_xss(body_raw)
+
+            if not inspect_text_only then
+                _M.is_sqli_or_xss(body_raw)
+            end
         elseif matches(contentType, "\\s*x-www-form-urlencoded") then
             ngx.req.read_body()
             local args, err = ngx.req.get_post_args()
