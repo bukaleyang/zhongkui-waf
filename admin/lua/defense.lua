@@ -14,6 +14,9 @@ local update_site_module_rule_file = config.update_site_module_rule_file
 local tonumber = tonumber
 local cjson_decode = cjson.decode
 local cjson_encode = cjson.encode
+local gsub = string.gsub
+local lower = string.lower
+local match = string.match
 
 local _M = {}
 
@@ -141,6 +144,38 @@ function _M.do_request()
                     rule_new.action = rule_new.action or 'deny'
                     rule_new.attackType = rule_new.attackType or 'unknown'
                     rule_new.severityLevel = 'medium'
+
+                    -- fileExt 是白名单模块：state=on 的规则表示“允许该扩展名”，
+                    -- 处置动作没有意义，统一固定为 allow，避免前端传入 deny 造成语义混乱
+                    if module_id == 'fileExt' then
+                        local ext = gsub(tostring(rule_new.rule or ''), '%s+', '')
+                        ext = lower(gsub(ext, '^%.', ''))
+
+                        if ext == '' or not match(ext, '^[%w_%-]+$') then
+                            response.code = 500
+                            response.msg = 'invalid file extension'
+                            ngx.say(cjson_encode(response))
+                            return
+                        end
+
+                        local _, content = get_site_module_rule_file(site_id, module_id)
+                        if content then
+                            local t = cjson_decode(content)
+                            for _, r in pairs(t.rules or {}) do
+                                if tonumber(r.id) ~= rule_new.id and
+                                        lower(tostring(r.rule or '')) == ext then
+                                    response.code = 500
+                                    response.msg = 'duplicate file extension'
+                                    ngx.say(cjson_encode(response))
+                                    return
+                                end
+                            end
+                        end
+
+                        rule_new.rule = ext
+                        rule_new.action = 'allow'
+                        rule_new.attackType = 'file_ext'
+                    end
 
                     response = rule_utils.save_or_update_site_rule(site_id, module_id, rule_new)
                     reload = true

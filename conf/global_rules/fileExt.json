@@ -1,44 +1,292 @@
 {
-    "nextId": 6,
-    "moduleName": "文件上传检测",
+    "nextId": 37,
+    "moduleName": "文件上传白名单",
     "rules": [
         {
             "id": 1,
             "state": "on",
-            "action": "redirect",
-            "rule": "php",
+            "action": "allow",
+            "rule": "jpg",
             "attackType": "file_ext",
             "severityLevel": "high"
         },
         {
             "id": 2,
             "state": "on",
-            "action": "redirect",
-            "rule": "jsp",
+            "action": "allow",
+            "rule": "jpeg",
             "attackType": "file_ext",
             "severityLevel": "high"
         },
         {
             "id": 3,
             "state": "on",
-            "action": "redirect",
-            "rule": "asp",
+            "action": "allow",
+            "rule": "png",
             "attackType": "file_ext",
             "severityLevel": "high"
         },
         {
             "id": 4,
             "state": "on",
-            "action": "redirect",
-            "rule": "exe",
+            "action": "allow",
+            "rule": "gif",
             "attackType": "file_ext",
             "severityLevel": "high"
         },
         {
             "id": 5,
             "state": "on",
-            "action": "redirect",
-            "rule": "sh",
+            "action": "allow",
+            "rule": "bmp",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 6,
+            "state": "on",
+            "action": "allow",
+            "rule": "webp",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 7,
+            "state": "on",
+            "action": "allow",
+            "rule": "ico",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 8,
+            "state": "on",
+            "action": "allow",
+            "rule": "pdf",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 9,
+            "state": "on",
+            "action": "allow",
+            "rule": "doc",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 10,
+            "state": "on",
+            "action": "allow",
+            "rule": "docx",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 11,
+            "state": "on",
+            "action": "allow",
+            "rule": "xls",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 12,
+            "state": "on",
+            "action": "allow",
+            "rule": "xlsx",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 13,
+            "state": "on",
+            "action": "allow",
+            "rule": "ppt",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 14,
+            "state": "on",
+            "action": "allow",
+            "rule": "pptx",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 15,
+            "state": "on",
+            "action": "allow",
+            "rule": "txt",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 16,
+            "state": "on",
+            "action": "allow",
+            "rule": "csv",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 17,
+            "state": "on",
+            "action": "allow",
+            "rule": "rtf",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 18,
+            "state": "on",
+            "action": "allow",
+            "rule": "odt",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 19,
+            "state": "on",
+            "action": "allow",
+            "rule": "ods",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 20,
+            "state": "on",
+            "action": "allow",
+            "rule": "zip",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 21,
+            "state": "on",
+            "action": "allow",
+            "rule": "rar",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 22,
+            "state": "on",
+            "action": "allow",
+            "rule": "7z",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 23,
+            "state": "on",
+            "action": "allow",
+            "rule": "gz",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 24,
+            "state": "on",
+            "action": "allow",
+            "rule": "tar",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 25,
+            "state": "on",
+            "action": "allow",
+            "rule": "mp3",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 26,
+            "state": "on",
+            "action": "allow",
+            "rule": "wav",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 27,
+            "state": "on",
+            "action": "allow",
+            "rule": "mp4",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 28,
+            "state": "on",
+            "action": "allow",
+            "rule": "avi",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 29,
+            "state": "on",
+            "action": "allow",
+            "rule": "mov",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 30,
+            "state": "on",
+            "action": "allow",
+            "rule": "wmv",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 31,
+            "state": "on",
+            "action": "allow",
+            "rule": "flv",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 32,
+            "state": "on",
+            "action": "allow",
+            "rule": "mkv",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 33,
+            "state": "on",
+            "action": "allow",
+            "rule": "woff",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 34,
+            "state": "on",
+            "action": "allow",
+            "rule": "woff2",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 35,
+            "state": "on",
+            "action": "allow",
+            "rule": "ttf",
+            "attackType": "file_ext",
+            "severityLevel": "high"
+        },
+        {
+            "id": 36,
+            "state": "on",
+            "action": "allow",
+            "rule": "otf",
             "attackType": "file_ext",
             "severityLevel": "high"
         }

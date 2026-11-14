@@ -2,7 +2,7 @@ let attackTypeArray = [
     {"type":"sqli","name_en":"SQL Injection","name_cn":"SQL注入"},
     {"type":"xss","name_en":"XSS","name_cn":"XSS"},
     {"type":"acl","name_en":"ACL","name_cn":"ACL(访问控制列表)"},
-    {"type":"file_ext","name_en":"file ext","name_cn":"上传文件类型黑名单"},
+    {"type":"file_ext","name_en":"illegal file upload","name_cn":"非法文件上传"},
     {"type":"blackurl","name_en":"URL Blacklist","name_cn":"URL黑名单"},
     {"type":"blackip","name_en":"IP Blacklist","name_cn":"IP黑名单"},
     {"type":"unsafe_method","name_en":"unsafe http method","name_cn":"不允许的HTTP方法"},

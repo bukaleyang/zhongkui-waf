@@ -6,8 +6,8 @@ local redis_cli = require "redis_cli"
 local decoder = require "decoder"
 local action = require "action"
 local captcha = require "captcha"
-local stringutf8 = require "stringutf8"
 local request = require "request"
+local upload = require "upload"
 local ck = require "resty.cookie"
 local libinjection = require "resty.libinjection"
 local nkeys = require "table.nkeys"
@@ -18,19 +18,21 @@ local block_ip = action.block_ip
 local do_action = action.do_action
 local ipairs, pairs = ipairs, pairs
 local type = type
+local tonumber = tonumber
 
 local lower = string.lower
 local upper = string.upper
 local sub = string.sub
-local trim = stringutf8.trim
+local byte = string.byte
+local find = string.find
+local match = string.match
+local gsub = string.gsub
 local unescape_uri = decoder.unescape_uri
 local get_request_body = request.get_request_body
 local get_boundary = request.get_boundary
+local get_content_type = request.get_content_type
 
 local concat = table.concat
-local insert = table.insert
-local find_plain = string.find
-local byte = string.byte
 local ngxfind = ngx.re.find
 local md5 = ngx.md5
 
@@ -44,9 +46,14 @@ local read_file_to_table = file_utils.read_file_to_table
 local _M = {}
 
 -- 超大请求体保护阈值
--- raw body 超过该值后不再整体做 libinjection，改为逐个表单 part 检测，
--- 避免 GB 级/几十 MB 的上传请求把 worker 长时间占死（见 is_evil_request_body）
+-- raw body 超过该值后按表单 part 逐个做 libinjection，
+-- 避免大请求把 worker 长时间占死（见 is_evil_request_body）
 local MAX_BODY_INSPECT_LEN = 1024 * 1024
+-- Content-Type 缺失/重复/歧义时，超过该长度的 body 无法可靠嗅探 multipart，
+-- 且这种请求本身不合规，fileExt 开启时直接 fail-closed
+local MAX_UNKNOWN_CT_SNIFF_LEN = 1024 * 1024
+-- 二进制内容中可打印片段的最小长度，过短片段噪声太大
+local MIN_PRINTABLE_RUN = 6
 -- 单个上传文件内容检查上限：只检查文件前 256KB，其余丢弃，
 -- 否则逐行累积 + 全量规则匹配会让 CPU 随文件体积线性/平方增长
 local MAX_FILE_CONTENT_LEN = 256 * 1024
@@ -414,24 +421,71 @@ function _M.is_evil_headers()
     end
 end
 
-function _M.is_black_file_ext(ext, line)
-    if is_site_option_on("fileExt") then
-        if ext == nil then
-            return
-        end
-        ext = lower(ext)
+-- 上传拦截日志只保留必要上下文，避免整段 body/文件内容写日志
+local MAX_UPLOAD_LOG_LEN = 2048
 
-        local module = get_site_security_modules("fileExt")
-        for _, r in ipairs(module.rules) do
-            if ext == lower(r.rule) then
-                if is_system_option_on("attackLog") and get_system_config("attackLog").jsonFormat.state == "off" then
-                    line = "[" ..  line .. "]"
-                end
-                do_action(module.moduleName, r, line)
-                break
-            end
-        end
+local function sanitize_log_data(data)
+    if type(data) ~= "string" then
+        return data
     end
+
+    local s = gsub(data, "[\r\n]+", " ")
+    if #s > MAX_UPLOAD_LOG_LEN then
+        s = sub(s, 1, MAX_UPLOAD_LOG_LEN) .. "...[truncated]"
+    end
+
+    return s
+end
+
+-- 上传文件类型白名单判定：返回 true 表示应当拦截
+-- fileExt 是白名单模块：state=on 的规则表示“允许的类型”，所以拦截时
+-- 不能复用白名单规则（其 action=allow），必须构造独立的拦截规则表。
+local function do_upload_block(reason, line)
+    local module = get_site_security_modules("fileExt")
+    local module_name = module and module.moduleName or "fileExt"
+
+    local rule_table = {
+        rule = "upload_ext:" .. sub(reason, 1, 64),
+        attackType = "file_ext",
+        action = "redirect",
+        severityLevel = "high"
+    }
+
+    local data = sanitize_log_data(line)
+    local attack_log = get_system_config("attackLog")
+    -- system.json 的 jsonFormat 取值为字符串 on/off
+    if is_system_option_on("attackLog") and attack_log and attack_log.jsonFormat ~= "on" then
+        data = "[" .. tostring(data) .. "]"
+    end
+
+    do_action(module_name, rule_table, data)
+
+    return true
+end
+
+function _M.is_evil_file_ext(file_name, line)
+    if not is_site_option_on("fileExt") then
+        return false
+    end
+
+    -- filename="" 表示浏览器未选择文件，交给后续内容检查
+    if file_name == nil or file_name == '' then
+        return false
+    end
+
+    local module = get_site_security_modules("fileExt")
+    if not module then
+        -- 配置缺失时不直接报错，按未知类型拦截
+        return do_upload_block("module_missing", line)
+    end
+
+    local allowed = upload.build_allowed(module.rules)
+    local ok, reason = upload.check_filename(file_name, allowed)
+    if ok then
+        return false
+    end
+
+    return do_upload_block(reason, line)
 end
 
 function _M.is_evil_file(body)
@@ -456,156 +510,305 @@ function _M.is_evil_body(body)
     return false
 end
 
-function _M.is_evil_request_body()
-    if is_site_option_on("post") then
-       -- local method = ngx.req.get_method()
+-- 部分上传接口/网关会从这些请求头取落盘文件名
+local FILENAME_HEADERS = {
+    "x-filename",
+    "x-file-name",
+    "x-upload-filename"
+}
 
-        local contentType = ngx.var.http_content_type
-        local boundary = get_boundary()
+local function is_evil_filename_header()
+    local headers = ngx.req.get_headers()
 
-        -- form-data
-        if boundary then
-            local delimiter = '--' .. boundary
-            local delimiter_end = '--' .. boundary .. '--'
-
-            local body_raw = get_request_body()
-            if not body_raw then
-                return
-            end
-
-            local total_len = #body_raw
-            -- 超大请求体不再整体做 libinjection，改为逐个表单 part 检测
-            local inspect_text_only = total_len > MAX_BODY_INSPECT_LEN
-
-            local chunks = {}          -- 当前 part 的文本内容
-            local file_chunks = {}     -- 当前文件 part 的内容（限长）
-            local file_len = 0
-            local is_file = false
-            local in_file_head = false
-            local pos = 1
-
-            -- 逐行扫描：用字面量查找代替 ngx.re.gmatch，内容用 table 收集后一次 concat，
-            -- 避免 body = body .. line 在大文件上退化成 O(n²)
-            while pos <= total_len do
-                local nl = find_plain(body_raw, '\n', pos, true)
-                local raw_line
-
-                if nl then
-                    raw_line = sub(body_raw, pos, nl - 1)
-                    pos = nl + 1
-                else
-                    raw_line = sub(body_raw, pos)
-                    pos = total_len + 1
-                end
-
-                local line
-                if is_file and not in_file_head then
-                    -- 文件内容行只去掉行尾 CR，不做逐行正则 trim
-                    if byte(raw_line, -1) == 13 then
-                        line = sub(raw_line, 1, -2)
-                    else
-                        line = raw_line
-                    end
-                else
-                    line = trim(raw_line)
-                end
-
-                if line == delimiter or line == delimiter_end then
-                    if is_file then
-                        if file_len > 0 and is_site_option_on("fileContentCheck") then
-                            -- 文件内容检查（只检查文件前 MAX_FILE_CONTENT_LEN 字节）
-                            if _M.is_evil_file(concat(file_chunks, '\n')) then
-                                return true
-                            end
-                        end
-
-                        is_file = false
-                        in_file_head = false
-                        file_chunks = {}
-                        file_len = 0
-                    elseif #chunks > 0 then
-                        local text = concat(chunks, '\n')
-
-                        if _M.is_evil_body(text) then
-                            return true
-                        end
-
-                        if inspect_text_only then
-                            _M.is_sqli_or_xss(text)
-                        end
-
-                        chunks = {}
-                    end
-                elseif line ~= '' then
-                    if is_file then
-                        if in_file_head then
-                            -- 文件 part 的头一行通常是 Content-Type，跳过
-                            if not matches(line, "Content-Type:\\s*\\S+/\\S+", "ijo") then
-                                in_file_head = false
-
-                                if file_len < MAX_FILE_CONTENT_LEN then
-                                    insert(file_chunks, line)
-                                    file_len = file_len + #line + 1
-                                end
-                            end
-                        elseif file_len < MAX_FILE_CONTENT_LEN then
-                            insert(file_chunks, line)
-                            file_len = file_len + #line + 1
-                        end
-                    else
-                        local from, to = matches(line, [[Content-Disposition:\s*form-data;[\s\S]+filename=["|'][\s\S]+\.(\w+)(?:"|')]], "ijo", nil, 1)
-
-                        if from then
-                            local ext = sub(line, from, to)
-
-                            if _M.is_black_file_ext(ext, line) then
-                                return true
-                            end
-
-                            is_file = true
-                            in_file_head = true
-                            file_chunks = {}
-                            file_len = 0
-                        else
-                            local fr = matches(line, "Content-Disposition:\\s*form-data;\\s*name=", "ijo")
-                            if fr == nil then
-                                insert(chunks, line)
-                            end
-                        end
+    for _, name in ipairs(FILENAME_HEADERS) do
+        local value = headers[name]
+        if type(value) == "table" then
+            for _, item in ipairs(value) do
+                if item and item ~= "" then
+                    if _M.is_evil_file_ext(item, name .. ": " .. item) then
+                        return true
                     end
                 end
             end
-
-            if not inspect_text_only then
-                _M.is_sqli_or_xss(body_raw)
+        elseif value and value ~= "" then
+            if _M.is_evil_file_ext(value, name .. ": " .. value) then
+                return true
             end
-        elseif matches(contentType, "\\s*x-www-form-urlencoded") then
-            ngx.req.read_body()
-            local args, err = ngx.req.get_post_args()
+        end
+    end
 
-            if args then
-                for _, val in pairs(args) do
-                    local vals = val
-                    if type(val) == "table" then
-                        vals = concat(val, ", ")
-                    end
+    return false
+end
 
-                    if vals and type(vals) ~= "boolean" and vals ~= "" then
-                        if _M.is_evil_body(vals) then
-                            return true
-                        end
-                        _M.is_sqli_or_xss(vals)
-                    end
-                end
+-- 请求声明了请求体但读取失败时，fileExt 无法看到文件名/内容。
+-- 有 Content-Length 或分块传输时按不可信请求处理，避免用读取失败绕过。
+local function block_unreadable_body()
+    local content_length = tonumber(ngx.var.content_length) or 0
+    if content_length > 0 or (ngx.var.http_transfer_encoding or "") ~= "" then
+        local detail = "content-length=" .. tostring(ngx.var.content_length or "") ..
+            " transfer-encoding=" .. tostring(ngx.var.http_transfer_encoding or "")
+        return do_upload_block("invalid_multipart:body_unreadable", detail)
+    end
+
+    return false
+end
+
+-- 二进制内容中仍可能夹带可执行代码。直接因为出现 NUL 就跳过全部文本规则，
+-- 会让“正常文件头 + NUL + webshell”成为一个简单绕过。
+-- 这里提取长度 >= MIN_PRINTABLE_RUN 的连续可打印片段继续检测；
+-- 片段太短或纯二进制数据不参与匹配，降低图片/压缩包误报。
+local function extract_printable_text(data)
+    local out = {}
+    local start = nil
+    local n = #data
+
+    for i = 1, n do
+        local c = byte(data, i)
+        if c == 9 or c == 10 or c == 13 or (c >= 32 and c <= 126) then
+            if not start then
+                start = i
             end
         else
-            local body_raw = get_request_body()
-            if body_raw and body_raw ~= "" then
+            if start and i - start >= MIN_PRINTABLE_RUN then
+                out[#out + 1] = sub(data, start, i - 1)
+            end
+            start = nil
+        end
+    end
+
+    if start and n - start + 1 >= MIN_PRINTABLE_RUN then
+        out[#out + 1] = sub(data, start, n)
+    end
+
+    return concat(out, "\n")
+end
+
+function _M.is_evil_request_body()
+    local post_on = is_site_option_on("post")
+    local file_ext_on = is_site_option_on("fileExt")
+
+    -- post 关闭时仍需运行 fileExt（上传扩展名白名单）
+    if not post_on and not file_ext_on then
+        return false
+    end
+
+    -- 文件名还可能来自专用请求头；这些值不参与 multipart 解析，单独校验
+    if file_ext_on and is_evil_filename_header() then
+        return true
+    end
+
+    local contentType, content_type_err = get_content_type()
+    local boundary, boundary_err = get_boundary()
+    local is_multipart_ct = contentType ~= nil and
+        matches(contentType, [[^\s*multipart/]]) ~= nil
+
+    -- form-data
+    if boundary then
+        local body_raw = get_request_body()
+
+        -- 空 body 直接放行；读取失败（有 Content-Length/分块传输但拿不到 body）
+        -- 时不能跳过 fileExt，按不可信请求处理
+        if body_raw == nil then
+            if file_ext_on then
+                return block_unreadable_body()
+            end
+            return false
+        end
+
+        if body_raw == "" then
+            return false
+        end
+
+        -- 超大请求体按表单 part 逐个做 libinjection
+        local inspect_text_only = #body_raw > MAX_BODY_INSPECT_LEN
+
+        local blocked, saw_delimiter = upload.scan_multipart(body_raw, boundary, {
+            max_file_content = MAX_FILE_CONTENT_LEN,
+
+            -- Content-Disposition 解析失败（重复/异常 filename、嵌套 multipart 等）：
+            -- 白名单开启时按不可信请求拦截，避免后端与 WAF 解析结果不一致
+            on_invalid = function(cd, line)
+                if not file_ext_on then
+                    return false
+                end
+
+                return do_upload_block("invalid_multipart:" .. tostring(cd.invalid), line)
+            end,
+
+            -- 文件 part：filename* 和 filename 两个候选名都要检查
+            on_part = function(cd, line)
+                if not file_ext_on then
+                    return false
+                end
+
+                -- 字段名通常不是文件名；只有明显带危险扩展名时才拦截，
+                -- 避免把 name="file" 这类普通字段误判为上传文件名
+                if cd.name and find(cd.name, ".", 1, true) then
+                    local ok, reason = upload.check_filename(cd.name, {})
+                    if not ok and match(reason, "^dangerous_extension") then
+                        return do_upload_block("field_name:" .. tostring(reason), line)
+                    end
+                end
+
+                for _, file_name in ipairs(upload.candidate_filenames(cd)) do
+                    if _M.is_evil_file_ext(file_name, line) then
+                        return true
+                    end
+                end
+
+                return false
+            end,
+
+            -- 普通表单字段
+            on_text = function(text)
+                if not post_on then
+                    return false
+                end
+
+                if _M.is_evil_body(text) then
+                    return true
+                end
+
+                if inspect_text_only then
+                    _M.is_sqli_or_xss(text)
+                end
+
+                return false
+            end,
+
+            -- 文件内容（只检查前 MAX_FILE_CONTENT_LEN 字节）
+            on_file = function(content, cd, truncated)
+                -- filename="" 但内容非空：没有可校验的扩展名，白名单模式下 fail-closed
+                if file_ext_on and content ~= "" and #upload.candidate_filenames(cd) == 0 then
+                    return do_upload_block("empty_filename", content)
+                end
+
+                if not post_on or content == "" then
+                    return false
+                end
+
+                -- 文件 part 的正文始终经过 post 规则；fileContentCheck
+                -- 只控制是否再做 libinjection 深度检测。
+                -- 含 NUL 的二进制内容提取可打印片段后继续检查，避免一个 NUL
+                -- 让整段文件内容跳过规则。
+                local scan_content = content
+                if find(content, "\0", 1, true) then
+                    scan_content = extract_printable_text(content)
+                    if scan_content == "" then
+                        return false
+                    end
+                end
+
+                if _M.is_evil_file(scan_content) then
+                    return true
+                end
+
+                if is_site_option_on("fileContentCheck") then
+                    return _M.is_sqli_or_xss(scan_content) and true or false
+                end
+
+                return false
+            end
+        })
+
+        if blocked then
+            return true
+        end
+
+        -- Content-Type 声明了 boundary，但 body 里没有分隔符：
+        -- 按普通请求体整体检测，避免用畸形 multipart 绕过规则
+        if not saw_delimiter then
+            if post_on then
                 if _M.is_evil_body(body_raw) then
                     return true
                 end
+
                 _M.is_sqli_or_xss(body_raw)
             end
+
+            -- 无法解析出 part 就无法做扩展名白名单，fileExt 开启时按不可信请求拦截
+            if file_ext_on then
+                return do_upload_block("invalid_multipart:no_delimiter", body_raw)
+            end
+
+            return false
+        end
+
+        -- 小请求体仍然整体扫一遍 libinjection（规则按行匹配，避免跨行漏检）
+        if post_on and not inspect_text_only then
+            _M.is_sqli_or_xss(body_raw)
+        end
+
+        return false
+    end
+
+    -- Content-Type 声明 multipart 但没有可用 boundary（缺失/非法/重复/歧义），
+    -- 无法解析 part 与文件名，fileExt 开启时 fail-closed
+    if is_multipart_ct and file_ext_on then
+        local body_raw = get_request_body()
+        if body_raw == nil then
+            return block_unreadable_body()
+        end
+
+        if body_raw ~= "" then
+            return do_upload_block("invalid_multipart:" .. tostring(boundary_err or "no_boundary"),
+                contentType)
+        end
+
+        return false
+    end
+
+    -- Content-Type 缺失/错误/重复/逗号，但正文实际是带文件的 multipart：
+    -- 不能因为 CT 与正文不一致就跳过扩展名白名单
+    if file_ext_on then
+        local body_raw = get_request_body()
+        if body_raw == nil then
+            return block_unreadable_body()
+        end
+
+        -- 无/重复/歧义 Content-Type 且 body 超过 1MB：正文特征嗅探只覆盖前 1MB，
+        -- 无法可靠判断 multipart，按异常请求处理
+        if content_type_err and #body_raw > MAX_UNKNOWN_CT_SNIFF_LEN then
+            return do_upload_block("invalid_multipart:large_body_" .. tostring(content_type_err),
+                "content-length=" .. tostring(#body_raw))
+        end
+
+        if body_raw ~= "" and upload.looks_like_multipart(body_raw) then
+            return do_upload_block("invalid_multipart:" .. tostring(content_type_err or "content_type_mismatch"),
+                contentType or "")
+        end
+    end
+
+    if not post_on then
+        return false
+    end
+
+    if contentType and matches(contentType, "\\s*x-www-form-urlencoded") then
+        ngx.req.read_body()
+        local args, err = ngx.req.get_post_args()
+
+        if args then
+            for _, val in pairs(args) do
+                local vals = val
+                if type(val) == "table" then
+                    vals = concat(val, ", ")
+                end
+
+                if vals and type(vals) ~= "boolean" and vals ~= "" then
+                    if _M.is_evil_body(vals) then
+                        return true
+                    end
+                    _M.is_sqli_or_xss(vals)
+                end
+            end
+        end
+    else
+        local body_raw = get_request_body()
+        if body_raw and body_raw ~= "" then
+            if _M.is_evil_body(body_raw) then
+                return true
+            end
+            _M.is_sqli_or_xss(body_raw)
         end
     end
 end

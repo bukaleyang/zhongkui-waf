@@ -7,6 +7,12 @@
 		<link href="../../component/pear/css/pear.css" rel="stylesheet">
 		<style>
 		    .layui-table-tool-temp {padding-right: 0px;}
+
+		    /* layui 的 switch 自带 margin-top:8px，而 prefix/suffix 是绝对定位且没有行高，
+		       导致"状态 / 开关 / 说明"上下错位；统一成 24px 行高即可对齐 */
+		    #id-rules-common .layui-input-group .layui-form-switch { margin-top: 0; }
+		    #id-rules-common .layui-input-group > .layui-input-prefix,
+		    #id-rules-common .layui-input-group > .layui-input-suffix { line-height: 24px; }
 		</style>
 	</head>
 	<body class="pear-container">
@@ -68,16 +74,37 @@
 									<li module-id="cookie" description="开启后将对请求所携带的Cookie进行检测">Cookie检测</li>
 									<li module-id="post" description="开启后将对请求体进行检测">Post检测</li>
 									<li module-id="httpMethod" description="如不允许某HTTP方法的请求，请设置该方法状态为开启状态">HTTP方法检测</li>
-									<li module-id="fileExt" description="如不允许上传某类型的文件，请设置该类型状态为开启状态">文件上传检测</li>
+									<li module-id="fileExt" description="白名单模式：列表内的文件类型允许上传，不在列表中或含危险扩展名的文件将被拦截">文件上传检测</li>
 									<li module-id="sqlixss">语义分析</li>
 								</ul>
 								<div class="layui-tab-content">
-									<div class="layui-tab-item layui-show" id="id-rules-common">
-										<div class="layui-row">
-											<div class="layui-col-md12">
-												<table id="id-table-rules" lay-filter="filter-table-rules"></table>
+									<div class="layui-tab-item layui-show layui-form" id="id-rules-common">
+										<!-- 工具栏独立于表格：两个表格共用一份 DOM，避免 toolbar 模板被复制成两份 -->
+										<div class="layui-row layui-col-space10" style="margin-bottom: 10px;">
+											<div class="layui-col-lg8 layui-col-md8 layui-col-sm12">
+												<div class="layui-input-group">
+													<div class="layui-input-prefix" style="padding-left: 0px; white-space: nowrap;">状态</div>
+													<input type="checkbox" id="id-module-state" class="js-module-state" value="" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" />
+													<div class="layui-input-suffix js-module-description" id="id-module-description" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">开启后将对请求的URL进行检测</div>
+												</div>
+											</div>
+											<div class="layui-col-lg3 layui-col-md3 layui-col-sm12">
+												<div class="layui-hide js-file-content" id="id-file-content">
+													<div class="layui-input-group">
+														<div class="layui-input-prefix">上传文件内容检测</div>
+														<input type="checkbox" id="id-file-content-state" class="js-file-content-state" module-id="fileContentCheck" value="" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" />
+														<div class="layui-input-suffix">开启后将对上传的文件内容进行检查</div>
+													</div>
+												</div>
+											</div>
+											<div class="layui-col-lg1 layui-col-md1 layui-col-sm12">
+												<button type="button" class="pear-btn pear-btn-primary pear-btn-md" style="float: right;" id="id-rule-add">
+													<i class="layui-icon layui-icon-add-1"></i>新增
+												</button>
 											</div>
 										</div>
+
+										<table id="id-table-rules" lay-filter="filter-table-rules"></table>
 									</div>
 									<div class="layui-tab-item layui-form" id="id-rules-sqlixss">
 										<div class="layui-row layui-col-space10">
@@ -113,7 +140,7 @@
 						</div>
 					</div>
 					<div class="layui-form-item">
-						<label class="layui-form-label">规则正则</label>
+						<label class="layui-form-label" id="id-rule-label">规则正则</label>
 						<div class="layui-input-block">
 							<input type="text" name="rule" lay-verify="required" autocomplete="off" class="layui-input" />
 						</div>
@@ -133,7 +160,7 @@
 						</div>
 					</div>
 
-					<div class="layui-form-item">
+					<div class="layui-form-item" id="id-action-item">
 						<label class="layui-form-label">处置动作</label>
 						<div class="layui-input-block">
 							<select id="id-action" name="action"></select>
@@ -157,33 +184,6 @@
 				</div>
 			</div>
 		</form>
-
-		<script type="text/html" id="id-toolbar">
-			<div class="layui-row layui-col-space10">
-				<div class="layui-col-lg4 layui-col-md6 layui-col-sm6">
-					<div class="layui-input-group">
-						<div class="layui-input-prefix" style="padding-left: 0px;">状态</div>
-						<input type="checkbox" id="id-module-state" value="" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" />
-						<div class="layui-input-suffix" id="id-module-description">开启后将对请求的URL进行检测</div>
-					</div>
-				</div>
-				<div class="layui-col-lg7 layui-col-md5 layui-col-sm5">
-					<div class="layui-hide" id="id-file-content">
-						<div class="layui-input-group">
-							<div class="layui-input-prefix">上传文件内容检测</div>
-							<input type="checkbox" id="id-file-content-state" module-id="fileContentCheck" value="" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" />
-							<div class="layui-input-suffix">开启后将对上传的文件内容进行检查</div>
-						</div>
-					</div>
-				</div>
-				<div class="layui-col-lg1 layui-col-md1 layui-col-sm1">
-					<button class="pear-btn pear-btn-primary pear-btn-md" style="float: right;" lay-event="add">
-						<i class="layui-icon layui-icon-add-1"></i>
-						新增
-					</button>
-				</div>
-			</div>
-		</script>
 
 		<script type="text/html" id="id-template-bar">
 			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i></button>
@@ -210,31 +210,36 @@
 				var popup = layui.popup;
 				var util = layui.util;
 
-				table.render({
-					elem: '#id-table-rules',
-					cols: [[
-						{field: 'rule', title: '规则'},
-						{field: 'attackType', title: '攻击类型', width: 200, templet: function(d) {
-							return '<div>' + getAttackTypeText(d.attackType) + '</div>';
-						}},
-						{field: 'severityLevel', title: '危险级别', width: 100, templet: function(d) {
-							return '<div>' + getSeverityLevelText(d.severityLevel) + '</div>';
-						}},
-						{field: 'action', title: '处置动作', width: 180, templet: function(d) {
-							return '<div>' + getActionText(d.action) + '</div>';
-						}},
-						{field: 'description', title: '规则描述', minWidth: 180, templet: function(d) {
-							return '<div>' + (d.description ? d.description : '') + '</div>';
-						}},
-						{field: 'state', title: '状态', width: 100, templet: '#id-template-rule-state'},
-						{fixed: 'right', title:'操作', width: 110, minWidth: 110, toolbar: '#id-template-bar'}
-					]],
-					toolbar: '#id-toolbar',
+				var defaultCols = [[
+					{field: 'rule', title: '规则'},
+					{field: 'attackType', title: '攻击类型', width: 200, templet: function(d) {
+						return '<div>' + getAttackTypeText(d.attackType) + '</div>';
+					}},
+					{field: 'severityLevel', title: '危险级别', width: 100, templet: function(d) {
+						return '<div>' + getSeverityLevelText(d.severityLevel) + '</div>';
+					}},
+					{field: 'action', title: '处置动作', width: 180, templet: function(d) {
+						return '<div>' + getActionText(d.action) + '</div>';
+					}},
+					{field: 'description', title: '规则描述', minWidth: 180, templet: function(d) {
+						return '<div>' + (d.description ? d.description : '') + '</div>';
+					}},
+					{field: 'state', title: '状态', width: 100, templet: '#id-template-rule-state'},
+					{fixed: 'right', title:'操作', width: 110, minWidth: 110, toolbar: '#id-template-bar'}
+				]];
+
+				var gridBase = {
 					defaultToolbar: [],
 					page: true,
 					limits: [10, 15, 20, 25, 30, 50, 100],
 					limit: 10
-				});
+				};
+
+				table.render($.extend({}, gridBase, {
+					elem: '#id-table-rules',
+					id: 'id-table-rules',
+					cols: defaultCols
+				}));
 
 				// 切换域名
 				form.on('select(filter-site)', function(data) {
@@ -259,13 +264,14 @@
 					if (moduleId == 'sqlixss') {
 						return;
 					}
-					table.reloadData('id-table-rules', {
+
+					table.reload('id-table-rules', {
 						url: '/defense/rule/list',
 						page: {
 							curr: 1
 						},
 						where: {
-							siteId: $('#site').val(), 
+							siteId: $('#site').val(),
 							moduleId: moduleId
 						}
 					});
@@ -323,6 +329,15 @@
 				});
 
 				function openLayer(title) {
+					// fileExt 是白名单：规则只表示“允许”，处置动作固定为 allow，不向用户展示
+					var isFileExt = $('#id-tab-rules li.layui-this').attr('module-id') == 'fileExt';
+					$('#id-action-item').toggle(!isFileExt);
+					if (isFileExt) {
+						$('#id-action').val('allow');
+						$('#id-attackType').val('file_ext');
+						form.render('select', 'filter-form-rule');
+					}
+
 					layer.open({
 						type: 1,
 						title: title,
@@ -340,19 +355,33 @@
 				// 规则提交保存事件
 				form.on('submit(filter-rule-save)', function(data) {
 					var field = data.field; // 获取表单字段值
+					var moduleId = $('#id-tab-rules li.layui-this').attr('module-id');
 
 					if (field.state != 'on') {
 						field.state = 'off';
 					}
 
+					if (moduleId == 'fileExt') {
+						// 白名单规则只填扩展名：去空格、去前导点、转小写
+						var ext = (field.rule || '').replace(/\s+/g, '').replace(/^\.+/, '').toLowerCase();
+						if (!/^[a-z0-9_-]+$/.test(ext)) {
+							popup.failure('文件类型只能包含字母、数字、下划线或中划线，且不能带点');
+							return false;
+						}
+
+						field.rule = ext;
+						field.action = 'allow';
+						field.attackType = 'file_ext';
+					}
+
 					var param = {};
 					param.siteId = $('#site').val();
-					param.moduleId = $('#id-tab-rules li.layui-this').attr('module-id');
+					param.moduleId = moduleId;
 					param.rule = JSON.stringify(field);
 					
 					$.post('/defense/rule/save',  param, function(res) {
 						if (res && res.code == 200) {
-							table.reloadData('id-table-rules');
+							reloadTableData();
 							layer.closeLast('page');
 							popup.success("已保存");
 							return true;
@@ -365,8 +394,8 @@
 					return false; // 阻止默认 form 跳转
 				});
 
-				// 触发单元格工具事件
-				table.on('tool(filter-table-rules)', function(obj) {
+				// 触发单元格工具事件（默认表与白名单表共用）
+				function handleRuleTool(obj) {
 					var data = obj.data; // 获得当前行数据
 
 					if(obj.event === 'edit') {
@@ -388,7 +417,7 @@
 							$.post('/defense/rule/remove',  param, function(res) {
 								if (res && res.code == 200) {
 									obj.del();
-									table.reloadData('id-table-rules');
+									reloadTableData();
 									layer.close(index);
 									return true;
 								} else {
@@ -398,11 +427,19 @@
 							}, "json");
 						});
 					}
-				});
+				}
 
-				table.on('toolbar(filter-table-rules)', function(obj) {
-					if (obj.event === 'add') {
-						openLayer('添加规则');
+				table.on('tool(filter-table-rules)', handleRuleTool);
+
+				// 工具栏已独立于表格，新增按钮直接绑定
+				$('#id-rule-add').on('click', function() {
+					openLayer('添加规则');
+
+					// 文件上传模块新增规则时默认选中"非法文件上传"，避免漏选导致日志分类错误
+					var currentModuleId = $('#id-tab-rules li.layui-this').attr('module-id');
+					if (currentModuleId == 'fileExt') {
+						$('#id-attackType').val('file_ext');
+						form.render('select', 'filter-form-rule');
 					}
 				});
 
@@ -417,8 +454,11 @@
 					var currentTabId = $(this).attr('lay-id');
 					var moduleId = $(this).attr('module-id');
 
+					// fileExt 白名单规则没有“处置动作”可选，统一为 allow
+					$('#id-action-item').toggle(moduleId != 'fileExt');
+
 					$('#id-tab-rules').find(".layui-tab-item").removeClass('layui-show');
-					$('#id-file-content').addClass('layui-hide');
+					$('.js-file-content').addClass('layui-hide');
 					if (moduleId == 'sqlixss') {
 						$('#id-module-sqli-state').prop('checked', config['sqli'].state == 'on' ? true : false);
 						$('#id-module-xss-state').prop('checked', config['xss'].state == 'on' ? true : false);
@@ -426,16 +466,22 @@
 						form.render('checkbox', 'filter-form-sites');
 					} else {
 						if (moduleId == 'post') {
-							$('#id-file-content').removeClass('layui-hide').addClass('layui-show');
-							$('#id-file-content-state').prop('checked', config['fileContentCheck'].state == 'on' ? true : false);
+							$('.js-file-content').removeClass('layui-hide').addClass('layui-show');
+							$('.js-file-content-state').prop('checked', config['fileContentCheck'].state == 'on' ? true : false);
 						}
-						$('#id-module-state').prop('checked', config[moduleId].state == 'on' ? true : false);
-						
+						$('.js-module-state').prop('checked', config[moduleId].state == 'on' ? true : false);
+
+						// 工具栏与表格分离，切换模块时主动重渲染开关外观
+						form.render('checkbox');
+
+						// 文件上传模块填的是扩展名而不是正则，避免"规则正则"文案误导
+						$('#id-rule-label').text(moduleId == 'fileExt' ? '文件类型（不带点）' : '规则正则');
+
 						reloadTableData();
 						$("#id-rules-common").addClass('layui-show');
 					}
 					var moduleDesc = $(this).attr('description');
-					$('#id-module-description').text(moduleDesc ? moduleDesc : '');
+					$('.js-module-description').text(moduleDesc ? moduleDesc : '');
 				});
 
 				function getSiteConfig() {
@@ -450,9 +496,9 @@
 
 							var moduleId = $('#id-tab-rules li.layui-this').attr('module-id');
 							if (config[moduleId]) {
-								$('#id-module-state').prop('checked', config[moduleId].state == 'on' ? true : false);
+								$('.js-module-state').prop('checked', config[moduleId].state == 'on' ? true : false);
 							}
-							$('#id-file-content-state').prop('checked', config['fileContentCheck'].state == 'on' ? true : false);
+							$('.js-file-content-state').prop('checked', config['fileContentCheck'].state == 'on' ? true : false);
 							$('#id-module-sqli-state').prop('checked', config['sqli'].state == 'on' ? true : false);
 							$('#id-module-xss-state').prop('checked', config['xss'].state == 'on' ? true : false);
 
