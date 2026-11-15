@@ -3,41 +3,20 @@
 
 local _M = {}
 
-local stringutf8 = require "stringutf8"
-
-local pairs = pairs
 local ipairs = ipairs
 local tonumber = tonumber
 local find = string.find
-local sub = string.sub
-local trim = stringutf8.trim
 local ngxmatch = ngx.re.match
 
 local insert = table.insert
 
+-- 客户端 IP 统一使用 nginx 的 $remote_addr：
+--   * WAF 直接对外时，它就是真实客户端地址；
+--   * 前面有 CDN/反向代理时，由 nginx realip 模块按可信代理配置还原。
+-- 不直接采信客户端可自行伪造的 X-Forwarded-For / Proxy-Client-IP 等请求头，
+-- 否则黑名单、CC、geoip 和攻击日志都会使用伪造值。
 function _M.get_client_ip()
-    local var = ngx.var
-    local ips = {
-        var.http_x_forwarded_for,
-        var.http_proxy_client_ip,
-        var.http_wl_proxy_client_ip,
-        var.http_http_client_ip,
-        var.http_http_x_forwarded_for,
-        var.remote_addr
-    }
-
-    for _, ip in pairs(ips) do
-        if ip and #ip > 0 then
-            local idx = find(ip, ",")
-            if idx and idx > 0 then
-                ip = sub(ip, 1, idx - 1)
-            end
-
-            return trim(ip)
-        end
-    end
-
-    return "unknown"
+    return ngx.var.remote_addr or "unknown"
 end
 
 -- 是否内网IP

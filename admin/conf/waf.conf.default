@@ -16,3 +16,7 @@ access_by_lua_file /usr/local/openresty/zhongkui-waf/waf.lua;
 body_filter_by_lua_file /usr/local/openresty/zhongkui-waf/body_filter.lua;
 header_filter_by_lua_file /usr/local/openresty/zhongkui-waf/header_filter.lua;
 log_by_lua_file /usr/local/openresty/zhongkui-waf/log_and_traffic.lua;
+
+# BEGIN zhongkui-waf realip (managed)
+# 本段由钟馗 WAF 系统设置生成，请勿手工修改
+# END zhongkui-waf realip

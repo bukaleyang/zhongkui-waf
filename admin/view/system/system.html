@@ -47,7 +47,7 @@
 							</div>
 							<div class="layui-row layui-col-space10 btn-save" style="display: none;">
 								<div class="layui-col-md6">
-									<div class="layui-input-block">
+									<div class="layui-input-block" style="margin-left: 115px;">
 										<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-form-log-save">保存</button>
 									</div>
 								</div>
@@ -106,6 +106,57 @@
 								</div>
 								<div class="layui-col-md6">
 									<button type="submit" class="pear-btn pear-btn-primary btn-save" lay-submit lay-filter="filter-form-geoip-save" style="display: none;">保存</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
+				<form class="layui-form" lay-filter="filter-form-realip">
+					<div class="layui-card" lay-filter="component-form-element">
+						<div class="layui-card-header">真实 IP 获取设置</div>
+						<div class="layui-card-body">
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md6">
+									<label class="layui-form-label" style="width: auto;">获取方式</label>
+									<div class="layui-input-block" style="margin-left: 115px;">
+										<select name="mode" lay-filter="realip-mode">
+											<option value="remote_addr">直接使用连接地址（推荐）</option>
+											<option value="proxy">从可信代理头获取</option>
+										</select>
+									</div>
+								</div>
+							</div>
+							<div class="layui-row layui-col-space10 realip-proxy-field">
+								<div class="layui-col-md6">
+									<label class="layui-form-label" style="width: auto;">代理头</label>
+									<div class="layui-input-block" style="margin-left: 115px;">
+										<select name="header" lay-filter="realip-header">
+											<option value="X-Forwarded-For">X-Forwarded-For</option>
+											<option value="X-Real-IP">X-Real-IP</option>
+											<option value="CF-Connecting-IP">CF-Connecting-IP</option>
+											<option value="True-Client-IP">True-Client-IP</option>
+										</select>
+									</div>
+								</div>
+							</div>
+							<div class="layui-row layui-col-space10 realip-proxy-field">
+								<div class="layui-col-md6">
+									<label class="layui-form-label" style="width: auto;">可信代理</label>
+									<div class="layui-input-block" style="margin-left: 115px;">
+										<textarea name="trustedProxies" placeholder="每行一个 IP 或 CIDR，例如：&#10;10.0.0.0/8&#10;192.168.0.0/16" class="layui-textarea" style="height: 100px;"></textarea>
+									</div>
+								</div>
+							</div>
+							<div class="layui-row layui-col-space10 btn-save" style="display: none;">
+								<div class="layui-col-md6">
+									<div class="layui-input-block" style="margin-left: 115px;">
+										<button type="submit" class="pear-btn pear-btn-primary" lay-submit lay-filter="filter-form-realip-save">保存</button>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -307,10 +358,51 @@
 					});
 				}
 
+				function toggleRealipFields() {
+					var $form = $('form[lay-filter="filter-form-realip"]');
+					if ($form.find("[name='mode']").val() === "proxy") {
+						$form.find(".realip-proxy-field").show();
+					} else {
+						$form.find(".realip-proxy-field").hide();
+					}
+				}
+
+				function showRealipSave() {
+					$('form[lay-filter="filter-form-realip"]').find('.btn-save').show();
+				}
+
+				function toProxyList(value) {
+					if (typeof value === "string") {
+						value = value.split(/\r?\n/);
+					}
+					// 接口里的空 Lua 表会被 cjson 编码为 {}，这里统一按数组处理
+					if (!$.isArray(value)) {
+						return [];
+					}
+					return value.map(function(item) {
+						return String(item).trim();
+					}).filter(function(item) {
+						return item.length > 0;
+					});
+				}
+
+				function renderRealip(value) {
+					var $form = $('form[lay-filter="filter-form-realip"]');
+					value = value || {};
+
+					$form.find("[name='mode']").val(value.mode || "remote_addr");
+					$form.find("[name='header']").val(value.header || "X-Forwarded-For");
+					$form.find("[name='trustedProxies']").val(toProxyList(value.trustedProxies).join("\n"));
+
+					toggleRealipFields();
+					form.render();
+				}
+
 				$(function() {
 					$.get('/system/get', {}, function(data) {
 						if (data && data.data) {
 							var system = data.data;
+							var realIpValue = null;
 
 							$.each(JSON.parse(data.data), function(key, value) {
 								if (key == "redis") {
@@ -328,11 +420,18 @@
 								} else if (key == "geoip") {
 									var $form = $('form[lay-filter="filter-form-geoip"]');
 									$form.find("[name='file']").val(value.file);
+								} else if (key == "realIp") {
+									// 放到循环结束后渲染，避免某个字段渲染异常影响其他字段赋值
+									realIpValue = value;
 								} else if (key == "secret") {
 									var $form = $('form[lay-filter="filter-form-secret"]');
 									$form.find("[name='" + key + "']").val(value);
 								}
 							});
+
+							if (realIpValue) {
+								renderRealip(realIpValue);
+							}
 
 							form.render();
 						}
@@ -357,6 +456,19 @@
 							popup.failure(data.msg);
 						}
 					},'json');
+				}
+
+				function updateRealip(param, callback) {
+					$.post('/system/realip/update', param, function(data) {
+						if (data && data.code == 200) {
+							popup.success("已保存");
+							if (callback) {
+								callback();
+							}
+						} else {
+							popup.failure(data && data.msg ? data.msg : "保存失败");
+						}
+					}, 'json');
 				}
 
 				function getFormfiled(formObj, field) {
@@ -427,6 +539,35 @@
 
 					getFormfiled($form, field);
 					update({geoip: JSON.stringify(field)}, function() {
+						$form.find('.btn-save').hide();
+					});
+
+					return false;
+				});
+
+				form.on('select(realip-mode)', function() {
+					toggleRealipFields();
+					showRealipSave();
+				});
+
+				form.on('select(realip-header)', function() {
+					showRealipSave();
+				});
+
+				form.on('submit(filter-form-realip-save)', function(data) {
+					var field = data.field;
+					var $form = $(data.elem).parents('form');
+					var proxies = (field.trustedProxies || '').split(/\r?\n/)
+						.map(function(item) { return item.trim(); })
+						.filter(function(item) { return item.length > 0; });
+
+					updateRealip({
+						realIp: JSON.stringify({
+							mode: field.mode,
+							header: field.header,
+							trustedProxies: proxies
+						})
+					}, function() {
 						$form.find('.btn-save').hide();
 					});
 

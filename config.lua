@@ -247,6 +247,34 @@ local function normalize_log_limit(system)
     }
 end
 
+local function normalize_realip(system)
+    local realip = system.realIp
+    if type(realip) ~= "table" then
+        realip = {}
+    end
+
+    local mode = "remote_addr"
+    if realip.mode == "proxy" then
+        mode = "proxy"
+    end
+
+    local header = realip.header
+    if type(header) ~= "string" or header == "" then
+        header = "X-Forwarded-For"
+    end
+
+    local trusted = realip.trustedProxies
+    if type(trusted) ~= "table" then
+        trusted = {}
+    end
+
+    system.realIp = {
+        mode = mode,
+        header = header,
+        trustedProxies = trusted,
+    }
+end
+
 local function load_system_config()
     local system_path = _M.CONF_PATH .. '/system.json'
     local json = read_file_to_string(system_path)
@@ -255,6 +283,7 @@ local function load_system_config()
         system = cjson_decode(json)
     end
 
+    normalize_realip(system)
     normalize_log_limit(system)
 
     local log_path = system.attackLog.logPath

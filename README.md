@@ -32,20 +32,6 @@
 + 攻击日志记录，包含IP地址、IP所属地区、攻击时间、防御动作、拦截规则等，支持JSON格式日志
 + 流量统计可视化
 
-### 上传文件类型白名单
-
-`fileExt` 采用白名单模式：`conf/global_rules/fileExt.json` 中 `state=on` 的 `rule` 表示允许的扩展名，未命中即拦截。升级时请整体替换该文件，不要沿用旧版的黑名单配置。站点级 `conf/sites/<站点ID>/rules/fileExt.json` 如果由升级流程用新版文件逐站点覆盖，则无需额外处理；只有升级后仍保留旧版站点级文件时，才需要按白名单语义重写或删除。
-
-校验行为：
-
-+ 同时校验 `filename` 和 RFC 5987 `filename*`，任一候选名不合规即拦截
-+ 文件名只接受 basename，兼容 IE 的 `C:\fakepath\` 前缀；绝对路径、UNC、相对路径一律拒绝
-+ 拦截双扩展名、可执行扩展名、无扩展名、有内容但文件名为空、NUL/控制字符、NTFS ADS、RFC 2047 编码文件名，以及多重百分号编码后的危险值
-+ 重复/折叠 `filename`、`filename` 出现在 `Content-Type`、嵌套 `multipart/*`、非法 boundary、缺失/重复/逗号合并的 `Content-Type` 等解析歧义，按异常请求拦截
-+ 文件内容始终经过 Post 规则检查；`fileContentCheck` 开启后再追加 libinjection 检测。含二进制 NUL 的内容跳过文本规则
-+ 同时检查 `X-Filename`、`X-File-Name`、`X-Upload-Filename` 请求头中的文件名
-+ 上传拦截日志中的上下文截断到 2 KB 并移除换行，避免整段请求体写入日志
-
 ### 安装
 
 可以执行安装脚本`install.sh`，自动安装`OpenResty`、`ZhongKui`、`libmaxminddb`、`luafilesystem`和`geoipupdate`。也可以自行逐个安装。
@@ -162,22 +148,6 @@ Disallow: /zhongkuiwaf/honey/trap
 开启敏感信息过滤后，`Zhongkui-WAF`将对响应数据进行过滤。
 
 `Zhongkui-WAF`内置了对响应内容中的身份证号码、手机号码、银行卡号、密码信息进行脱敏处理。需要注意的是，内置的敏感信息脱敏功能目前仅支持处理中华人民共和国境内使用的数据格式（如身份证号、电话号码、银行卡号），暂不支持处理中国境外的身份证号、电话号码、银行卡号等数据格式。但你可以使用正则表达式配置不同的规则，以过滤请求响应内容中任何你想要过滤掉的数据。
-
-### 反向代理、CDN 与真实 IP
-
-WAF 的 IP 相关功能（白名单、黑名单、CC、geoip、攻击日志）统一使用 nginx 的 `$remote_addr`：
-
-- WAF nginx 直接对外时，`$remote_addr` 就是真实客户端 IP。
-- WAF 前面有 CDN 或反向代理时，请在 nginx 中配置 realip 模块，只信任代理/CDN 的地址段：
-
-```nginx
-set_real_ip_from 10.0.0.0/8;
-set_real_ip_from 192.168.0.0/16;
-real_ip_header X-Forwarded-For;
-real_ip_recursive on;
-```
-
-配置后 nginx 会把 `$remote_addr` 还原为客户端 IP，WAF 各部分和日志使用同一个值。不要把 `X-Forwarded-For`、`X-Real-IP` 等请求头直接当作客户端 IP：这些头可以被客户端伪造，直接使用会导致日志记录错误，并让黑名单、CC、geoip 失效。源站防火墙也应只允许 CDN/代理网段访问，避免攻击者绕过代理直连源站。
 
 ### 管理页面
 
