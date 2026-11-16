@@ -8,6 +8,7 @@ local action = require "action"
 local captcha = require "captcha"
 local request = require "request"
 local upload = require "upload"
+local http_method = require "http_method"
 local ck = require "resty.cookie"
 local libinjection = require "resty.libinjection"
 local nkeys = require "table.nkeys"
@@ -146,17 +147,39 @@ function _M.is_black_ip()
 end
 
 function _M.is_unsafe_http_method()
-    if is_site_option_on("httpMethod") then
-        local method_name = upper(ngx.req.get_method())
-
-        local module = get_site_security_modules("httpMethod")
-        for _, r in pairs(module.rules) do
-            if method_name == r.rule then
-                do_action(module.moduleName, r, method_name)
-                break
-            end
-        end
+    if not is_site_option_on("httpMethod") then
+        return
     end
+
+    local module = get_site_security_modules("httpMethod")
+    local allowed = http_method.build_allowed(module and module.rules or {})
+
+    -- 允许列表为空会拦截所有请求（含管理后台），此时放行并记录错误
+    if next(allowed) == nil then
+        ngx.log(ngx.ERR, "httpMethod is on but no allowed method configured")
+        return
+    end
+
+    local method_name = upper(ngx.req.get_method() or "")
+    if http_method.is_allowed(method_name, allowed) then
+        return
+    end
+
+    -- 方法名可能包含非方法字符，写日志前只保留方法字符
+    local label = gsub(method_name, "[^A-Z0-9_-]", "?")
+    if label == "" then
+        label = "UNKNOWN"
+    end
+
+    -- 白名单规则的动作固定为 allow，拦截需要独立的规则表
+    local rule_table = {
+        rule = "method_not_allowed:" .. sub(label, 1, 32),
+        attackType = "unsafe_method",
+        action = "redirect",
+        severityLevel = "high"
+    }
+
+    do_action(module.moduleName, rule_table, label)
 end
 
 function _M.is_bot()

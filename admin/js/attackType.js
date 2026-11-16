@@ -5,7 +5,7 @@ let attackTypeArray = [
     {"type":"file_ext","name_en":"illegal file upload","name_cn":"非法文件上传"},
     {"type":"blackurl","name_en":"URL Blacklist","name_cn":"URL黑名单"},
     {"type":"blackip","name_en":"IP Blacklist","name_cn":"IP黑名单"},
-    {"type":"unsafe_method","name_en":"unsafe http method","name_cn":"不允许的HTTP方法"},
+    {"type":"unsafe_method","name_en":"illegal http method","name_cn":"非法HTTP方法"},
     {"type":"bot","name_en":"Bot","name_cn":"Bot"},
     {"type":"bot_trap","name_en":"bot trap","name_cn":"Bot陷阱"},
     {"type":"directory_traversal","name_en":"Directory Traversal","name_cn":"目录穿越"},

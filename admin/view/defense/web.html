@@ -73,14 +73,16 @@
 									<li module-id="headers" description="开启后将对请求头进行检测">Header检测</li>
 									<li module-id="cookie" description="开启后将对请求所携带的Cookie进行检测">Cookie检测</li>
 									<li module-id="post" description="开启后将对请求体进行检测">Post检测</li>
-									<li module-id="httpMethod" description="如不允许某HTTP方法的请求，请设置该方法状态为开启状态">HTTP方法检测</li>
+									<li module-id="httpMethod" description="白名单模式：列表内的方法是允许的，其它方法一律拦截">HTTP方法检测</li>
 									<li module-id="fileExt" description="白名单模式：列表内的文件类型允许上传，不在列表中或含危险扩展名的文件将被拦截">文件上传检测</li>
 									<li module-id="sqlixss">语义分析</li>
 								</ul>
 								<div class="layui-tab-content">
 									<div class="layui-tab-item layui-show layui-form" id="id-rules-common">
 										<!-- 工具栏独立于表格：两个表格共用一份 DOM，避免 toolbar 模板被复制成两份 -->
-										<div class="layui-row layui-col-space10" style="margin-bottom: 10px;">
+										<!-- margin-bottom 必须为 0："新增"按钮(34px)比开关(24px)高，行内已有约 15px 空档，
+										     再加 margin 会造成"开关到表格"比"开关到 tab"多 10px 的视觉间距 -->
+										<div class="layui-row layui-col-space10" style="margin-bottom: 0;">
 											<div class="layui-col-lg8 layui-col-md8 layui-col-sm12">
 												<div class="layui-input-group">
 													<div class="layui-input-prefix" style="padding-left: 0px; white-space: nowrap;">状态</div>
@@ -190,7 +192,7 @@
 			<button class="pear-btn pear-btn-danger pear-btn-xs" lay-event="remove"><i class="layui-icon layui-icon-delete"></i></button>
 		</script>
 		<script type="text/html" id="id-template-rule-state">
-			<input type="checkbox" name="state" value="{{= d.id }}" rule-id="{{= d.id }}" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" {{= d.state == "on" ? "checked" : "" }} />
+			<input type="checkbox" name="state" value="{{= d.id }}" rule-id="{{= d.id }}" lay-skin="switch" lay-filter="filter-rule-state" title="ON|OFF" {{= String(d.state || "").toLowerCase() == "on" ? "checked" : "" }} />
 		</script>
 
 		<script src="../../component/layui/layui.js"></script>
@@ -322,19 +324,28 @@
 							}
 							return true;
 						} else {
-							popup.failure(res.msg);
+							// 后端拒绝时恢复开关外观，避免与已保存状态不一致
+							obj.elem.checked = !obj.elem.checked;
+							form.render('checkbox');
+							popup.failure((res && res.msg) || '操作失败，请稍后重试');
 							return false;
 						}
-					}, "json");
+					}, "json").fail(function() {
+						// 接口异常时同样恢复开关，避免刷新后才看到状态回退
+						obj.elem.checked = !obj.elem.checked;
+						form.render('checkbox');
+						popup.failure('操作失败，请稍后重试');
+					});
 				});
 
 				function openLayer(title) {
-					// fileExt 是白名单：规则只表示“允许”，处置动作固定为 allow，不向用户展示
-					var isFileExt = $('#id-tab-rules li.layui-this').attr('module-id') == 'fileExt';
-					$('#id-action-item').toggle(!isFileExt);
-					if (isFileExt) {
+					// 白名单模块的规则只表示“允许”，处置动作固定为 allow，不向用户展示
+					var moduleId = $('#id-tab-rules li.layui-this').attr('module-id');
+					var whitelistAttackTypes = {fileExt: 'file_ext', httpMethod: 'unsafe_method'};
+					$('#id-action-item').toggle(!whitelistAttackTypes[moduleId]);
+					if (whitelistAttackTypes[moduleId]) {
 						$('#id-action').val('allow');
-						$('#id-attackType').val('file_ext');
+						$('#id-attackType').val(whitelistAttackTypes[moduleId]);
 						form.render('select', 'filter-form-rule');
 					}
 
@@ -372,6 +383,17 @@
 						field.rule = ext;
 						field.action = 'allow';
 						field.attackType = 'file_ext';
+					} else if (moduleId == 'httpMethod') {
+						// 白名单方法：去空格、转大写
+						var method = (field.rule || '').replace(/^\s+|\s+$/g, '').toUpperCase();
+						if (!/^[A-Z][A-Z0-9_-]{0,31}$/.test(method)) {
+							popup.failure('HTTP 方法只能包含字母、数字、下划线或中划线，且需以字母开头');
+							return false;
+						}
+
+						field.rule = method;
+						field.action = 'allow';
+						field.attackType = 'unsafe_method';
 					}
 
 					var param = {};
@@ -400,7 +422,7 @@
 
 					if(obj.event === 'edit') {
 						openLayer('编辑规则');
-						var state = data.state == 'on' ? true : false;
+						var state = String(data.state || '').toLowerCase() == 'on' ? true : false;
 						data.state = state;
 						form.val('filter-form-rule', data);
 					} else if(obj.event === 'remove') {
@@ -421,10 +443,12 @@
 									layer.close(index);
 									return true;
 								} else {
-									popup.failure(res.msg);
+									popup.failure((res && res.msg) || '操作失败，请稍后重试');
 									return false;
 								}
-							}, "json");
+							}, "json").fail(function() {
+								popup.failure('操作失败，请稍后重试');
+							});
 						});
 					}
 				}
@@ -435,10 +459,13 @@
 				$('#id-rule-add').on('click', function() {
 					openLayer('添加规则');
 
-					// 文件上传模块新增规则时默认选中"非法文件上传"，避免漏选导致日志分类错误
+					// 白名单模块新增规则时预设攻击类型，避免漏选导致日志分类错误
 					var currentModuleId = $('#id-tab-rules li.layui-this').attr('module-id');
 					if (currentModuleId == 'fileExt') {
 						$('#id-attackType').val('file_ext');
+						form.render('select', 'filter-form-rule');
+					} else if (currentModuleId == 'httpMethod') {
+						$('#id-attackType').val('unsafe_method');
 						form.render('select', 'filter-form-rule');
 					}
 				});
@@ -454,8 +481,8 @@
 					var currentTabId = $(this).attr('lay-id');
 					var moduleId = $(this).attr('module-id');
 
-					// fileExt 白名单规则没有“处置动作”可选，统一为 allow
-					$('#id-action-item').toggle(moduleId != 'fileExt');
+					// 白名单模块没有“处置动作”可选，统一为 allow
+					$('#id-action-item').toggle(moduleId != 'fileExt' && moduleId != 'httpMethod');
 
 					$('#id-tab-rules').find(".layui-tab-item").removeClass('layui-show');
 					$('.js-file-content').addClass('layui-hide');
@@ -474,8 +501,9 @@
 						// 工具栏与表格分离，切换模块时主动重渲染开关外观
 						form.render('checkbox');
 
-						// 文件上传模块填的是扩展名而不是正则，避免"规则正则"文案误导
-						$('#id-rule-label').text(moduleId == 'fileExt' ? '文件类型（不带点）' : '规则正则');
+						// 白名单模块填写的内容不是正则，避免“规则正则”文案误导
+						var ruleLabels = {fileExt: '文件类型（不带点）', httpMethod: 'HTTP 方法'};
+						$('#id-rule-label').text(ruleLabels[moduleId] || '规则正则');
 
 						reloadTableData();
 						$("#id-rules-common").addClass('layui-show');

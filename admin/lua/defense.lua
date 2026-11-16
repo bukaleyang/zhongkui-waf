@@ -5,6 +5,7 @@ local cjson = require "cjson"
 local config = require "config"
 local user = require "user"
 local rule_utils = require "lib.rule_utils"
+local http_method = require "http_method"
 
 local get_site_config_file = config.get_site_config_file
 local get_site_module_rule_file = config.get_site_module_rule_file
@@ -19,6 +20,33 @@ local lower = string.lower
 local match = string.match
 
 local _M = {}
+
+
+-- httpMethod 白名单为空会拦截全部请求，修改开关或删除规则时保证至少保留一个
+local function can_change_http_method(site_id, rule_id, state)
+    local _, content = get_site_module_rule_file(site_id, 'httpMethod')
+    local total, target_on = 0, false
+
+    if content then
+        local t = cjson_decode(content)
+        for _, r in pairs(t.rules or {}) do
+            if http_method.is_enabled(r) and http_method.normalize(r.rule) then
+                total = total + 1
+                if rule_id and tonumber(r.id) == rule_id then
+                    target_on = true
+                end
+            end
+        end
+    end
+
+    -- 模块开关：开启时必须有允许的方法
+    if not rule_id then
+        return state ~= 'on' or total > 0
+    end
+
+    -- 关闭规则：不能关掉最后一个
+    return state == 'on' or not target_on or total > 1
+end
 
 
 function _M.do_request()
@@ -98,7 +126,10 @@ function _M.do_request()
             local state = tostring(args['state'])
 
             -- 没有规则id，则是模块开关
-            if not rule_id then
+            if module_id == 'httpMethod' and not can_change_http_method(site_id, rule_id, state) then
+                response.code = 500
+                response.msg = rule_id and '至少保留一个允许的 HTTP 方法' or '请先添加允许的 HTTP 方法'
+            elseif not rule_id then
                 local _, content = get_site_config_file(site_id)
                 if content then
                     local t = cjson_decode(content)
@@ -175,6 +206,51 @@ function _M.do_request()
                         rule_new.rule = ext
                         rule_new.action = 'allow'
                         rule_new.attackType = 'file_ext'
+                        rule_new.severityLevel = 'high'
+                    elseif module_id == 'httpMethod' then
+                        local method = http_method.normalize(rule_new.rule)
+
+                        if not method then
+                            response.code = 500
+                            response.msg = 'invalid http method'
+                            ngx.say(cjson_encode(response))
+                            return
+                        end
+
+                        local _, content = get_site_module_rule_file(site_id, module_id)
+                        if content then
+                            local t = cjson_decode(content)
+                            local total_enabled, target_enabled = 0, false
+
+                            for _, r in pairs(t.rules or {}) do
+                                local normalized = http_method.normalize(r.rule)
+                                if tonumber(r.id) ~= rule_new.id and normalized == method then
+                                    response.code = 500
+                                    response.msg = 'duplicate http method'
+                                    ngx.say(cjson_encode(response))
+                                    return
+                                end
+
+                                if http_method.is_enabled(r) and normalized then
+                                    total_enabled = total_enabled + 1
+                                    if tonumber(r.id) == rule_new.id then
+                                        target_enabled = true
+                                    end
+                                end
+                            end
+
+                            if rule_new.state ~= 'on' and target_enabled and total_enabled <= 1 then
+                                response.code = 500
+                                response.msg = '至少保留一个允许的 HTTP 方法'
+                                ngx.say(cjson_encode(response))
+                                return
+                            end
+                        end
+
+                        rule_new.rule = method
+                        rule_new.action = 'allow'
+                        rule_new.attackType = 'unsafe_method'
+                        rule_new.severityLevel = 'high'
                     end
 
                     response = rule_utils.save_or_update_site_rule(site_id, module_id, rule_new)
@@ -200,7 +276,13 @@ function _M.do_request()
             local rule_id = tonumber(args['ruleId'])
             local module_id = tostring(args['moduleId'])
             if site_id and rule_id and module_id then
-                response = rule_utils.delete_site_rule(site_id, module_id, rule_id)
+                if module_id == 'httpMethod' and
+                        not can_change_http_method(site_id, rule_id, 'off') then
+                    response.code = 500
+                    response.msg = '至少保留一个允许的 HTTP 方法'
+                else
+                    response = rule_utils.delete_site_rule(site_id, module_id, rule_id)
+                end
             else
                 response.code = 500
                 response.msg = 'param error'

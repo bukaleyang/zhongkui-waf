@@ -1,67 +1,67 @@
 {
-    "nextId": 10,
+    "nextId": 17,
     "moduleName": "HTTP方法检测",
     "rules": [
         {
             "id": 1,
-            "state": "off",
-            "action": "DENY",
+            "state": "on",
+            "action": "allow",
             "rule": "GET",
             "attackType": "unsafe_method",
             "severityLevel": "high"
         },
         {
             "id": 2,
-            "state": "off",
-            "action": "DENY",
-            "rule": "POST",
-            "attackType": "unsafe_method",
-            "severityLevel": "high"
-        },
-        {
-            "id": 3,
-            "state": "off",
-            "action": "DENY",
+            "state": "on",
+            "action": "allow",
             "rule": "HEAD",
             "attackType": "unsafe_method",
             "severityLevel": "high"
         },
         {
+            "id": 3,
+            "state": "on",
+            "action": "allow",
+            "rule": "POST",
+            "attackType": "unsafe_method",
+            "severityLevel": "high"
+        },
+        {
             "id": 4,
-            "state": "off",
-            "action": "DENY",
-            "rule": "PUT",
+            "state": "on",
+            "action": "allow",
+            "rule": "OPTIONS",
             "attackType": "unsafe_method",
             "severityLevel": "high"
         },
         {
             "id": 5,
             "state": "off",
-            "action": "DENY",
-            "rule": "DELETE",
+            "action": "allow",
+            "rule": "PUT",
             "attackType": "unsafe_method",
             "severityLevel": "high"
         },
         {
             "id": 6,
             "state": "off",
-            "action": "DENY",
-            "rule": "CONNECT",
+            "action": "allow",
+            "rule": "DELETE",
             "attackType": "unsafe_method",
             "severityLevel": "high"
         },
         {
             "id": 7,
             "state": "off",
-            "action": "DENY",
-            "rule": "OPTIONS",
+            "action": "allow",
+            "rule": "PATCH",
             "attackType": "unsafe_method",
             "severityLevel": "high"
         },
         {
             "id": 8,
             "state": "off",
-            "action": "DENY",
+            "action": "allow",
             "rule": "TRACE",
             "attackType": "unsafe_method",
             "severityLevel": "high"
@@ -69,8 +69,64 @@
         {
             "id": 9,
             "state": "off",
-            "action": "DENY",
-            "rule": "PATCH",
+            "action": "allow",
+            "rule": "CONNECT",
+            "attackType": "unsafe_method",
+            "severityLevel": "high"
+        },
+        {
+            "id": 10,
+            "state": "off",
+            "action": "allow",
+            "rule": "PROPFIND",
+            "attackType": "unsafe_method",
+            "severityLevel": "high"
+        },
+        {
+            "id": 11,
+            "state": "off",
+            "action": "allow",
+            "rule": "PROPPATCH",
+            "attackType": "unsafe_method",
+            "severityLevel": "high"
+        },
+        {
+            "id": 12,
+            "state": "off",
+            "action": "allow",
+            "rule": "MKCOL",
+            "attackType": "unsafe_method",
+            "severityLevel": "high"
+        },
+        {
+            "id": 13,
+            "state": "off",
+            "action": "allow",
+            "rule": "COPY",
+            "attackType": "unsafe_method",
+            "severityLevel": "high"
+        },
+        {
+            "id": 14,
+            "state": "off",
+            "action": "allow",
+            "rule": "MOVE",
+            "attackType": "unsafe_method",
+            "severityLevel": "high"
+        },
+        {
+            "id": 15,
+            "state": "off",
+            "action": "allow",
+            "rule": "LOCK",
+            "attackType": "unsafe_method",
+            "severityLevel": "high"
+        },
+        {
+            "id": 16,
+            "state": "off",
+            "action": "allow",
+            "rule": "UNLOCK",
             "attackType": "unsafe_method",
             "severityLevel": "high"
         }
