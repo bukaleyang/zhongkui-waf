@@ -95,10 +95,15 @@ local lib, loaded
 local function _loadlib()
 	if (not loaded) then
 		local path, so_path
+		-- Windows 用 dll，Linux 用 so
 		local libname = "libinjection.so"
+		if jit and jit.os == "Windows" then
+			libname = "libinjection.dll"
+		end
 
 		for k, v in string.gmatch(package.cpath, "[^;]+") do
-			so_path = string.match(k, "(.*/)")
+			-- 同时兼容 / 和 \ 两种目录分隔符
+			so_path = string.match(k, "^(.*[/\\])")
 			if so_path then
 				-- "so_path" could be nil. e.g, the dir path component is "."
 				so_path = so_path .. libname
