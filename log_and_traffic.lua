@@ -11,6 +11,10 @@ local utils = require "utils"
 local constants = require "constants"
 
 local pairs = pairs
+local ipairs = ipairs
+local type = type
+local pcall = pcall
+local tostring = tostring
 local upper = string.upper
 local format = string.format
 local sub = string.sub
@@ -33,6 +37,30 @@ local log_limit = get_system_config('logLimit')
 local MAX_REQUEST_BODY_LEN = log_limit.maxRequestBodyLen
 local MAX_RESPONSE_BODY_LEN = log_limit.maxResponseBodyLen
 local MAX_HEADER_LEN = log_limit.maxHeaderLen
+
+-- HTTP/2 下 ngx.req.raw_header() 不可用，改用解析后的请求头重建
+local function get_raw_header()
+    if (ngx.req.http_version() or 0) >= 2 then
+        local headers = ngx.req.get_headers()   -- 默认最多 100 个
+        local parts = { concat({ ngx.req.get_method(), ' ', ngx.var.request_uri or '', ' ',
+                                 ngx.var.server_protocol or '' }) }
+
+        for k, v in pairs(headers or {}) do
+            if type(v) == 'table' then
+                for _, val in ipairs(v) do
+                    parts[#parts + 1] = k .. ': ' .. tostring(val)
+                end
+            else
+                parts[#parts + 1] = k .. ': ' .. tostring(v)
+            end
+        end
+
+        return concat(parts, '\r\n') .. '\r\n\r\n'
+    end
+
+    local ok, raw = pcall(ngx.req.raw_header)
+    return ok and raw or ''
+end
 
 local function write_attack_log()
     local ctx = ngx.ctx
@@ -110,7 +138,7 @@ local function write_attack_log()
     if is_system_option_on("mysql") then
         local sql_str = '(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %.7f, %.7f, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
 
-        local req_header = sub(ngx.req.raw_header() or '', 1, MAX_HEADER_LEN)
+        local req_header = sub(get_raw_header(), 1, MAX_HEADER_LEN)
         if #req_header > 0 or request_body then
             request_body = quote_sql_str(req_header .. sub(request_body or '', 1, MAX_REQUEST_BODY_LEN))
         else
@@ -121,7 +149,16 @@ local function write_attack_log()
         if headers or response_body then
             local header = ''
             for key, value in pairs(headers) do
-                header = header .. key .. ': ' .. value .. '\n'
+                if type(value) == 'table' then
+                    for i = 1, #value do
+                        header = header .. key .. ': ' .. value[i] .. '\n'
+                        if #header >= MAX_HEADER_LEN then
+                            break
+                        end
+                    end
+                else
+                    header = header .. key .. ': ' .. value .. '\n'
+                end
                 if #header >= MAX_HEADER_LEN then
                     break
                 end
