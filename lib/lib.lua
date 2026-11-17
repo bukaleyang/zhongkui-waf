@@ -28,6 +28,7 @@ local byte = string.byte
 local find = string.find
 local match = string.match
 local gsub = string.gsub
+local gmatch = string.gmatch
 local unescape_uri = decoder.unescape_uri
 local get_request_body = request.get_request_body
 local get_boundary = request.get_boundary
@@ -204,6 +205,20 @@ function _M.is_bot()
         local ua = ngx.ctx.ua
 
         local module = get_site_security_modules("user-agent")
+
+        -- 白名单优先：action=allow 的 UA 规则（搜索引擎爬虫）必须先判定。
+        -- 规则数组会被 rulesSort 按命中热度重排，不能依赖“白名单排在黑名单前面”；
+        -- 一旦 deny 规则先命中就已经 block_ip，白名单再匹配也来不及。
+        if ua and ua ~= "" then
+            for _, t in ipairs(module.rules) do
+                if upper(t.action or "") == "ALLOW" and matches(ua, t.rule) then
+                    -- 命中即跳过 Bot 检测：不 block_ip（正常爬虫不该进黑名单），
+                    -- 也不 do_action（allow 会直接放行整个请求，跳过后续 SQLi/XSS/CC 检测）
+                    return false
+                end
+            end
+        end
+
         local m, rule_table = match_rule(module.rules, ua)
         if m then
             block_ip(ip, rule_table)
@@ -424,21 +439,29 @@ end
 function _M.is_evil_headers()
     if is_site_option_on("headers") then
         local module = get_site_security_modules("headers")
-        local referer = ngx.var.http_referer
-        if referer and referer ~= "" then
-            local m, rule_table = match_rule(module.rules, referer)
-            if m then
-                do_action(module.moduleName, rule_table, referer)
-                return true
-            end
-        end
+        local headers = ngx.req.get_headers() or {}
 
-        local ua = ngx.ctx.ua
-        if ua and ua ~= "" then
-            local m, rule_table = match_rule(module.rules, ua)
-            if m then
-                do_action(module.moduleName, rule_table)
-                return true
+        -- 遍历全部请求头，覆盖自定义头与转发头中的 payload。
+        -- Cookie 交给 cookie 模块单独检测，避免重复匹配和攻击类型归属混乱。
+        for name, value in pairs(headers) do
+            if name ~= "cookie" then
+                if type(value) == "table" then
+                    for _, item in ipairs(value) do
+                        if item and item ~= "" then
+                            local m, rule_table = match_rule(module.rules, item)
+                            if m then
+                                do_action(module.moduleName, rule_table, name .. ": " .. sub(item, 1, 512))
+                                return true
+                            end
+                        end
+                    end
+                elseif type(value) == "string" and value ~= "" then
+                    local m, rule_table = match_rule(module.rules, value)
+                    if m then
+                        do_action(module.moduleName, rule_table, name .. ": " .. sub(value, 1, 512))
+                        return true
+                    end
+                end
             end
         end
     end
@@ -844,6 +867,28 @@ function _M.is_evil_cookies()
         if m then
             do_action(module.moduleName, rule_table)
             return true
+        end
+
+        -- 正则先扫原始 Cookie 头，覆盖 Cookie 名和未编码的 payload；
+        -- 再逐个值解码后扫一遍，避免 ..%2f、%24%7Bjndi 这类编码 payload 绕过。
+        -- 不整串送检：多个 cookie 形如 "a=1; b=select ..." 拼起来会被当成一条语句，
+        -- 指纹失真，还可能把相邻 cookie 拼出假阳性。
+        for pair in gmatch(cookie, "[^;]+") do
+            local eq = find(pair, "=", 1, true)
+            local value = eq and sub(pair, eq + 1) or pair
+
+            value = gsub(value, "^%s+", "")
+            if value ~= "" then
+                value = unescape_uri(value)
+
+                local vm, vrule = match_rule(module.rules, value)
+                if vm then
+                    do_action(module.moduleName, vrule, value)
+                    return true
+                end
+
+                _M.is_sqli_or_xss(value)
+            end
         end
     end
 

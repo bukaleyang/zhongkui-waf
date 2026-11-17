@@ -1,5 +1,5 @@
 {
-    "nextId": 3,
+    "nextId": 14,
     "moduleName": "Headers检测",
     "rules": [
         {
@@ -14,9 +14,97 @@
             "id": 2,
             "state": "on",
             "action": "deny",
-            "rule": "j\\S*ndi\\S*:\\S*(?:dap|dns)\\S+",
+            "rule": "(?:\\$\\{[^;]{0,100}:\\s*(?:ldap|rmi|dns|iiop|corba|nis|nds|http))|\\b(?:jndi|ndi)\\s*:\\s*(?:ldap|rmi|dns|iiop|corba|nis|nds|http)",
             "attackType": "rce",
             "severityLevel": "high"
+        },
+        {
+            "id": 3,
+            "state": "on",
+            "action": "deny",
+            "rule": "\\(\\s*\\)\\s*\\{\\s*:?\\s*;\\s*\\}\\s*;",
+            "attackType": "rce",
+            "severityLevel": "critical"
+        },
+        {
+            "id": 4,
+            "state": "on",
+            "action": "deny",
+            "rule": "(?:['\"`)]\\s*(?:union\\s+)?select\\b[^&]{0,80}?\\bfrom\\b)|\\bunion\\b[^&]{0,40}?\\bselect\\b|\\b(?:sleep|benchmark|pg_sleep|extractvalue|updatexml)\\s*\\(|\\bwaitfor\\s+delay\\b|\\bxp_cmdshell\\b|\\bload_file\\s*\\(|\\binto\\s+(?:out|dump)file\\b|\\bsqlite_master\\b|\\bdbms_pipe\\b|\\butl_(?:http|inaddr)\\b|@@(?:version|datadir|hostname)|\\binformation_schema\\b",
+            "attackType": "sqli",
+            "severityLevel": "high"
+        },
+        {
+            "id": 5,
+            "state": "on",
+            "action": "deny",
+            "rule": "<script[^>]*>|<[a-z][^>]{0,200}?[\\s/]on[a-z]{2,24}\\s*=|(?:javascript|vbscript)\\s*:\\s*(?!void\\s*\\(\\s*0\\s*\\))(?:alert|confirm|prompt|eval|document|window|location|fetch|XMLHttpRequest|top|parent|self|opener|msgbox)|data\\s*:\\s*text/html|\\bsrcdoc\\s*=|expression\\(|document\\.(?:cookie|location)",
+            "attackType": "xss",
+            "severityLevel": "medium"
+        },
+        {
+            "id": 6,
+            "state": "on",
+            "action": "deny",
+            "rule": "^(?:\\.\\.[/\\\\])*[/\\\\]?(?:etc[/\\\\](?:passwd|shadow|hosts)|proc[/\\\\]self[/\\\\](?:environ|cmdline)|sys[/\\\\](?:cmdline|environ)|boot[/\\\\]grub2?[/\\\\]grub\\.cfg)$|(?:\\.\\.[/\\\\]){2,}",
+            "attackType": "directory_traversal",
+            "severityLevel": "critical"
+        },
+        {
+            "id": 7,
+            "state": "on",
+            "action": "deny",
+            "rule": "(?:%0d%0a|%0a%0d|%0a|%0d|%25(?:0d|0a))",
+            "attackType": "crlf_injection",
+            "severityLevel": "medium"
+        },
+        {
+            "id": 8,
+            "state": "on",
+            "action": "deny",
+            "rule": "(?:file|gopher|dict|ldap|tftp):\\/\\/|(?:https?|ftp):\\/\\/(?:[^\\/@]+@)?(?:169\\.254\\.\\d{1,3}\\.\\d{1,3}|\\[::1\\]|\\[::ffff:(?:127\\.0\\.0\\.1|7f00:1)\\]|metadata\\.google\\.internal|100\\.100\\.100\\.200|metadata\\.azure\\.com|kubernetes\\.default\\.svc|fd00:ec2::254)",
+            "attackType": "rce",
+            "severityLevel": "high"
+        },
+        {
+            "id": 9,
+            "state": "on",
+            "action": "deny",
+            "rule": "\\b(?:__class__|__mro__|__subclasses__|__globals__|__builtins__|__import__|_memberAccess|ognl|freemarker|org\\.apache\\.velocity|javax\\.script)\\b|\\bRuntime\\s*\\.\\s*getRuntime\\s*\\(|\\bProcessBuilder\\b|T\\s*\\(\\s*(?:java\\.lang\\.)?(?:Runtime|ProcessBuilder)",
+            "attackType": "codei",
+            "severityLevel": "high"
+        },
+        {
+            "id": 10,
+            "state": "on",
+            "action": "deny",
+            "rule": "(?:(?-i:rO0AB)|aced0005|O:\\d{1,3}:\"[A-Za-z_][A-Za-z0-9_\\\\]{0,60}\":\\d+:|(?-i:gASV)|(?-i:AAEAAAD/////)|__reduce__)",
+            "attackType": "rce",
+            "severityLevel": "critical"
+        },
+        {
+            "id": 11,
+            "state": "on",
+            "action": "deny",
+            "rule": "<!ENTITY\\b|<!DOCTYPE[^>]{0,200}\\bSYSTEM\\b|SYSTEM\\s+[\"'](?:file|php|expect|gopher|ldap|https?):\\/\\/",
+            "attackType": "read_file",
+            "severityLevel": "high"
+        },
+        {
+            "id": 12,
+            "state": "on",
+            "action": "deny",
+            "rule": "\\bclass\\s*\\.\\s*module\\s*\\.\\s*classLoader\\b",
+            "attackType": "rce",
+            "severityLevel": "critical"
+        },
+        {
+            "id": 13,
+            "state": "on",
+            "action": "deny",
+            "rule": "(?:[;|`&]|\\$\\(|[\\r\\n])\\s*(?:cat|base64|whoami|uname|hostname|systeminfo|echo|curl|wget|bash|sh|zsh|python[23]?|perl|php|ruby|ls|id|rm|mv|cp|nc|ncat|netcat|env|awk|sed|dd|chmod|chown|mkfifo|telnet|ping|nslookup|dig|ipconfig|ifconfig|powershell)\\b(?!\\s*[=:])|\\b(?:cat|head|tail|less|more|nl|tac)\\s+/(?:etc|proc|sys|root|home|dev)\\b|(?:^|[;|`&])\\s*(?:curl|wget)\\s+(?:-{1,2}[a-z]|https?://|ftp://|file://)|(?:^|[;|`&])\\s*(?:bash|sh|zsh|python[23]?|perl|php|ruby)\\s+-[a-z]|\\bpowershell\\s+-|\\|\\s*(?:sh|bash|zsh)\\b|\\b(?:certutil\\s+-(?:urlcache|decode|decodehex|encode|verifyctl)|bitsadmin\\s+/|mshta\\s+(?:https?://|javascript:|vbscript:)|rundll32(?:\\.exe)?\\s+(?:javascript:|[a-z]:\\\\|https?://)|regsvr32\\s+/|wmic\\s+process\\s+call|schtasks\\s+/|vssadmin\\s+delete|bcdedit\\s+/|cmd\\.exe\\s+/[a-z]|tasklist(?:\\.exe)?\\s+/)|\\$\\{?IFS\\}?[/\\\\$]|\\s-{1,2}(?:enc|encodedcommand)\\s+[A-Za-z0-9+/=]{8,}|wget\\s+--post-file|curl\\s+-d\\s+@",
+            "attackType": "commandi",
+            "severityLevel": "critical"
         }
     ]
 }

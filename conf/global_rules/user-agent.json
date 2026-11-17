@@ -1,6 +1,6 @@
 {
 	"moduleName": "Bot检测",
-	"nextId": 3,
+	"nextId": 4,
 	"rules": [
 		{
 			"id": 1,
@@ -22,7 +22,18 @@
 			"action": "allow",
 			"autoIpBlock": "off",
 			"ipBlockExpireInSeconds": 600,
-			"description": "一些搜索引擎爬虫ua"
+			"description": "搜索引擎爬虫 UA 白名单（仅供放行使用，命中后跳过 Bot 检测，不会封禁 IP；禁止改成 deny）"
+		},
+		{
+			"id": 3,
+			"state": "on",
+			"rule": "\\b(?:nikto|sqlmap|nmap|masscan|acunetix|nessus|openvas|wpscan|dirbuster|dirsearch|burpsuite|owasp[ -]?zap|zaproxy|netsparker|appscan|appspider|arachni|skipfish|gobuster|feroxbuster|wfuzz|ffuf|hydra|metasploit|qualys|rapid7|nuclei|zgrab|vega|gospider|whatweb|joomscan|uniscan|blindelephant|w3af|xray/\\d|goby|fscan|vulmap|afrog|pocsuite|dalfox|commix|tplmap)\\b",
+			"attackType": "bot",
+			"severityLevel": "high",
+			"action": "deny",
+			"autoIpBlock": "on",
+			"ipBlockExpireInSeconds": 3600,
+			"description": "高置信度漏洞扫描器 UA"
 		}
 	]
 }

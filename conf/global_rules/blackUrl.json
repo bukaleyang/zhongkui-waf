@@ -1,10 +1,10 @@
 {
     "moduleName": "URL黑名单检测",
-    "nextId": 11,
+    "nextId": 18,
     "rules": [
         {
             "attackType": "data_leak",
-            "rule": "\\.(svn|htaccess|bash_history)",
+            "rule": "(?:^|/)\\.(?:svn|htaccess|bash_history)(?:/|$)",
             "state": "on",
             "severityLevel": "high",
             "action": "redirect",
@@ -12,7 +12,7 @@
         },
         {
             "attackType": "read_file",
-            "rule": "\\.(bak|inc|old|mdb|sql|backup|java|class)$",
+            "rule": "\\.(bak|inc|old|mdb|sql|backup|java|class|swp|swo|orig|tmp)$",
             "state": "on",
             "severityLevel": "high",
             "action": "redirect",
@@ -36,7 +36,7 @@
         },
         {
             "attackType": "backdoor",
-            "rule": "(?:phpMyAdmin2|phpMyAdmin|phpmyadmin|dbadmin|pma|myadmin|admin|mysql)\/scripts\/setup%.php",
+            "rule": "(?:phpMyAdmin2|phpMyAdmin|phpmyadmin|dbadmin|pma|myadmin|admin|mysql)/scripts/setup\\.php",
             "state": "on",
             "severityLevel": "high",
             "action": "redirect",
@@ -52,7 +52,7 @@
         },
         {
             "attackType": "rce",
-            "rule": "\/(attachments|upimg|images|css|uploadfiles|html|uploads|templets|static|template|data|inc|forumdata|upload|includes|cache|avatar)\/(\\\\w+).(php|jsp)",
+            "rule": "/(?:attachments|upimg|images|css|uploadfiles|html|uploads|templets|static|template|data|inc|forumdata|upload|includes|cache|avatar)/.*\\.(?:php|jsp)$",
             "state": "on",
             "severityLevel": "high",
             "action": "redirect",
@@ -67,20 +67,68 @@
             "id": 8
         },
         {
-            "attackType": "rce",
-            "rule": "<php>die(@md5(HelloThinkCMF))<\/php>",
-            "state": "on",
-            "severityLevel": "high",
-            "action": "redirect",
-            "id": 9
-        },
-        {
             "attackType": "backdoor",
             "rule": "\/boaform\/admin\/formLogin",
             "state": "on",
             "severityLevel": "high",
             "action": "redirect",
             "id": 10
+        },
+        {
+            "attackType": "data_leak",
+            "rule": "(?:^|/)(?:\\.git(?:/|$)|\\.env(?!\\.(?:example|sample|template|dist))(?:\\.[\\w-]+)?$|\\.htpasswd$|\\.DS_Store$|\\.dockerenv$|\\.npmrc$|\\.pypirc$|\\.netrc$|\\.git-credentials$|\\.aws/credentials$|\\.ssh/id_rsa$|\\.kube/config$|\\.docker/config\\.json$|\\.hg/|CVS/|WEB-INF/|META-INF/|server-(?:status|info)$)",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 11
+        },
+        {
+            "attackType": "rce",
+            "rule": "(?:^|/)TomcatBypass/Command/Base64",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 12
+        },
+        {
+            "attackType": "directory_traversal",
+            "rule": "^(?:\\.\\.[/\\\\])*[/\\\\]?(?:etc[/\\\\](?:passwd|shadow|hosts)|proc[/\\\\]self[/\\\\](?:environ|cmdline)|sys[/\\\\](?:cmdline|environ)|boot[/\\\\]grub2?[/\\\\]grub\\.cfg)$|(?:\\.\\.[/\\\\]){2,}",
+            "state": "on",
+            "severityLevel": "critical",
+            "action": "redirect",
+            "id": 13
+        },
+        {
+            "attackType": "data_leak",
+            "rule": "(?:^|/)(?:actuator/(?:env|heapdump|gateway|refresh|threaddump|configprops)(?:/|$)|manager/html(?:/|$)|host-manager/html(?:/|$)|solr/admin(?:/|$)|druid/index\\.html$|nacos/v1/auth(?:/|$)|eureka/apps(?:/|$)|swagger-ui\\.html$|v[23]/api-docs(?:/|$)|h2-console(?:/|$)|consul/ui(?:/|$)|_cat/indices(?:/|$))",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 14
+        },
+        {
+            "attackType": "rce",
+            "rule": "(?:^|/)(?:console/login/LoginForm\\.jsp|uddiexplorer/SearchPublicRegistries\\.jsp|wls-wsat/|bea_wls_internal/|jenkins/script(?:/|$)|vendor/phpunit/phpunit/src/Util/PHP/eval-stdin\\.php$|(?:c99|r57|wso|b374k|webshell|backdoor)\\.(?:php|jsp|asp|aspx)$)",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 15
+        },
+        {
+            "attackType": "data_leak",
+            "rule": "(?:^|/)(?:backup|db|database|dump)\\.(?:zip|tar|tar\\.gz|tgz|rar|7z)$",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 16
+        },
+        {
+            "attackType": "data_leak",
+            "rule": "(?:^|/)(?:phpinfo|info)\\.php$|^/(?:composer\\.lock|package-lock\\.json|yarn\\.lock|Dockerfile|docker-compose\\.ya?ml|Jenkinsfile)$",
+            "state": "on",
+            "severityLevel": "high",
+            "action": "redirect",
+            "id": 17
         }
     ]
 }

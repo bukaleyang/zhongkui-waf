@@ -15,6 +15,7 @@ let attackTypeArray = [
     {"type":"backdoor","name_en":"backdoor","name_cn":"后门"},
     {"type":"data_leak","name_en":"Data Leak","name_cn":"信息泄露"},
     {"type":"read_file","name_en":"Read File","name_cn":"文件读取"},
+    {"type":"crlf_injection","name_en":"CRLF Injection","name_cn":"CRLF注入"},
     {"type":"unknown","name_en":"unknown","name_cn":"未知"}
 ]
 
