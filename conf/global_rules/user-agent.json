@@ -27,7 +27,7 @@
 		{
 			"id": 3,
 			"state": "on",
-			"rule": "\\b(?:nikto|sqlmap|nmap|masscan|acunetix|nessus|openvas|wpscan|dirbuster|dirsearch|burpsuite|owasp[ -]?zap|zaproxy|netsparker|appscan|appspider|arachni|skipfish|gobuster|feroxbuster|wfuzz|ffuf|hydra|metasploit|qualys|rapid7|nuclei|zgrab|vega|gospider|whatweb|joomscan|uniscan|blindelephant|w3af|xray/\\d|goby|fscan|vulmap|afrog|pocsuite|dalfox|commix|tplmap)\\b",
+			"rule": "\\b(?:nikto|sqlmap|nmap|masscan|acunetix|nessus|openvas|wpscan|dirbuster|dirsearch|burpsuite|owasp[ -]?zap|zaproxy|netsparker|appscan|appspider|arachni|skipfish|gobuster|feroxbuster|wfuzz|ffuf|hydra|metasploit|qualys|rapid7|nuclei|zgrab|gospider|whatweb|joomscan|uniscan|blindelephant|w3af|xray/\\d|goby|fscan|vulmap|afrog|pocsuite|dalfox|commix|tplmap)\\b",
 			"attackType": "bot",
 			"severityLevel": "high",
 			"action": "deny",

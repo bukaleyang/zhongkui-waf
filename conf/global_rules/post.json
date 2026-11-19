@@ -166,7 +166,7 @@
             "id": 22,
             "state": "on",
             "action": "deny",
-            "rule": "(?:[;|`&]|\\$\\(|[\\r\\n])\\s*(?:cat|base64|whoami|uname|hostname|systeminfo|echo|curl|wget|bash|sh|zsh|python[23]?|perl|php|ruby|ls|id|rm|mv|cp|nc|ncat|netcat|env|awk|sed|dd|chmod|chown|mkfifo|telnet|ping|nslookup|dig|ipconfig|ifconfig|powershell)\\b(?!\\s*[=:])|\\b(?:cat|head|tail|less|more|nl|tac)\\s+/(?:etc|proc|sys|root|home|dev)\\b|(?:^|[;|`&])\\s*(?:curl|wget)\\s+(?:-{1,2}[a-z]|https?://|ftp://|file://)|(?:^|[;|`&])\\s*(?:bash|sh|zsh|python[23]?|perl|php|ruby)\\s+-[a-z]|\\bpowershell\\s+-|\\|\\s*(?:sh|bash|zsh)\\b|\\b(?:certutil\\s+-(?:urlcache|decode|decodehex|encode|verifyctl)|bitsadmin\\s+/|mshta\\s+(?:https?://|javascript:|vbscript:)|rundll32(?:\\.exe)?\\s+(?:javascript:|[a-z]:\\\\|https?://)|regsvr32\\s+/|wmic\\s+process\\s+call|schtasks\\s+/|vssadmin\\s+delete|bcdedit\\s+/|cmd\\.exe\\s+/[a-z]|tasklist(?:\\.exe)?\\s+/)|\\$\\{?IFS\\}?[/\\\\$]|\\s-{1,2}(?:enc|encodedcommand)\\s+[A-Za-z0-9+/=]{8,}|wget\\s+--post-file|curl\\s+-d\\s+@",
+            "rule": "(?:[;|`&]|\\$\\(|[\\r\\n])\\s*(?:(?:[A-Za-z]:[\\\\/]|\\.{1,2}[\\\\/]|[\\\\/])(?:[A-Za-z0-9._-]+[\\\\/])*)?(?:cat|base64|whoami|uname|hostname|systeminfo|echo|curl|wget|bash|sh|zsh|python[23]?|perl|php|ruby|ls|id|rm|mv|cp|nc|ncat|netcat|env|awk|sed|dd|chmod|chown|mkfifo|telnet|ping|nslookup|dig|ipconfig|ifconfig|powershell|pwsh|cmd)\\b(?!\\s*[=:])|\\b(?:cat|head|tail|less|more|nl|tac)\\s+/(?:etc|proc|sys|root|home|dev)\\b|(?:^|[;|`&])\\s*(?:curl|wget)\\s+(?:-{1,2}[a-z]|https?://|ftp://|file://)|(?:^|[;|`&])\\s*(?:bash|sh|zsh|python[23]?|perl|php|ruby)\\s+-[a-z]|\\b(?:powershell|pwsh)(?:\\.exe)?\\s+-|\\|\\s*(?:sh|bash|zsh)\\b|\\b(?:certutil\\s+-(?:urlcache|decode|decodehex|encode|verifyctl)|bitsadmin\\s+/|mshta\\s+(?:https?://|javascript:|vbscript:)|rundll32(?:\\.exe)?\\s+(?:javascript:|[a-z]:\\\\|https?://|[^;\\s|&]+\\.dll,)|regsvr32\\s+/|wmic\\b[^;|&\\r\\n]{0,120}\\bprocess\\s+call|schtasks\\s+/|vssadmin\\s+delete|bcdedit\\s+/|cmd(?:\\.exe)?\\s+/[a-z]|tasklist(?:\\.exe)?\\s+/)|\\$\\{?IFS\\}?[/\\\\$]|\\s-{1,2}(?:enc|encodedcommand)\\s+[A-Za-z0-9+/=]{8,}|wget\\s+--post-file|curl\\s+-d\\s+@",
             "attackType": "commandi",
             "severityLevel": "critical"
         },
@@ -174,7 +174,7 @@
             "id": 23,
             "state": "on",
             "action": "deny",
-            "rule": "\\b(?:__class__|__mro__|__subclasses__|__globals__|__builtins__|__import__|_memberAccess|ognl|freemarker|org\\.apache\\.velocity|javax\\.script)\\b|\\bRuntime\\s*\\.\\s*getRuntime\\s*\\(|\\bProcessBuilder\\b|T\\s*\\(\\s*(?:java\\.lang\\.)?(?:Runtime|ProcessBuilder)",
+            "rule": "\\b_memberAccess\\b|(?:\\.|\\[)\\s*['\"]?__(?:class|mro|subclasses|globals|builtins)__\\b|\\b__import__\\s*\\(|@ognl\\.|\\bognl\\.(?:OgnlContext|Ognl)\\b|<#(?:assign|list|if|include|import)\\b|\\?new\\s*\\(|\\bnew\\s+ProcessBuilder\\s*\\(|\\bProcessBuilder\\s*\\(|\\borg\\.apache\\.velocity\\.(?:app|context|runtime)\\b|\\bjavax\\.script\\.(?:ScriptEngine|ScriptEngineManager)\\b|\\bRuntime\\s*\\.\\s*getRuntime\\s*\\(|T\\s*\\(\\s*(?:java\\.lang\\.)?(?:Runtime|ProcessBuilder)",
             "attackType": "codei",
             "severityLevel": "high"
         },
