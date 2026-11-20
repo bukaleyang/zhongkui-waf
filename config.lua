@@ -19,7 +19,9 @@ local is_directory = file_utils.is_directory
 local mkdir = file_utils.mkdir
 
 local sub = string.sub
+local concat = table.concat
 local default_if_blank = stringutf8.default_if_blank
+local parse_ip_lines = ip_utils.parse_ip_lines
 
 local cjson_decode = cjson.decode
 local cjson_encode = cjson.encode
@@ -162,15 +164,43 @@ function _M.update_site_module_rule_file(site_id, module_id, str)
     return write_string_to_file_atomic(rule_file, str)
 end
 
+-- 新增IP组：忽略空行与注释（# 及其后的内容），逐条剔除非法IP，避免一条脏数据导致整份名单失效
 local function add_ip_group(group, ips)
-    if ips and nkeys(ips) > 0 then
-        local matcher, err = ipmatcher.new(ips)
+    local ip_list = parse_ip_lines(ips)
+
+    if nkeys(ip_list) == 0 then
+        return
+    end
+
+    local matcher, err = ipmatcher.new(ip_list)
+    if not matcher then
+        local valid_ips = {}
+        local invalid_ips = {}
+
+        for _, ip in ipairs(ip_list) do
+            if ipmatcher.new({ip}) then
+                valid_ips[#valid_ips + 1] = ip
+            else
+                invalid_ips[#invalid_ips + 1] = ip
+            end
+        end
+
+        if nkeys(invalid_ips) > 0 then
+            ngx.log(ngx.ERR, 'invalid ip ignored in ip group ', group, ': ', concat(invalid_ips, ', '))
+        end
+
+        if nkeys(valid_ips) == 0 then
+            return
+        end
+
+        matcher, err = ipmatcher.new(valid_ips)
         if not matcher then
             ngx.log(ngx.ERR, 'error to add ip group ' .. group, err)
             return
         end
-        _M.ipgroups[group] = matcher
     end
+
+    _M.ipgroups[group] = matcher
 end
 
 function _M.get_config_table()

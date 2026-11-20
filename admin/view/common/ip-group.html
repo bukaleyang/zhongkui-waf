@@ -38,7 +38,7 @@
 			<div class="layui-row layui-col-space10">
 				<div class="layui-col-md12">
 					<div class="layui-form-text">
-						<textarea name="ips" lay-verify="required|ipsRule" placeholder="IP或网段，每行一个。" style="height: 210px;" class="layui-textarea"></textarea>
+						<textarea name="ips" lay-verify="required|ipsRule" placeholder="每行一个 IP/CIDR，支持 # 注释：&#10;# 办公网段&#10;10.0.0.0/24&#10;192.168.1.10 # 封禁：异常扫描" style="height: 210px;" class="layui-textarea"></textarea>
 					</div>
 				</div>
 			</div>
@@ -78,13 +78,19 @@
 
 				var currentTabId;
 
+				// 去掉 # 及其后的行尾注释，并 trim；整行注释会返回空串
+				var parseIpLine = function(line) {
+					return (line || '').split('#')[0].trim();
+				};
+
 				table.render({
 					elem: '#id-table-rules',
 					url: '/common/ipgroups/list',
 					cols: [[ //标题栏
 						{field: 'groupName', title: '组名'},
 						{title: '内容', templet: function(d) {
-							let ips = d.ips;
+							// 预览时忽略空行与注释（含行尾注释）
+							let ips = (d.ips || []).map(parseIpLine).filter(item => item.length > 0);
 							let len = ips.length;
 							if (len > 1) {
 								return ips[0] + '...';
@@ -177,6 +183,11 @@
 							let arr = value.split('\n');
 							let flag = false;
 							$.each(arr, function(i, ip) {
+								// 忽略空行与注释（含行尾注释）
+								ip = parseIpLine(ip);
+								if (ip.length === 0) {
+									return true;
+								}
 								if (validator.isIPWithCIDR(ip) == false) {
 									flag = true;
 									return false;
@@ -196,7 +207,8 @@
 					var field = data.field; // 获取表单字段值
 					field.groupName = field.groupName.trim();
 					let arr = field.ips.split('\n');
-					let newArr = arr.filter(item => item.trim().length > 0);
+					// 每行 trim，去掉空行，保留注释行
+					let newArr = arr.map(item => item.trim()).filter(item => item.length > 0);
 					field.ips = newArr;
 
 					$.post('/common/ipgroups/update',  {rule: JSON.stringify(field)}, function(data) {

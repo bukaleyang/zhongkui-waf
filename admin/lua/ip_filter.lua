@@ -5,12 +5,13 @@ local cjson = require "cjson"
 local config = require "config"
 local file = require "file_utils"
 local user = require "user"
-local nkeys = require "table.nkeys"
 local stringutf8 = require "stringutf8"
+local ip_utils = require "ip_utils"
 local request = require "lib.request"
 
 local tonumber = tonumber
 local trim = stringutf8.trim
+local parse_ip_lines = ip_utils.parse_ip_lines
 local read_file_to_string = file.read_file_to_string
 local read_file_to_table = file.read_file_to_table
 local write_string_to_file = file.write_string_to_file
@@ -28,6 +29,22 @@ local _M = {}
 
 local IP_WHITELIST_PATH = config.CONF_PATH .. '/global_rules/ipWhiteList'
 local IP_BLACKLIST_PATH = config.CONF_PATH .. '/global_rules/ipBlackList'
+
+-- 生成名单预览：忽略空行与注释，取第一条有效IP
+local function get_ip_list_preview(file_path)
+    local ip_list = parse_ip_lines(read_file_to_table(file_path))
+    local count = #ip_list
+
+    if count == 0 then
+        return ''
+    end
+
+    if count > 1 then
+        return ip_list[1] .. '...'
+    end
+
+    return ip_list[1]
+end
 
 
 function _M.do_request()
@@ -98,32 +115,9 @@ function _M.do_request()
     elseif uri == "/ip/filter/rule/list" then
         -- ip黑白名单列表
         local data = {}
-        local content = ''
 
-        local ip_white_list = read_file_to_table(IP_WHITELIST_PATH)
-        if ip_white_list then
-            local len = nkeys(ip_white_list)
-            if len > 1 then
-                content = ip_white_list[1] .. '...'
-            elseif len > 0 then
-                content = ip_white_list[1]
-            end
-        end
-
-        data[1] = {id = 1, state = get_site_config("whiteIP").state, content = content}
-
-        content = ''
-        local ip_black_list = read_file_to_table(IP_BLACKLIST_PATH)
-        if ip_black_list then
-            local len = nkeys(ip_black_list)
-            if len > 1 then
-                content = ip_black_list[1] .. '...'
-            elseif len > 0 then
-                content = ip_black_list[1]
-            end
-        end
-
-        data[2] = {id = 2, state = get_site_config("blackIP").state, content = content}
+        data[1] = {id = 1, state = get_site_config("whiteIP").state, content = get_ip_list_preview(IP_WHITELIST_PATH)}
+        data[2] = {id = 2, state = get_site_config("blackIP").state, content = get_ip_list_preview(IP_BLACKLIST_PATH)}
 
         response.data = data
         response.count = 2

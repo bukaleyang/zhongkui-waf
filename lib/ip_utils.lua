@@ -1,13 +1,17 @@
 -- Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
 -- Copyright (c) 2023 bukale bukale2022@163.com
 
+local stringutf8 = require "stringutf8"
+
 local _M = {}
 
 local ipairs = ipairs
 local tonumber = tonumber
 local find = string.find
+local sub = string.sub
 local ngxmatch = ngx.re.match
 
+local trim = stringutf8.trim
 local insert = table.insert
 
 -- 客户端 IP 统一使用 nginx 的 $remote_addr：
@@ -47,6 +51,33 @@ function _M.is_private_ip(ip)
     end
 
     return false
+end
+
+-- 解析IP名单：忽略空行，去掉每行中 # 及其后的注释内容（整行注释或行尾注释均可），再 trim
+-- 返回 {ip1, ip2, ...}
+function _M.parse_ip_lines(lines)
+    local ip_list = {}
+
+    if not lines then
+        return ip_list
+    end
+
+    for _, line in ipairs(lines) do
+        local ip = tostring(line)
+        local comment_idx = find(ip, '#', 1, true)
+
+        if comment_idx then
+            ip = sub(ip, 1, comment_idx - 1)
+        end
+
+        ip = trim(ip) or ''
+
+        if ip ~= '' then
+            ip_list[#ip_list + 1] = ip
+        end
+    end
+
+    return ip_list
 end
 
 -- 把配置中混合在一起的单ip和ip网段区分开，{ip网段table},{ips}
