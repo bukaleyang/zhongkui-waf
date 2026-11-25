@@ -38,5 +38,26 @@
     "rulesSort": {
         "state": "off",
         "period": 10
+    },
+    "realIp": {
+        "mode": "remote_addr",
+        "trustedProxies": {},
+        "header": "X-Forwarded-For"
+    },
+    "threatIntel": {
+        "state": "on",
+        "hourUTC": 5,
+        "minuteUTC": 10,
+        "adminPort": 1226,
+        "connectTimeout": 5000,
+        "sendTimeout": 10000,
+        "readTimeout": 30000,
+        "maxBytes": 10485760,
+        "minEntries": 100,
+        "minPrefix": 8,
+        "shrinkRatio": 0.5,
+        "retryMinutes": 30,
+        "maxRedirects": 3,
+        "nameservers": []
     }
 }

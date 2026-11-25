@@ -9,6 +9,7 @@ local sql = require "sql"
 local utils = require "utils"
 local constants = require "constants"
 local acme = require "lib.acme"
+local threat_intel = require "lib.threat_intel"
 
 local md5 = ngx.md5
 local pairs = pairs
@@ -156,3 +157,6 @@ end
 
 -- 免费证书自动续期：只在一个 worker 中启动，外部调度器也可调用 renew-due 接口
 acme.start_auto_renew()
+
+-- 威胁情报 IP 组每天自动更新一次
+threat_intel.start_auto_refresh()

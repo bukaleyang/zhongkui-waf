@@ -4,6 +4,10 @@ server {
 
     charset utf-8;
 
+    # 威胁情报拉取使用随包根证书；文件不存在会导致 nginx 启动失败
+    lua_ssl_trusted_certificate /usr/local/openresty/zhongkui-waf/conf/certs/ca-bundle.pem;
+    lua_ssl_verify_depth 3;
+
     # 仅对 admin 后台启用文本类资源压缩；gzip_types 配在 server 级，不影响其他站点
     gzip on;
     gzip_min_length 1k;
@@ -33,7 +37,12 @@ server {
         deny all;
         return 403;
     }
-    
+
+    location ^~ /conf/ {
+        deny all;
+        return 403;
+    }
+
     # 静态资源缓存（仅 admin 后台，HTML 不缓存）
     location ^~ /admin/data/ {
         root    $root_path;
@@ -163,6 +172,15 @@ server {
         allow ::ffff:127.0.0.1;
         deny all;
         content_by_lua_file $root_path/lua/certificate.lua;
+    }
+
+    # 本机调度器专用，免登录触发威胁情报更新
+    location = /common/ipgroups/refresh-due {
+        allow 127.0.0.1;
+        allow ::1;
+        allow ::ffff:127.0.0.1;
+        deny all;
+        content_by_lua_file $root_path/lua/ip_group.lua;
     }
 
     location /common/ipgroups/ {

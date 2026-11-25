@@ -50,11 +50,37 @@ if [ ! -x "zhongkui-waf-master.zip" ]; then
     wget -O /usr/local/src/zhongkui-waf-master.zip https://github.com/bukaleyang/zhongkui-waf/archive/refs/heads/master.zip --no-check-certificate
 fi
 unzip zhongkui-waf-master.zip
-mv ./zhongkui-waf-master $OPENRESTY_PATH/zhongkui-waf
+mv ./zhongkui-waf-master $ZHONGKUI_PATH
 
 mkdir -p $OPENRESTY_PATH/nginx/logs/hack
 echo -e "\033[34m[hack目录已创建]\033[0m"
 echo -e "\033[34m[zhongkui-waf安装成功]\033[0m"
+
+
+# =================安装路径校准 + 威胁情报 CA 检查start=================
+# 改了 OPENRESTY_PATH 时，替换配置里写死的默认路径
+if [ "$ZHONGKUI_PATH" != "/usr/local/openresty/zhongkui-waf" ]; then
+    for f in "$ZHONGKUI_PATH/admin/conf/admin.conf" \
+             "$ZHONGKUI_PATH/admin/conf/waf.conf" \
+             "$ZHONGKUI_PATH/admin/conf/sites.conf"; do
+        if [ -f "$f" ]; then
+            sed -i "s#/usr/local/openresty/zhongkui-waf#$ZHONGKUI_PATH#g" "$f"
+        fi
+    done
+    echo -e "\033[34m[已将配置中的默认安装路径替换为 $ZHONGKUI_PATH]\033[0m"
+    echo -e "\033[33m[提示] 若 nginx.conf 里 include 了 /usr/local/openresty/zhongkui-waf 下的配置，请一并改成 $ZHONGKUI_PATH\033[0m"
+fi
+
+# 使用随包根证书，避免依赖各发行版不同的系统 CA 路径
+mkdir -p "$ZHONGKUI_PATH/conf/certs"
+CA_BUNDLE="$ZHONGKUI_PATH/conf/certs/ca-bundle.pem"
+if [ -s "$CA_BUNDLE" ]; then
+    echo -e "\033[34m[威胁情报 CA: $CA_BUNDLE]\033[0m"
+else
+    echo -e "\033[33m[警告] 缺少 $CA_BUNDLE，nginx 会因 lua_ssl_trusted_certificate 加载失败而无法启动，"
+    echo -e "       请执行 wget -O \"$CA_BUNDLE\" https://curl.se/ca/cacert.pem 补齐\033[0m"
+fi
+# =================安装路径校准 + 威胁情报 CA 检查end=================
 
 
 # =================lego免费证书客户端安装start=================

@@ -116,6 +116,32 @@
 
 		<div class="layui-row layui-col-space10">
 			<div class="layui-col-md12">
+				<form class="layui-form" lay-filter="filter-form-threatintel">
+					<div class="layui-card" lay-filter="component-form-element">
+						<div class="layui-card-header">威胁情报 IP 组设置</div>
+						<div class="layui-card-body">
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md6" style="padding-left: 20px;">关闭后不再自动同步威胁情报名单，仍可在「IP组」页面手动更新</div>
+							</div>
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md3">
+									<label class="layui-form-label" style="width: auto;">自动更新</label>
+									<div class="layui-input-block">
+										<input type="checkbox" name="state" lay-skin="switch" title="ON|OFF" />
+									</div>
+								</div>
+								<div class="layui-col-md6">
+									<button type="submit" class="pear-btn pear-btn-primary btn-save" lay-submit lay-filter="filter-form-threatintel-save" style="display: none;">保存</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
 				<form class="layui-form" lay-filter="filter-form-realip">
 					<div class="layui-card" lay-filter="component-form-element">
 						<div class="layui-card-header">真实 IP 获取设置</div>
@@ -420,6 +446,9 @@
 								} else if (key == "geoip") {
 									var $form = $('form[lay-filter="filter-form-geoip"]');
 									$form.find("[name='file']").val(value.file);
+								} else if (key == "threatIntel") {
+									var $form = $('form[lay-filter="filter-form-threatintel"]');
+									setFormValue($form, value);
 								} else if (key == "realIp") {
 									// 放到循环结束后渲染，避免某个字段渲染异常影响其他字段赋值
 									realIpValue = value;
@@ -539,6 +568,19 @@
 
 					getFormfiled($form, field);
 					update({geoip: JSON.stringify(field)}, function() {
+						$form.find('.btn-save').hide();
+					});
+
+					return false;
+				});
+
+				form.on('submit(filter-form-threatintel-save)', function(data) {
+					var field = data.field;
+					var elem = data.elem;
+					var $form = $(elem).parents('form');
+
+					getFormfiled($form, field);
+					update({threatIntel: JSON.stringify(field)}, function() {
 						$form.find('.btn-save').hide();
 					});
 

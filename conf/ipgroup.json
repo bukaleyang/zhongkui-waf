@@ -1,5 +1,32 @@
 {
-    "nextId": 1,
+    "nextId": 3,
     "moduleName": "ipgroup",
-    "rules": []
+    "rules": [
+        {
+            "id": 1,
+            "groupName": "威胁情报IP黑名单",
+            "state": "on",
+            "builtin": true,
+            "sourceName": "FireHOL Level 1",
+            "sourceUrl": "https://iplists.firehol.org/files/firehol_level1.netset",
+            "file": "ipgroup_data/1.list",
+            "autoUpdate": true,
+            "lastStatus": "never",
+            "ipCount": 0,
+            "filteredCount": 0
+        },
+        {
+            "id": 2,
+            "groupName": "增强威胁情报IP黑名单",
+            "state": "on",
+            "builtin": true,
+            "sourceName": "FireHOL Level 2",
+            "sourceUrl": "https://iplists.firehol.org/files/firehol_level2.netset",
+            "file": "ipgroup_data/2.list",
+            "autoUpdate": true,
+            "lastStatus": "never",
+            "ipCount": 0,
+            "filteredCount": 0
+        }
+    ]
 }

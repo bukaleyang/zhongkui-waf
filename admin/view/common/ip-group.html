@@ -57,8 +57,12 @@
 			</button>
 		</script>
 		<script type="text/html" id="iplist_bar">
+			{{# if (d.managed) { }}
+			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="refresh"><i class="layui-icon layui-icon-refresh"></i> 更新</button>
+			{{# } else { }}
 			<button class="pear-btn pear-btn-primary pear-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i></button>
 			<button class="pear-btn pear-btn-danger pear-btn-xs" lay-event="remove"><i class="layui-icon layui-icon-delete"></i></button>
+			{{# } }}
 		</script>
 		<script type="text/html" id="iplist_state">
 			<input type="checkbox" name="state" value="{{= d.id }}" lay-skin="switch" title="ON|OFF" {{= d.state == "on" ? "checked" : "" }} />
@@ -83,12 +87,109 @@
 					return (line || '').split('#')[0].trim();
 				};
 
+				var isManaged = function(d) {
+					return !!(d && d.managed === true);
+				};
+
+				// 后台时间统一存 UTC，展示时转本地 yyyy-MM-dd HH:mm:ss
+				var formatTime = function(v) {
+					if (!v) {
+						return '';
+					}
+
+					var date = new Date(v);
+					if (isNaN(date.getTime())) {
+						return v;
+					}
+
+					var pad = function(n) {
+						return (n < 10 ? '0' : '') + n;
+					};
+
+					return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) +
+						' ' + pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds());
+				};
+
+				var statusText = function(d) {
+					// 后台发现元数据里记录过更新，但本地名单文件已不存在
+					if (d.fileMissing) {
+						return '数据文件缺失，请点击更新';
+					}
+
+					switch (d.lastStatus) {
+						case 'updated': return d.lastUpdate ? '已更新 ' + formatTime(d.lastUpdate) : '已更新';
+						case 'not_modified': return d.lastUpdate ? '已是最新 ' + formatTime(d.lastUpdate) : '已是最新';
+						case 'unchanged': return '内容无变化';
+						case 'error': return '更新失败：' + (d.lastError || '未知错误');
+						default: return '尚未更新';
+					}
+				};
+
+				// 更新期间只让按钮图标转圈，不再铺全屏遮罩
+				var toggleLoading = function($btn, loading) {
+					if (!$btn || !$btn.length) {
+						return;
+					}
+
+					var $icon = $btn.find('i');
+
+					if (loading) {
+						$btn.data('originIcon', $icon.attr('class'));
+						$btn.prop('disabled', true).css('opacity', 0.6);
+						$icon.attr('class', 'layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop');
+						return;
+					}
+
+					$btn.prop('disabled', false).css('opacity', 1);
+					var origin = $btn.data('originIcon');
+					if (origin) {
+						$icon.attr('class', origin);
+					}
+				};
+
+				var refreshGroup = function(id, $btn, force) {
+					toggleLoading($btn, true);
+
+					$.post('/common/ipgroups/refresh', {id: id, force: force ? 1 : 0}, function(res) {
+						toggleLoading($btn, false);
+
+						if (res && res.code == 200) {
+							table.reloadData('id-table-rules');
+							if (res.data && res.data.failed > 0) {
+								popup.failure(res.msg || '部分数据源更新失败');
+							} else {
+								popup.success(res.msg || '更新完成');
+							}
+							return;
+						}
+
+						var msg = (res && res.msg) || '更新失败';
+
+						// 上游条目骤降被拦下时，允许确认后强制更新
+						if (msg.indexOf('条目数异常减少') >= 0) {
+							layer.confirm(msg + '，仍要强制更新吗？', {icon: 3, title: '提示'}, function(index) {
+								layer.close(index);
+								refreshGroup(id, $btn, true);
+							});
+							return;
+						}
+
+						popup.failure(msg);
+					}, "json").fail(function() {
+						toggleLoading($btn, false);
+						popup.failure('请求失败');
+					});
+				};
+
 				table.render({
 					elem: '#id-table-rules',
 					url: '/common/ipgroups/list',
 					cols: [[ //标题栏
 						{field: 'groupName', title: '组名'},
 						{title: '内容', templet: function(d) {
+							if (isManaged(d)) {
+								return (d.ipCount || 0) + ' 条';
+							}
 							// 预览时忽略空行与注释（含行尾注释）
 							let ips = (d.ips || []).map(parseIpLine).filter(item => item.length > 0);
 							let len = ips.length;
@@ -97,6 +198,9 @@
 							} else if (len > 0) {
 								return ips[0];
 							}
+						}},
+						{title: '状态', width: 260, templet: function(d) {
+							return isManaged(d) ? statusText(d) : '-';
 						}},
 						{fixed: 'right', title:'操作', width: 110, minWidth: 110, toolbar: '#iplist_bar'}
 					]],
@@ -142,6 +246,9 @@
 							}
 						}, "json");
 
+					} else if(obj.event === 'refresh') {
+						refreshGroup(data.id, $(obj.tr).find('[lay-event="refresh"]'));
+
 					} else if(obj.event === 'remove') {
 						layer.confirm('确定删除该IP组吗？', {
 							icon: 3,
@@ -166,8 +273,6 @@
 				table.on('toolbar(filter-table-rules)', function(obj) {
 					if (obj.event === 'add') {
 						openLayer('添加IP组');
-					} else if (obj.event === 'refresh') {
-						table.reload('id-table-rules');
 					}
 				});
 

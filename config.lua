@@ -402,6 +402,45 @@ local function load_site_config()
     end
 end
 
+-- 解析IP组数据文件路径；只允许 conf 目录内的相对路径，避免路径穿越
+local function resolve_ip_group_file(file_path)
+    if type(file_path) ~= 'string' or file_path == '' then
+        return nil
+    end
+
+    if file_path:sub(1, 1) == '/' or file_path:find('\\', 1, true) or file_path:find('..', 1, true) then
+        return nil
+    end
+
+    return _M.CONF_PATH .. '/' .. file_path
+end
+
+-- 威胁情报组的内容存放在独立文件，元数据仍保留在 ipgroup.json
+local function load_ip_group_entries(g)
+    if g.file then
+        local path = resolve_ip_group_file(g.file)
+        if path then
+            local content = read_file_to_string(path)
+            if content then
+                -- parse_ip_lines 只接受行数组，这里把整份名单切成行
+                local lines = {}
+                for line in content:gmatch('[^\r\n]+') do
+                    lines[#lines + 1] = line
+                end
+                return lines
+            end
+            -- 首次更新前数据文件尚不存在，只有元数据表示已更新过才记录错误
+            if g.lastUpdate then
+                ngx.log(ngx.ERR, 'failed to read ip group data file: ', path)
+            end
+        else
+            ngx.log(ngx.ERR, 'invalid ip group file path: ', g.file)
+        end
+    end
+
+    return g.ips
+end
+
 local function load_ip_groups()
     local path = _M.CONF_PATH .. '/ipgroup.json'
     local json = read_file_to_string(path)
@@ -411,7 +450,7 @@ local function load_ip_groups()
 
         if groups then
             for _, g in pairs(groups) do
-                add_ip_group(tonumber(g.id), g.ips)
+                add_ip_group(tonumber(g.id), load_ip_group_entries(g))
             end
         end
     end

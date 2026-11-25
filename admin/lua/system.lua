@@ -167,7 +167,11 @@ function _M.do_request()
                     option = val
                 else
                     local t = cjson_decode(val)
-                    if type(t) == 'table' and type(option) == 'table' then
+                    if type(t) == 'table' then
+                        -- 老版本 system.json 可能还没有该配置段，先建表再合并
+                        if type(option) ~= 'table' then
+                            option = {}
+                        end
                         for k, v in pairs(t) do
                             option[k] = v
                         end

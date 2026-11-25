@@ -149,6 +149,20 @@ Disallow: /zhongkuiwaf/honey/trap
 
 `Zhongkui-WAF`内置了对响应内容中的身份证号码、手机号码、银行卡号、密码信息进行脱敏处理。需要注意的是，内置的敏感信息脱敏功能目前仅支持处理中华人民共和国境内使用的数据格式（如身份证号、电话号码、银行卡号），暂不支持处理中国境外的身份证号、电话号码、银行卡号等数据格式。但你可以使用正则表达式配置不同的规则，以过滤请求响应内容中任何你想要过滤掉的数据。
 
+#### 威胁情报 IP 组
+
+内置两个威胁情报 IP 组（`FireHOL Level 1`、`FireHOL Level 2`），默认开启并按天自动更新。在「IP组」页面点「更新」可立即拉取；上游条目数异常减少时更新会被拦下，确认无误后可强制更新。威胁情报组只提供 IP 数据，需要在 ACL 规则中引用后才会生效。
+
+更新失败时会保留上一次的名单，不影响已有防护。没有 `/etc/resolv.conf` 的环境（如 Windows）需要自行指定 DNS 服务器：
+
+```json
+"threatIntel": {
+    "nameservers": ["223.5.5.5", "119.29.29.29"]
+}
+```
+
+其他可调项同在`conf/system.json`的`threatIntel`段：更新时刻（`hourUTC`/`minuteUTC`，UTC 时间）、最小条目数`minEntries`、条目骤降保护`shrinkRatio`；将`state`置为`off`可关闭自动更新。
+
 ### 管理页面
 
 安装配置完成后，浏览器访问`http://localhost:1226`，账号`admin`，默认密码为`zhongkui`。
