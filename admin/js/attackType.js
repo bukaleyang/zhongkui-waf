@@ -37,7 +37,10 @@ function initAttackTypeSelect(id, success) {
 }
 
 function getAttackTypeText(attackType) {
-    attackType = attackType.toLowerCase();
+    if (attackType === null || attackType === undefined) {
+        return '';
+    }
+    attackType = String(attackType).toLowerCase();
     for (let i in attackTypeArray) {
         let obj = attackTypeArray[i];
         if (attackType === obj.type) {

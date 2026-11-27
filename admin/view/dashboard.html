@@ -14,12 +14,40 @@
 	</head>
 	<body class="pear-container">
 		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-body" style="padding: 10px 20px;">
+						<form class="layui-form">
+							<div class="layui-row layui-col-space10">
+								<div class="layui-col-md2">
+									<div class="layui-input-inline" style="width: calc(100% - 13.333px); margin-right: 0;">
+										<select name="siteId" id="siteId" lay-filter="site_filter">
+											<option value="0">全部站点</option>
+										</select>
+									</div>
+								</div>
+								<div class="layui-col-md2">
+									<div class="layui-input-inline" style="width: 160px; margin-right: 0; margin-left: -13.333px;">
+										<select name="range" id="range" lay-filter="range_filter">
+											<option value="today">今天</option>
+											<option value="7d">近 7 天</option>
+											<option value="30d">近 30 天</option>
+										</select>
+									</div>
+								</div>
+							</div>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="layui-row layui-col-space10">
 			<div class="layui-col-md2">
 				<div class="layui-card">
 					<div class="layui-card-body">
 						<div class="layui-row layui-padding-1">
 							<div class="layui-col-md12">
-								<div>今日请求</div>
+								<div>请求量</div>
 							</div>
 						</div>
 						<div class="layui-row layui-padding-1">
@@ -35,7 +63,7 @@
 					<div class="layui-card-body">
 						<div class="layui-row">
 							<div class="layui-col-md12 layui-padding-1">
-								<div>今日拦截</div>
+								<div>拦截量</div>
 							</div>
 						</div>
 						<div class="layui-row">
@@ -46,7 +74,7 @@
 								<div class="layui-row">
 									<div class="layui-col-md4">攻击阻断：<span id="block_times_attack">0</span></div>
 									<div class="layui-col-md4">人机验证：<span id="block_times_captcha">0</span></div>
-									<div class="layui-col-md4">CC拦截：<span id="block_times_cc">0</div></span>
+									<div class="layui-col-md4">CC拦截：<span id="block_times_cc">0</span></div>
 								</div>
 							</div>
 						</div>
@@ -58,7 +86,7 @@
 					<div class="layui-card-body">
 						<div class="layui-row layui-padding-1">
 							<div class="layui-col-md12">
-								<div>今日人机验证通过</div>
+								<div>人机验证通过</div>
 							</div>
 						</div>
 						<div class="layui-row layui-padding-1">
@@ -191,11 +219,10 @@
 		<script src="../js/attackType.js"></script>
 
 		<script>
-			layui.use(['form','util','jquery','popup','echarts','laytpl'], function() {
+			layui.use(['form','jquery','popup','echarts','laytpl','element'], function() {
 				var $ = layui.$;
 				var form = layui.form;
 				var layer = layui.layer;
-				var util = layui.util;
 				var popup = layui.popup;
 				let echarts = layui.echarts;
 				var laytpl = layui.laytpl;
@@ -203,7 +230,12 @@
 
 				var worldData = [];
 				var chinaData = [];
+				var trafficGranularity = 'hour';
+				var RANGE_LABELS = { today: '今天', '7d': '近 7 天', '30d': '近 30 天' };
 				var mapChart = echarts.init(document.getElementById('china'));
+				// 地图静态配置和注册状态；地图 JSON 加载完成后再渲染，避免 setOption 早于 registerMap
+				var mapBaseOption = null;
+				var mapRegistered = { world: false, china: false };
 
 				function updateMapData() {
 					var sourceData = [];
@@ -263,14 +295,24 @@
 						$('#rank').html(htmlStr);
 					});
 
-					mapChart.setOption({visualMap: {max: maxTimes < 100 ? 100 : maxTimes},series: {type: 'map', mapType: mapType, data: convertedData}});
+					var titleText = (RANGE_LABELS[$('#range').val()] || '今天') + '访问来源地区';
+					// 地图文件未加载或当前地图未注册时只更新排行，等注册回调里再渲染地图
+					if (mapBaseOption && mapRegistered[mapType]) {
+						mapChart.setOption({
+							tooltip: mapBaseOption.tooltip,
+							visualMap: $.extend({}, mapBaseOption.visualMap, {max: maxTimes < 100 ? 100 : maxTimes}),
+							title: $.extend({}, mapBaseOption.title, {text: titleText}),
+							series: $.extend({}, mapBaseOption.series, {name: titleText, mapType: mapType, data: convertedData})
+						});
+					}
 					element.render('progress', 'progress');
 				}
 
 				$.get('/admin/data/world.json', function(data) {
 					echarts.registerMap('world', data);
+					mapRegistered.world = true;
 
-					var mapOption = {
+					mapBaseOption = {
 						tooltip: {
 							trigger: 'item',
 							formatter: function (params) {
@@ -306,10 +348,10 @@
 						title: {
 							left: 'left',
 							top: 10,
-							text: '30天访问来源地区'
+							text: '访问来源地区'
 						},
 						series: {
-							name: '30天访问来源地区',
+							name: '访问来源地区',
 							type: 'map', // 图表类型为地图
 							mapType: 'world', // 地图类型为上面注册的类型
 							roam: false, // 是否开启鼠标缩放和平移漫游
@@ -327,15 +369,20 @@
 						}
 					};
 
-					mapChart.setOption(mapOption);
+					updateMapData();
 				}, "json");
 
 				$.get('/admin/data/china.json', function(data) {
 					echarts.registerMap('china', data);
+					mapRegistered.china = true;
+					updateMapData();
 				}, "json");
 
 				var trafficChart = echarts.init(document.getElementById('traffic'));
-				trafficOption = {
+				var trafficOption = {
+					// 折线从左到右渐进绘制的入场动画
+					animationDuration: 700,
+					animationEasing: 'quadraticOut',
 					legend: {
 						icon: 'rect',
 						type: 'scroll',
@@ -370,7 +417,10 @@
 							interval: 0,
 							rotate: 50,
 							margin: 10,
-							formatter: function (value, index) {
+							formatter: function (value) {
+								if (trafficGranularity === 'day') {
+									return value.substring(5);
+								}
 								return value.substring(11, 13) + '点';
 							}
 						}
@@ -405,7 +455,7 @@
 				trafficChart.setOption(trafficOption);
 
 				var attackTypeChart = echarts.init(document.getElementById('attackType'));
-				attactTypeOption = {
+				var attackTypeOption = {
 					legend: {
 						icon: 'rect',
 						type: 'scroll',
@@ -414,14 +464,13 @@
 						top: 40,
 						bottom: 20,
 						formatter: function (name) {
-							return getAttackTypeText(name.substring(23, name.length));
+							return getAttackTypeText(name);
 						}
 					},
 					tooltip: {
 						trigger: 'item',
 						formatter: function (params) {
-							var name = params.name;
-							name = getAttackTypeText(name.substring(23, name.length));
+							var name = getAttackTypeText(params.name);
 							return name + ': ' + params.value + ' ' + params.percent + '%'
 						}
 					},
@@ -449,8 +498,7 @@
 							},
 							label: {
 								formatter: function (params) {
-									var name = params.name;
-									name = getAttackTypeText(name.substring(23, name.length));
+									var name = getAttackTypeText(params.name);
 									return name + ': ' + params.percent + '%'
 								}
 							},
@@ -459,39 +507,120 @@
 					]
 				};
 
-				attackTypeChart.setOption(attactTypeOption);
+				attackTypeChart.setOption(attackTypeOption);
 
-				$.get('/dashboard', function (res) {
-					if (res && res.code == 200) {
-						var data = res.data;
-						var wafStatus = data.wafStatus;
-						var sourceRegion = data.sourceRegion;
+				var sitesSignature = '';
+				var rangeOptionsDisabled = false;
+				var loadSeq = 0;
 
-						if (wafStatus) {
-							var http4xx = wafStatus.http4xx ? wafStatus.http4xx : 0;
-							var http5xx = wafStatus.http5xx ? wafStatus.http5xx : 0;
-							var request_times = wafStatus.request_times ? wafStatus.request_times : 0;
-							var attack_times = wafStatus.attack_times ? wafStatus.attack_times : 0;
-							var block_times = wafStatus.block_times ? wafStatus.block_times : 0;
-							var block_times_attack = wafStatus.block_times_attack ? wafStatus.block_times_attack : 0;
-							var block_times_captcha = wafStatus.block_times_captcha ? wafStatus.block_times_captcha : 0;
-							var block_times_cc = wafStatus.block_times_cc ? wafStatus.block_times_cc : 0;
-							var captcha_pass_times = wafStatus.captcha_pass_times ? wafStatus.captcha_pass_times : 0;
+				function siteLabel(site) {
+					var names = site.serverNames || [];
+					var text = names.length > 1 ? (names[0] + ' 等 ' + names.length + ' 个域名') : (names[0] || ('站点 ' + site.id));
+					return site.description ? (site.description + ' · ' + text) : text;
+				}
 
-							var http4xxPercent = request_times > 0 ? http4xx / request_times : 0;
-							var http5xxPercent = request_times > 0 ? http5xx / request_times : 0;
+				// 站点列表变化时才重建下拉，保留当前选中项，避免切换站点时重复追加选项
+				function renderSites(sites) {
+					if (!Array.isArray(sites)) {
+						return false;
+					}
 
-							$('#request_times').text(request_times);
-							$('#block_times').text(block_times);
-							$('#block_times_attack').text(block_times_attack);
-							$('#block_times_captcha').text(block_times_captcha);
-							$('#block_times_cc').text(block_times_cc);
-							$('#captcha_pass_times').text(captcha_pass_times);
-							$('#http4xx').text(http4xx);
-							$('#http5xx').text(http5xx);
-							$('#http4xxPercent').text((http4xxPercent.toFixed(2) > 0 ? http4xxPercent.toFixed(2) : 0) + '%');
-							$('#http5xxPercent').text((http5xxPercent.toFixed(2) > 0 ? http5xxPercent.toFixed(2) : 0) + '%');
+					var signature = JSON.stringify(sites.map(function(site) {
+						return [site.id, siteLabel(site)];
+					}));
+					if (signature === sitesSignature) {
+						return false;
+					}
+					sitesSignature = signature;
+
+					var select = $('#siteId');
+					var current = select.val();
+					var selectionReset = false;
+					select.find('option:gt(0)').remove();
+					$.each(sites, function(index, site) {
+						select.append($('<option>').val(site.id).text(siteLabel(site)));
+					});
+					if (current && select.find('option[value="' + current + '"]').length) {
+						select.val(current);
+					} else {
+						select.val('0');
+						selectionReset = current && current !== '0';
+					}
+					form.render('select');
+					return selectionReset;
+				}
+
+				function loadDashboard() {
+					var siteId = $('#siteId').val() || 0;
+					var range = $('#range').val() || 'today';
+
+					var seq = ++loadSeq;
+					var loading = layer.load(1, {shade: 0.1});
+
+					$.get('/dashboard', {siteId: siteId, range: range}, function (res) {
+						layer.close(loading);
+
+						// 快速切换站点或时间时丢弃旧响应，避免旧数据覆盖新数据
+						if (seq !== loadSeq) {
+							return;
 						}
+
+						if (!res || res.code != 200) {
+							popup.failure(res ? res.msg : '数据加载失败');
+							return;
+						}
+
+						var data = res.data;
+						var wafStatus = data.wafStatus || {};
+						var sourceRegion = data.sourceRegion;
+						trafficGranularity = data.granularity || 'hour';
+
+						// 未开启 MySQL 时历史范围不可用，禁用并回到今天；MySQL 恢复后重新启用
+						var rangeDisabled = data.mysql === false;
+						var rangeStateChanged = false;
+						if (rangeDisabled !== rangeOptionsDisabled) {
+							rangeOptionsDisabled = rangeDisabled;
+							$('#range option[value="7d"], #range option[value="30d"]')
+								.prop('disabled', rangeDisabled)
+								.attr('disabled', rangeDisabled ? 'disabled' : null);
+							rangeStateChanged = true;
+						}
+						if (rangeDisabled && $('#range').val() !== 'today') {
+							$('#range').val('today');
+							rangeStateChanged = true;
+						}
+						if (rangeStateChanged) {
+							form.render('select');
+						}
+
+						// 当前选中的站点已被删除时回到全部站点并重新加载，避免显示已删除站点的数据
+						if (renderSites(data.sites)) {
+							loadDashboard();
+							return;
+						}
+
+						var http4xx = wafStatus.http4xx ? wafStatus.http4xx : 0;
+						var http5xx = wafStatus.http5xx ? wafStatus.http5xx : 0;
+						var request_times = wafStatus.request_times ? wafStatus.request_times : 0;
+						var block_times = wafStatus.block_times ? wafStatus.block_times : 0;
+						var block_times_attack = wafStatus.block_times_attack ? wafStatus.block_times_attack : 0;
+						var block_times_captcha = wafStatus.block_times_captcha ? wafStatus.block_times_captcha : 0;
+						var block_times_cc = wafStatus.block_times_cc ? wafStatus.block_times_cc : 0;
+						var captcha_pass_times = wafStatus.captcha_pass_times ? wafStatus.captcha_pass_times : 0;
+
+						var http4xxPercent = request_times > 0 ? http4xx / request_times : 0;
+						var http5xxPercent = request_times > 0 ? http5xx / request_times : 0;
+
+						$('#request_times').text(request_times);
+						$('#block_times').text(block_times);
+						$('#block_times_attack').text(block_times_attack);
+						$('#block_times_captcha').text(block_times_captcha);
+						$('#block_times_cc').text(block_times_cc);
+						$('#captcha_pass_times').text(captcha_pass_times);
+						$('#http4xx').text(http4xx);
+						$('#http5xx').text(http5xx);
+						$('#http4xxPercent').text((http4xxPercent.toFixed(2) > 0 ? http4xxPercent.toFixed(2) : 0) + '%');
+						$('#http5xxPercent').text((http5xxPercent.toFixed(2) > 0 ? http5xxPercent.toFixed(2) : 0) + '%');
 
 						if (sourceRegion) {
 							worldData = sourceRegion.world;
@@ -506,11 +635,10 @@
 
 						updateMapData();
 
-						trafficChart.setOption({
-							dataset: {
-								source: JSON.parse(data.trafficData)
-							}
-						});
+						// 切换站点/时间后整体重绘，复用从左到右的入场动画，避免新旧数据形变
+						trafficOption.dataset.source = JSON.parse(data.trafficData);
+						trafficChart.clear();
+						trafficChart.setOption(trafficOption);
 
 						attackTypeChart.setOption({
 							series: [
@@ -519,12 +647,25 @@
 								}
 							]
 						});
-						return true;
-					} else {
-						popup.failure(res.msg);
-						return false;
-					}
-				}, "json");
+					}, "json").fail(function () {
+						// 请求异常时兜底关闭加载层，避免遮罩卡住页面
+						layer.close(loading);
+						if (seq !== loadSeq) {
+							return;
+						}
+						popup.failure('数据加载失败');
+					});
+				}
+
+				loadDashboard();
+
+				form.on('select(site_filter)', function() {
+					loadDashboard();
+				});
+
+				form.on('select(range_filter)', function() {
+					loadDashboard();
+				});
 
 				form.on('radio', function(data){
 					updateMapData();

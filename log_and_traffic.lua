@@ -32,6 +32,10 @@ local write_sql_to_queue = sql.write_sql_to_queue
 local LOG_PATH = config.LOG_PATH
 local language = get_system_config('geoip').language ~= '' and get_system_config('geoip').language or 'en'
 
+-- 站点维度前缀，形如 s2:；未匹配到站点配置的请求为 0，只记全局
+local site_id = config.get_site_id()
+local site_prefix = site_id > 0 and ('s' .. tostring(site_id) .. ':') or nil
+
 -- 写入 attack_log 的内容上限，可在 system.json 的 logLimit 中调整
 local log_limit = get_system_config('logLimit')
 local MAX_REQUEST_BODY_LEN = log_limit.maxRequestBodyLen
@@ -242,35 +246,43 @@ local function get_ttl()
     return ttl
 end
 
+-- 全局与站点维度同时计数；未匹配到站点时只记全局
+local function incr_count(dict, key, ttl)
+    utils.dict_incr(dict, key, ttl)
+    if site_prefix then
+        utils.dict_incr(dict, site_prefix .. key, ttl)
+    end
+end
+
 local function count_waf_status()
     local dict = ngx.shared.dict_req_count
     local status = ngx.status
     local ctx = ngx.ctx
 
     if status > 399 and status < 500 then
-        utils.dict_incr(dict, constants.KEY_HTTP_4XX, get_ttl)
+        incr_count(dict, constants.KEY_HTTP_4XX, get_ttl)
     elseif status > 499 and status < 600 then
-        utils.dict_incr(dict, constants.KEY_HTTP_5XX, get_ttl)
+        incr_count(dict, constants.KEY_HTTP_5XX, get_ttl)
     end
 
-    utils.dict_incr(dict, constants.KEY_REQUEST_TIMES, get_ttl)
+    incr_count(dict, constants.KEY_REQUEST_TIMES, get_ttl)
 
     if ctx.is_attack then
-        utils.dict_incr(dict, constants.KEY_ATTACK_TIMES, get_ttl)
+        incr_count(dict, constants.KEY_ATTACK_TIMES, get_ttl)
     end
 
     if ctx.is_blocked then
         if ctx.is_attack then
             if ctx.is_cc then
-                utils.dict_incr(dict, constants.KEY_BLOCK_TIMES_CC, get_ttl)
+                incr_count(dict, constants.KEY_BLOCK_TIMES_CC, get_ttl)
             else
-                utils.dict_incr(dict, constants.KEY_BLOCK_TIMES_ATTACK, get_ttl)
+                incr_count(dict, constants.KEY_BLOCK_TIMES_ATTACK, get_ttl)
             end
         elseif ctx.is_captcha then
             if ctx.is_captcha_pass then
-                utils.dict_incr(dict, constants.KEY_CAPTCHA_PASS_TIMES, get_ttl)
+                incr_count(dict, constants.KEY_CAPTCHA_PASS_TIMES, get_ttl)
             else
-                utils.dict_incr(dict, constants.KEY_BLOCK_TIMES_CAPTCHA, get_ttl)
+                incr_count(dict, constants.KEY_BLOCK_TIMES_CAPTCHA, get_ttl)
             end
         end
     end
@@ -296,7 +308,9 @@ local function count_traffic_stats()
         local city_cn = city.names['zh-CN'] or ''
         local city_en = city.names['en'] or ''
 
-        local prefix = concat({country_code, country_cn, country_en, province_code, province_cn, province_en, city_code, city_cn, city_en}, '_') .. ':'
+        -- 城市级键带上站点维度，{site_id}:{地理字段}:{指标}，0 表示未匹配到站点
+        local prefix = tostring(site_id) .. ':' ..
+            concat({country_code, country_cn, country_en, province_code, province_cn, province_en, city_code, city_cn, city_en}, '_') .. ':'
         local dict = ngx.shared.dict_req_count_citys
 
         utils.dict_incr(dict, prefix .. constants.KEY_REQUEST_TIMES, get_ttl)
@@ -327,7 +341,7 @@ end
 local function count_request_traffic()
     local hour = time.get_date_hour()
     local dict = ngx.shared.dict_req_count
-    utils.dict_incr(dict, hour, get_ttl)
+    incr_count(dict, hour, get_ttl)
 end
 
 --[[
@@ -341,12 +355,12 @@ local function count_attack_request_traffic()
 
     if attack_type ~= 'WHITEIP' then
         local hour = time.get_date_hour()
-        utils.dict_incr(dict, constants.KEY_ATTACK_PREFIX .. hour, get_ttl)
+        incr_count(dict, constants.KEY_ATTACK_PREFIX .. hour, get_ttl)
     end
 
     local today = ngx.today() .. '_'
 
-    utils.dict_incr(dict, constants.KEY_ATTACK_TYPE_PREFIX .. today .. attack_type, get_ttl)
+    incr_count(dict, constants.KEY_ATTACK_TYPE_PREFIX .. today .. attack_type, get_ttl)
 end
 
 -- 按小时统计当天拦截请求流量，存入缓存，key格式：block_2023-05-05 09
@@ -354,7 +368,7 @@ local function count_block_request_traffic()
     local dict = ngx.shared.dict_req_count
 
     local hour = time.get_date_hour()
-    utils.dict_incr(dict, constants.KEY_BLOCKED_PREFIX .. hour, get_ttl)
+    incr_count(dict, constants.KEY_BLOCKED_PREFIX .. hour, get_ttl)
 end
 
 if is_site_option_on("waf") then

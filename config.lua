@@ -36,6 +36,11 @@ local config = {system = {}, global = {}}
 
 _M.ipgroups = {}
 
+-- 站点维度：server_name → 站点id，未匹配到站点配置的请求为 0
+_M.site_ids = {}
+-- 站点列表（id、描述、域名），供管理端按站点筛选统计
+_M.sites = {}
+
 -- Returns true if the global config option is "on",otherwise false
 function _M.is_global_option_on(option)
     return config.global.config[option].state == "on"
@@ -94,6 +99,16 @@ function _M.get_site_security_modules(module)
         return config[server_name].security_modules[module]
     end
     return config[server_name].security_modules
+end
+
+-- 当前请求所属站点id，未匹配到站点配置返回 0
+function _M.get_site_id()
+    local server_name = ngx.ctx.server_name or default_if_blank(ngx.var.server_name, 'unknown')
+    return _M.site_ids[server_name] or 0
+end
+
+function _M.get_sites()
+    return _M.sites
 end
 
 function _M.get_site_config_file(site_id)
@@ -364,7 +379,10 @@ local function load_site_config()
         local sites = t.rules
 
         if sites then
-            for _, site in pairs(sites) do
+            _M.sites = {}
+            _M.site_ids = {}
+            -- rules 是数组，用 ipairs 保持配置文件顺序，避免 pairs 遍历顺序不稳定
+            for _, site in ipairs(sites) do
                 local site_config = {}
 
                 local id = site.id
@@ -392,12 +410,21 @@ local function load_site_config()
                     security_modules[k] = security_modules[k] or v
                 end
 
-                local serverNames = site.serverNames
-                for _, server_name in pairs(serverNames) do
+                local serverNames = site.serverNames or {}
+                local site_id = tonumber(id) or 0
+                _M.sites[#_M.sites + 1] = {id = site_id, description = site.description, serverNames = serverNames}
+
+                for _, server_name in ipairs(serverNames) do
                     config[server_name] = {config = site_config, security_modules = security_modules}
+                    _M.site_ids[server_name] = site_id
                     storage_security_modules(server_name, security_modules)
                 end
             end
+
+            -- 按站点 id 排序，保证下拉和接口返回顺序稳定
+            table.sort(_M.sites, function(a, b)
+                return a.id < b.id
+            end)
         end
     end
 end
