@@ -9,6 +9,8 @@ local logger_factory = require "logger_factory"
 local sql = require "sql"
 local utils = require "utils"
 local constants = require "constants"
+local geoip = require "geoip"
+local ip_utils = require "ip_utils"
 
 local pairs = pairs
 local ipairs = ipairs
@@ -24,7 +26,6 @@ local quote_sql_str = ngx.quote_sql_str
 
 local cjson_encode = cjson.encode
 
-local is_site_option_on = config.is_site_option_on
 local is_system_option_on = config.is_system_option_on
 local get_system_config = config.get_system_config
 local write_sql_to_queue = sql.write_sql_to_queue
@@ -371,25 +372,27 @@ local function count_block_request_traffic()
     incr_count(dict, constants.KEY_BLOCKED_PREFIX .. hour, get_ttl)
 end
 
-if is_site_option_on("waf") then
-    count_request_traffic()
+count_request_traffic()
+count_waf_status()
 
-    count_waf_status()
-    count_traffic_stats()
+local ctx = ngx.ctx
 
-    local ctx = ngx.ctx
+if not ctx.geoip then
+    ctx.ip = ctx.ip or ip_utils.get_client_ip()
+    ctx.geoip = geoip.lookup(ctx.ip)
+end
 
-    if ctx.is_attack then
-        write_attack_log()
-        count_attack_request_traffic()
-    end
+count_traffic_stats()
 
-    if ctx.is_blocked then
-        count_block_request_traffic()
-    end
+if ctx.is_attack then
+    write_attack_log()
+    count_attack_request_traffic()
+end
 
-    if ctx.ip_blocked then
-        write_ip_block_log()
-    end
+if ctx.is_blocked then
+    count_block_request_traffic()
+end
 
+if ctx.ip_blocked then
+    write_ip_block_log()
 end
